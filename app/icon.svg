@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+  <!-- 브랜드 파비콘: 네이비 원 + R 모노그램 + 코랄 데이터 포인트
+       R은 폰트 대신 path(외곽선)로 그려 파비콘에서도 폰트 없이 안정적으로 렌더됨 -->
+  <circle cx="24" cy="24" r="24" fill="#16243f"/>
+  <g fill="none" stroke="#ffffff" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 14 V34"/>
+    <path d="M18 14 H25.5 C30 14 30 23.5 25.5 23.5 H18"/>
+    <path d="M22.5 23.5 L30 34"/>
+  </g>
+  <circle cx="35" cy="14" r="3.2" fill="#e5654b"/>
+</svg>

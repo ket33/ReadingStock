@@ -37,7 +37,7 @@ const shantell = Shantell_Sans({
 
 export const metadata: Metadata = {
   title: "Reading Stock",
-  description: "초보자를 위한 국내주식 리서치",
+  description: "당신의 투자를, 당신이 이해하도록 도와드려요",
 };
 
 export default function RootLayout({
