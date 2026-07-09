@@ -34,7 +34,7 @@ export default function StockPage({ data }: { data: StockPageData }) {
             <SearchBox size="small" />
           </div>
           <span className="text-xs text-on-surface-variant hidden md:block justify-self-end">
-            초보자를 위한 국내주식 리서치
+            당신의 투자를, 당신이 이해하도록
           </span>
         </div>
       </header>

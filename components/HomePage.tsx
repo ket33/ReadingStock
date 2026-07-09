@@ -171,7 +171,7 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
                   </span>
                 </div>
                 {stock.excerpt && (
-                  <p className="text-on-surface-variant max-w-[720px] leading-relaxed line-clamp-3 text-[15px]">
+                  <p className="text-on-surface-variant max-w-[720px] leading-relaxed line-clamp-3 text-[13.5px]">
                     {stock.excerpt}
                   </p>
                 )}

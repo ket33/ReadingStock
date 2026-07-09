@@ -133,7 +133,7 @@ export default function ArticleTab({ article, charts, sector }: {
 
       {/* 헤드라인 (세리프) */}
       {title && (
-        <h1 className="font-serif text-[32px] md:text-[42px] leading-[1.25] font-semibold text-primary mb-6 tracking-tight">
+        <h1 className="font-serif text-[26px] md:text-[34px] leading-[1.3] font-semibold text-primary mb-6 tracking-tight">
           {title}
         </h1>
       )}
