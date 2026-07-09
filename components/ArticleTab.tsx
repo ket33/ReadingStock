@@ -139,7 +139,9 @@ export default function ArticleTab({ article, charts, sector }: {
         return (
           <h1 className="font-serif text-[26px] md:text-[34px] leading-[1.3] font-semibold text-primary mb-6 tracking-tight">
             {head}
-            {tail && <><br />{tail}</>}
+            {tail && (
+              <><br /><span className="text-[19px] md:text-[24px]">{tail}</span></>
+            )}
           </h1>
         );
       })()}
