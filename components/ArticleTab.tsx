@@ -131,12 +131,18 @@ export default function ArticleTab({ article, charts, sector }: {
         </div>
       )}
 
-      {/* 헤드라인 (세리프) */}
-      {title && (
-        <h1 className="font-serif text-[26px] md:text-[34px] leading-[1.3] font-semibold text-primary mb-6 tracking-tight">
-          {title}
-        </h1>
-      )}
+      {/* 헤드라인 (세리프) — "기업명," 뒤에서 줄바꿈 */}
+      {title && (() => {
+        const ci = title.indexOf(",");
+        const head = ci >= 0 ? title.slice(0, ci + 1) : title;
+        const tail = ci >= 0 ? title.slice(ci + 1).trim() : "";
+        return (
+          <h1 className="font-serif text-[26px] md:text-[34px] leading-[1.3] font-semibold text-primary mb-6 tracking-tight">
+            {head}
+            {tail && <><br />{tail}</>}
+          </h1>
+        );
+      })()}
 
       {/* 메타줄: 생성일 + 재무 기준만 */}
       <div className="border-y border-outline-variant py-3 mb-10 text-[13px] text-on-surface-variant space-y-0.5">
