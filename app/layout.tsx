@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, IBM_Plex_Serif, Noto_Sans_KR, Noto_Serif_KR, Shantell_Sans } from "next/font/google";
+import { Inter, IBM_Plex_Serif, Noto_Sans_KR, Noto_Serif_KR } from "next/font/google";
 import "./globals.css";
 
 // 원 디자인 폰트(영문·숫자) — Inter / IBM Plex Serif
@@ -28,12 +28,8 @@ const notoSerifKR = Noto_Serif_KR({
   weight: ["400", "600"],
 });
 
-// 브랜드 로고 전용 폰트 (design handoff: 심볼 R + 워드마크)
-const shantell = Shantell_Sans({
-  variable: "--font-shantell",
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-});
+// 브랜드 로고 폰트(Shantell Sans)는 next/font 대신 Google Fonts <link>로 로드한다.
+// (Shantell은 가변폰트라 next/font가 라틴 글자 범위를 U+??로 손상시켜 로고가 렌더 안 됨 — 실측)
 
 export const metadata: Metadata = {
   title: "Reading Stock",
@@ -48,8 +44,16 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
-      className={`${inter.variable} ${plexSerif.variable} ${notoSansKR.variable} ${notoSerifKR.variable} ${shantell.variable} h-full antialiased`}
+      className={`${inter.variable} ${plexSerif.variable} ${notoSansKR.variable} ${notoSerifKR.variable} h-full antialiased`}
     >
+      {/* Shantell Sans (로고) — Google Fonts에서 로드 */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link
+        rel="stylesheet"
+        precedence="default"
+        href="https://fonts.googleapis.com/css2?family=Shantell+Sans:wght@500;600;700&display=swap"
+      />
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

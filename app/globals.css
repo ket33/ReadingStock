@@ -52,7 +52,8 @@
    ※ @theme 안에 두면 Tailwind v4가 '미사용'으로 판단해 제거함(인라인 var() 참조는 스캔 안 됨)
    → 일반 :root로 정의해 항상 내보낸다 */
 :root {
-  --font-logo: var(--font-shantell), cursive;
+  /* Google Fonts <link>로 로드한 Shantell Sans (layout.tsx 참고) */
+  --font-logo: "Shantell Sans", cursive;
 }
 
 body {
