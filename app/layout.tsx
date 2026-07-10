@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, IBM_Plex_Serif, Noto_Sans_KR, Noto_Serif_KR } from "next/font/google";
+import { Analytics } from '@vercel/analytics/next';
 import "./globals.css";
 
 // 원 디자인 폰트(영문·숫자) — Inter / IBM Plex Serif
@@ -54,7 +55,10 @@ export default function RootLayout({
         precedence="default"
         href="https://fonts.googleapis.com/css2?family=Shantell+Sans:wght@500;600;700&display=swap"
       />
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
