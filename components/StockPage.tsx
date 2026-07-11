@@ -1,7 +1,7 @@
 "use client";
 
 // 종목 페이지 본체 — 상단 종목 헤더(공통) + 좌측 사이드바 3탭 + 콘텐츠
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { StockPageData } from "@/lib/types";
 import { formatKrw } from "@/lib/format";
 import ArticleTab from "./ArticleTab";
@@ -21,6 +21,12 @@ const TABS: { key: TabKey; label: string; icon: string }[] = [
 export default function StockPage({ data }: { data: StockPageData }) {
   const [tab, setTab] = useState<TabKey>("article");
   const { company, price } = data;
+
+  // 홈→종목 등으로 넘어올 때, Next가 sticky 헤더를 '이미 최상단에 보임'으로 인식해
+  // 스크롤을 리셋하지 않는 경우가 있다. 종목이 바뀔 때 명시적으로 최상단으로 이동시킨다.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [company.stock_code]);
 
   return (
     <>
