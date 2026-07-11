@@ -16,15 +16,52 @@ export interface StockCard {
 
 const QORDER = ["1Q", "2Q", "3Q", "4Q", "FY"];
 
-/** 3년 CAGR(%): 최신 FY값과 3년 전 값으로 계산. 이력 부족·음수 기반이면 null */
-function cagr3y(byYear: Map<number, number>): number | null {
-  if (byYear.size === 0) return null;
-  const years = [...byYear.keys()].sort((a, b) => b - a);
-  const latest = years[0];
-  const base = byYear.get(latest - 3);
-  const last = byYear.get(latest);
-  if (base == null || last == null) return null;
-  if (base <= 0 || last <= 0) return null; // 음수·0 기반 CAGR은 의미 없음 → N/A
+const QIDX = ["1Q", "2Q", "3Q", "4Q"];
+
+/** (endYear, endQ)에서 뒤로 4개 단일분기 합 = TTM. 하나라도 없으면 null.
+ *  단일분기 합은 중간 누적분기 값과 무관하게 FY로 텔레스코핑되므로 견고하다. */
+function ttmSum(q: Map<string, number>, endYear: number, endQ: string): number | null {
+  let i = QIDX.indexOf(endQ);
+  if (i < 0) return null;
+  let y = endYear, total = 0;
+  for (let k = 0; k < 4; k++) {
+    const v = q.get(`${y}-${QIDX[i]}`);
+    if (v == null) return null;
+    total += v;
+    if (--i < 0) { i = 3; y--; }
+  }
+  return total;
+}
+
+/** 가장 최근 단일분기 (year, q). 없으면 null */
+function latestQuarter(q: Map<string, number>): [number, string] | null {
+  let by = -1, bi = -1, best: [number, string] | null = null;
+  for (const key of q.keys()) {
+    const [ys, qs] = key.split("-");
+    const y = +ys, i = QIDX.indexOf(qs);
+    if (i < 0) continue;
+    if (y > by || (y === by && i > bi)) { by = y; bi = i; best = [y, qs]; }
+  }
+  return best;
+}
+
+/** 3년 CAGR(%): 끝점을 TTM(최근 4개 단일분기)으로, 기준점은 3년 전 같은 분기 종료 TTM으로.
+ *  양끝 모두 '12개월 통째'라 계절성이 제거된다. 분기 이력이 부족하면 FY 양끝으로 폴백.
+ *  이력 부족·음수/0 기반이면 null. */
+function cagr3y(fy: Map<number, number>, q: Map<string, number>): number | null {
+  let last: number | null = null, base: number | null = null;
+  const lq = latestQuarter(q);
+  if (lq) {
+    last = ttmSum(q, lq[0], lq[1]);
+    base = ttmSum(q, lq[0] - 3, lq[1]);
+  }
+  if (last == null || base == null) {          // TTM 불가 → FY 양끝으로 폴백
+    if (fy.size === 0) return null;
+    const years = [...fy.keys()].sort((a, b) => b - a);
+    last = fy.get(years[0]) ?? null;
+    base = fy.get(years[0] - 3) ?? null;
+  }
+  if (base == null || last == null || base <= 0 || last <= 0) return null;
   return Math.round((Math.pow(last / base, 1 / 3) - 1) * 1000) / 10;
 }
 
@@ -53,11 +90,11 @@ export async function getHomeData(): Promise<StockCard[]> {
     supabase.from("companies").select("stock_code,name,sector"),
     supabase.from("metrics").select("stock_code,fiscal_year,period,per,div_yield"),
     supabase.from("financials")
-      .select("stock_code,fiscal_year,statement,account_std,value")
-      .eq("period", "FY")
+      .select("stock_code,fiscal_year,period,statement,account_std,value")
+      .in("period", ["FY", "1Q", "2Q", "3Q", "4Q"])  // 누적분기(_cum) 제외 — 단일분기만
       .in("account_std", ["매출액", "당기순이익"])
       .in("statement", ["IS", "CIS"])
-      .limit(5000),
+      .limit(10000),
     supabase.from("articles").select("stock_code,body,created_at")
       .order("created_at", { ascending: false }),
   ]);
@@ -91,15 +128,27 @@ export async function getHomeData(): Promise<StockCard[]> {
     }
   }
 
-  // CAGR용 연도별 매출·순이익 (통일된 IS 우선, 같은 해 중복이면 첫 값 유지)
-  const revMap = new Map<string, Map<number, number>>();
-  const niMap = new Map<string, Map<number, number>>();
+  // CAGR용: 연간(FY)과 단일분기를 분리 적재 (같은 키 중복이면 첫 값 유지)
+  //  종목별로 매출은 한 statement에만 존재(SK=CIS, 삼성=IS)라 IS/CIS 혼선 없음.
+  const revFY = new Map<string, Map<number, number>>();
+  const niFY = new Map<string, Map<number, number>>();
+  const revQ = new Map<string, Map<string, number>>();
+  const niQ = new Map<string, Map<string, number>>();
   for (const r of finQ.data ?? []) {
     if (r.value == null) continue;
-    const target = r.account_std === "매출액" ? revMap : niMap;
-    let m = target.get(r.stock_code);
-    if (!m) { m = new Map(); target.set(r.stock_code, m); }
-    if (!m.has(r.fiscal_year)) m.set(r.fiscal_year, r.value);
+    const isRev = r.account_std === "매출액";
+    if (r.period === "FY") {
+      const t = isRev ? revFY : niFY;
+      let m = t.get(r.stock_code);
+      if (!m) { m = new Map(); t.set(r.stock_code, m); }
+      if (!m.has(r.fiscal_year)) m.set(r.fiscal_year, r.value);
+    } else {
+      const t = isRev ? revQ : niQ;
+      let m = t.get(r.stock_code);
+      if (!m) { m = new Map(); t.set(r.stock_code, m); }
+      const key = `${r.fiscal_year}-${r.period}`;
+      if (!m.has(key)) m.set(key, r.value);
+    }
   }
 
   // 종목별 최신 분석글
@@ -118,8 +167,8 @@ export async function getHomeData(): Promise<StockCard[]> {
       marketCap: capMap.get(c.stock_code) ?? null,
       per: lm?.per ?? null,
       divYield: lm?.div_yield ?? null,
-      revCagr3y: cagr3y(revMap.get(c.stock_code) ?? new Map()),
-      niCagr3y: cagr3y(niMap.get(c.stock_code) ?? new Map()),
+      revCagr3y: cagr3y(revFY.get(c.stock_code) ?? new Map(), revQ.get(c.stock_code) ?? new Map()),
+      niCagr3y: cagr3y(niFY.get(c.stock_code) ?? new Map(), niQ.get(c.stock_code) ?? new Map()),
       excerpt: art ? extractSection1(art.body) : null,
       latestArticleAt: art?.created_at ?? null,
     };

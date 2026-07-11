@@ -162,8 +162,8 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
                       <Stat label="시가총액" value={stock.marketCap != null ? formatKrw(stock.marketCap) : "N/A"} />
                       <Stat label="PER" value={stock.per != null ? formatMetric(stock.per, "배") : "N/A"} />
                       <Stat label="배당수익률" value={stock.divYield != null ? formatMetric(stock.divYield, "%") : "N/A"} />
-                      <Stat label="매출 성장률(연평균)" value={fmtCagr(stock.revCagr3y)} color={cagrColor(stock.revCagr3y)} />
-                      <Stat label="순이익 성장률(연평균)" value={fmtCagr(stock.niCagr3y)} color={cagrColor(stock.niCagr3y)} />
+                      <Stat label="매출 성장률(3년 연평균·TTM)" value={fmtCagr(stock.revCagr3y)} color={cagrColor(stock.revCagr3y)} />
+                      <Stat label="순이익 성장률(3년 연평균·TTM)" value={fmtCagr(stock.niCagr3y)} color={cagrColor(stock.niCagr3y)} />
                     </div>
                   </div>
                   <span className="material-symbols-outlined text-primary group-hover:translate-x-2 transition-transform shrink-0">
