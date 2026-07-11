@@ -136,7 +136,9 @@ export default function StockPage({ data }: { data: StockPageData }) {
           <div className="font-serif text-lg">Reading Stock</div>
           <p className="text-xs text-on-primary-container max-w-xl mx-auto leading-relaxed">
             본 사이트의 모든 콘텐츠는 공개 데이터를 바탕으로 자동 생성된 참고 자료이며,
-            투자 권유가 아닙니다. 투자 판단과 책임은 본인에게 있습니다.
+            투자 권유가 아닙니다.
+            <br />
+            투자 판단과 책임은 본인에게 있습니다.
           </p>
         </div>
       </footer>
