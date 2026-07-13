@@ -20,7 +20,20 @@ const TABS: { key: TabKey; label: string }[] = [
 
 export default function StockPage({ data }: { data: StockPageData }) {
   const [tab, setTab] = useState<TabKey>("article");
-  const { company, price } = data;
+  const { company, price, prevPrice } = data;
+
+  // 전일 종가 대비 변화 (한국 관례: 상승=빨강, 하락=파랑)
+  const change = (() => {
+    if (price?.close == null || prevPrice?.close == null) return null;
+    const diff = price.close - prevPrice.close;
+    const pct = (diff / prevPrice.close) * 100;
+    return {
+      diff,
+      pct,
+      color: diff > 0 ? "text-stock-up" : diff < 0 ? "text-stock-down" : "text-on-surface-variant",
+      arrow: diff > 0 ? "▲" : diff < 0 ? "▼" : "—",
+    };
+  })();
 
   // 홈→종목 등으로 넘어올 때, Next가 sticky 헤더를 '이미 최상단에 보임'으로 인식해
   // 스크롤을 리셋하지 않는 경우가 있다. 종목이 바뀔 때 명시적으로 최상단으로 이동시킨다.
@@ -60,6 +73,20 @@ export default function StockPage({ data }: { data: StockPageData }) {
               {company.sector && (
                 <span className="text-xs bg-tertiary-fixed text-on-tertiary-fixed px-2 py-0.5 rounded-sm">
                   {company.sector}
+                </span>
+              )}
+              {price?.close != null && (
+                <span className="flex items-baseline gap-2 ml-1">
+                  <span className="text-xl font-semibold text-on-surface tabular-nums">
+                    {Math.round(price.close).toLocaleString()}원
+                  </span>
+                  {change && (
+                    <span className={`text-sm font-medium tabular-nums ${change.color}`}>
+                      {change.arrow} {Math.abs(Math.round(change.diff)).toLocaleString()}
+                      {" "}({change.pct > 0 ? "+" : ""}{change.pct.toFixed(2)}%)
+                    </span>
+                  )}
+                  <span className="text-xs text-outline">전일 종가</span>
                 </span>
               )}
             </div>
