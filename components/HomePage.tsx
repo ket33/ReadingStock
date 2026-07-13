@@ -72,7 +72,7 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
 
       <main className="flex-grow">
         {/* 히어로 */}
-        <section className="relative py-20 bg-white border-b border-outline-variant overflow-hidden">
+        <section className="relative pt-10 pb-10 bg-white border-b border-outline-variant overflow-hidden">
           {/* 점 패턴 배경 (디자인) */}
           <div
             className="absolute inset-0 opacity-5 pointer-events-none"
@@ -82,17 +82,17 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
             }}
           />
           <div className="max-w-[1280px] mx-auto px-4 md:px-10 text-center relative z-10">
-            <h1 className="font-serif text-4xl md:text-5xl font-semibold tracking-tight text-primary mb-4 leading-tight">
-              Everything starts <em className="not-italic">after</em><br />
+            <h1 className="font-serif text-3xl md:text-4xl font-semibold tracking-tight text-primary mb-5 leading-tight">
+              Everything starts <em className="not-italic">after</em>{" "}
               <span
                 className="font-bold text-[#16243f]"
                 style={{ fontFamily: "var(--font-logo)", letterSpacing: "-0.005em" }}
               >
-                Reading Stocks
+                Reading Stock
               </span>
             </h1>
-            <p className="text-lg text-on-surface-variant mb-10">
-              당신의 투자를, 당신이 이해하도록 도와드려요
+            <p className="text-2xl md:text-3xl text-primary font-medium tracking-tight mb-10">
+              당신의 <strong className="font-bold">투자</strong>를, 당신이 <strong className="font-bold">이해</strong>하도록 도와드려요
             </p>
 
             <div className="mb-8">
@@ -118,7 +118,7 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
         </section>
 
         {/* Browse Stocks */}
-        <section className="max-w-[1000px] mx-auto px-4 md:px-10 py-16">
+        <section className="max-w-[1000px] mx-auto px-4 md:px-10 pt-8 pb-16">
           <div className="flex items-center justify-between mb-8 border-b border-outline-variant pb-4">
             <h2 className="font-serif text-2xl font-medium text-primary">종목 둘러보기</h2>
             <div className="flex gap-2">

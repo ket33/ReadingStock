@@ -70,7 +70,7 @@ export default function SearchBox({ size = "small" }: { size?: "small" | "large"
 
   return (
     <div ref={boxRef} className={`relative ${isLarge ? "max-w-2xl mx-auto" : "w-72"}`}>
-      <div className={`flex items-center bg-white border border-outline-variant transition-all
+      <div className={`flex items-center bg-white border border-outline-variant transition-all rounded-full
                        focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10
                        ${isLarge ? "shadow-sm" : ""}`}>
         <span className={`material-symbols-outlined text-on-surface-variant ${isLarge ? "ml-6" : "ml-3 text-[20px]"}`}>
@@ -86,7 +86,7 @@ export default function SearchBox({ size = "small" }: { size?: "small" | "large"
             ? "회사 이름이나 종목코드로 검색 (예: 삼성전자, 005930)"
             : "종목 검색"}
           className={`w-full border-none focus:outline-none bg-transparent placeholder:text-on-surface-variant/50
-                      ${isLarge ? "py-5 px-4 text-lg" : "py-2 px-3 text-sm"}`}
+                      ${isLarge ? "py-3 px-4 text-lg" : "py-2 px-3 text-sm"}`}
         />
       </div>
 
