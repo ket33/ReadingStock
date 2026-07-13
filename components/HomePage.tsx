@@ -29,7 +29,7 @@ function Pill({ label, value, color }: { label: string; value: string; color?: s
       <span className="text-[9px] font-medium text-on-surface-variant tracking-wide">
         {label}
       </span>
-      <span className={`text-[11px] font-semibold tabular-nums ${color ?? "text-on-surface"}`}>
+      <span className={`text-[9px] font-semibold tabular-nums ${color ?? "text-on-surface"}`}>
         {value}
       </span>
     </div>
