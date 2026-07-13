@@ -83,9 +83,9 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
         </div>
       </nav>
 
-      <main className="flex-grow">
+      <main className="flex-grow bg-surface-container-lowest">
         {/* 히어로 */}
-        <section className="relative pt-10 pb-10 bg-white border-b border-outline-variant overflow-hidden">
+        <section className="relative pt-10 pb-10 bg-white overflow-hidden">
           {/* 점 패턴 배경 (디자인) */}
           <div
             className="absolute inset-0 opacity-5 pointer-events-none"
@@ -167,7 +167,7 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
                   <div className="flex justify-between items-start gap-4">
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-                        <h3 className="font-serif text-lg md:text-xl font-medium text-primary">
+                        <h3 className="font-serif text-lg md:text-xl font-bold text-primary">
                           {stock.name}
                           <span className="text-[13px] text-on-surface-variant font-sans font-normal ml-2">
                             ({stock.stockCode})
