@@ -16,9 +16,9 @@ const SORTS: { key: SortKey; label: string }[] = [
   { key: "latest", label: "최신순" },
 ];
 
-// 미구현 빠른 이동 칩 — 가짜 링크 금지, 비활성 + 준비 중 표시 (지시서)
-const CHIPS = [
-  { icon: "filter_list", label: "스크리너" },
+// 빠른 이동 칩 — 구현된 것만 링크, 나머지는 비활성 + 준비 중 표시 (지시서)
+const CHIPS: { icon: string; label: string; href?: string }[] = [
+  { icon: "filter_list", label: "골라보기", href: "/screener" },
   { icon: "star", label: "워치리스트" },
   { icon: "business", label: "산업별" },
 ];
@@ -129,20 +129,31 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
               <SearchBox size="large" />
             </div>
 
-            {/* 빠른 이동 칩 — 미구현이라 비활성 */}
+            {/* 빠른 이동 칩 — href 있으면 링크, 없으면 비활성(준비 중) */}
             <div className="flex flex-wrap justify-center gap-3">
-              {CHIPS.map(c => (
-                <button
-                  key={c.label}
-                  disabled
-                  title="준비 중인 기능입니다"
-                  className="flex items-center gap-1.5 px-4 py-1.5 bg-white border border-outline-variant rounded-full text-xs font-medium text-on-surface-variant opacity-50 cursor-not-allowed"
-                >
-                  <span className="material-symbols-outlined text-[15px]">{c.icon}</span>
-                  {c.label}
-                  <span className="text-[9px] bg-surface-container-high px-1.5 py-0.5 rounded-full">준비 중</span>
-                </button>
-              ))}
+              {CHIPS.map(c =>
+                c.href ? (
+                  <Link
+                    key={c.label}
+                    href={c.href}
+                    className="flex items-center gap-1.5 px-4 py-1.5 bg-white border border-outline-variant rounded-full text-xs font-medium text-on-surface-variant hover:text-primary hover:border-primary transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">{c.icon}</span>
+                    {c.label}
+                  </Link>
+                ) : (
+                  <button
+                    key={c.label}
+                    disabled
+                    title="준비 중인 기능입니다"
+                    className="flex items-center gap-1.5 px-4 py-1.5 bg-white border border-outline-variant rounded-full text-xs font-medium text-on-surface-variant opacity-50 cursor-not-allowed"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">{c.icon}</span>
+                    {c.label}
+                    <span className="text-[9px] bg-surface-container-high px-1.5 py-0.5 rounded-full">준비 중</span>
+                  </button>
+                ),
+              )}
             </div>
           </div>
         </section>
