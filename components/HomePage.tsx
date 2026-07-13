@@ -1,19 +1,19 @@
 "use client";
 
 // 홈 — 히어로(검색) + Browse Stocks (디자인: Stitch 홈 HTML의 겉모습 유지, 데이터는 DB)
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { StockCard } from "@/lib/home-data";
 import { formatKrw, formatMetric } from "@/lib/format";
 import SearchBox from "./SearchBox";
 import Logo from "./Logo";
 
-type SortKey = "marketCap" | "latest" | "name";
+type SortKey = "random" | "marketCap" | "latest";
 
+// 기본은 랜덤(버튼 없음) — 정렬을 고르면 그 기준으로 전환
 const SORTS: { key: SortKey; label: string }[] = [
   { key: "marketCap", label: "시가총액순" },
   { key: "latest", label: "최신순" },
-  { key: "name", label: "가나다순" },
 ];
 
 // 미구현 빠른 이동 칩 — 가짜 링크 금지, 비활성 + 준비 중 표시 (지시서)
@@ -59,17 +59,34 @@ function fmtCagr(v: number | null): string {
   return `${v > 0 ? "+" : ""}${v}%`;
 }
 
+const PAGE_SIZE = 8; // 종목 카드 기본 표시 개수 — '더보기'마다 이만큼 추가
+
 export default function HomePage({ stocks }: { stocks: StockCard[] }) {
-  const [sort, setSort] = useState<SortKey>("marketCap"); // 기본: 시가총액순
+  const [sort, setSort] = useState<SortKey>("random"); // 기본: 랜덤
+  const [visible, setVisible] = useState(PAGE_SIZE);
+
+  // 랜덤 순서는 마운트 후 생성 (서버 렌더 HTML과의 불일치 방지 —
+  // 첫 페인트는 시가총액순, 직후 셔플 적용)
+  const [shuffleOrder, setShuffleOrder] = useState<Map<string, number> | null>(null);
+  useEffect(() => {
+    const codes = stocks.map(s => s.stockCode);
+    for (let i = codes.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [codes[i], codes[j]] = [codes[j], codes[i]];
+    }
+    setShuffleOrder(new Map(codes.map((c, i) => [c, i])));
+  }, [stocks]);
 
   const sorted = useMemo(() => {
     const s = [...stocks];
-    if (sort === "marketCap") s.sort((a, b) => (b.marketCap ?? 0) - (a.marketCap ?? 0));
+    if (sort === "random" && shuffleOrder)
+      s.sort((a, b) => (shuffleOrder.get(a.stockCode) ?? 0) - (shuffleOrder.get(b.stockCode) ?? 0));
     else if (sort === "latest")
       s.sort((a, b) => (b.latestArticleAt ?? "").localeCompare(a.latestArticleAt ?? ""));
-    else s.sort((a, b) => a.name.localeCompare(b.name, "ko"));
+    else // marketCap + 랜덤 셔플 생성 전(첫 페인트) 폴백
+      s.sort((a, b) => (b.marketCap ?? 0) - (a.marketCap ?? 0));
     return s;
-  }, [stocks, sort]);
+  }, [stocks, sort, shuffleOrder]);
 
   return (
     <>
@@ -156,7 +173,7 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
           </p>
 
           <div>
-            {sorted.map(stock => {
+            {sorted.slice(0, visible).map(stock => {
               const metrics = getMetrics(stock);
               return (
                 <Link
@@ -200,7 +217,22 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
               );
             })}
           </div>
-          {/* 페이지네이션: 종목 수가 한 페이지(20개) 이하라 표시하지 않음 (지시서) */}
+
+          {/* 더보기: 남은 종목이 있을 때만 */}
+          {visible < sorted.length && (
+            <div className="mt-8 text-center">
+              <button
+                onClick={() => setVisible(v => v + PAGE_SIZE)}
+                className="inline-flex items-center gap-1.5 px-8 py-2.5 border border-outline-variant rounded-full text-sm font-medium text-on-surface-variant bg-white hover:text-primary hover:border-primary transition-colors"
+              >
+                더보기
+                <span className="material-symbols-outlined text-[16px]">expand_more</span>
+                <span className="text-xs text-outline">
+                  ({Math.min(PAGE_SIZE, sorted.length - visible)}개 더)
+                </span>
+              </button>
+            </div>
+          )}
         </section>
       </main>
 
