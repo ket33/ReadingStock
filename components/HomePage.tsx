@@ -119,11 +119,11 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
                   key={c.label}
                   disabled
                   title="준비 중인 기능입니다"
-                  className="flex items-center gap-2 px-6 py-3 bg-white border border-outline-variant rounded-full text-sm font-medium text-on-surface-variant opacity-50 cursor-not-allowed"
+                  className="flex items-center gap-1.5 px-4 py-1.5 bg-white border border-outline-variant rounded-full text-xs font-medium text-on-surface-variant opacity-50 cursor-not-allowed"
                 >
-                  <span className="material-symbols-outlined text-[18px]">{c.icon}</span>
+                  <span className="material-symbols-outlined text-[15px]">{c.icon}</span>
                   {c.label}
-                  <span className="text-[10px] bg-surface-container-high px-1.5 py-0.5 rounded-full">준비 중</span>
+                  <span className="text-[9px] bg-surface-container-high px-1.5 py-0.5 rounded-full">준비 중</span>
                 </button>
               ))}
             </div>
