@@ -61,6 +61,9 @@ body {
   color: var(--color-on-surface);
   -webkit-font-smoothing: antialiased;
   font-family: var(--font-sans);
+  /* 한글 단어 단위 줄바꿈 (단어 중간에서 안 잘림) + 긴 토큰(URL 등) 넘침 방지 */
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
 /* 본문 캔버스 (디자인의 article-canvas) */
