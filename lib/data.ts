@@ -2,11 +2,18 @@
 import { supabase } from "./supabase";
 import type {
   Company, FinancialRow, MetricsRow, PriceRow, Article,
-  ChartData, StatementsData, StockPageData,
+  ChartData, StockPageData,
 } from "./types";
 import { toJo } from "./format";
+import { buildStatements } from "./statements";
 
 const QORDER = ["1Q", "2Q", "3Q", "4Q", "FY"];
+const SINGLE_Q = ["1Q", "2Q", "3Q", "4Q"]; // 단일(3개월) 분기 — normalize_quarters가 생성
+
+/** '2024 1Q' → '24.1Q' 형태의 분기 x축 라벨 */
+function qLabel(year: number, period: string): string {
+  return `${String(year).slice(2)}.${period}`;
+}
 
 /** financials(긴 표)에서 (연도, account_std, statement) → 값 인덱스 생성 (FY만) */
 function indexFY(rows: FinancialRow[]) {
@@ -40,7 +47,43 @@ function capexByYear(rows: FinancialRow[]): Map<number, number> {
   return out;
 }
 
-function buildCharts(fin: FinancialRow[], metrics: MetricsRow[]): ChartData {
+// ── 분기(단일) 시리즈 헬퍼 ─────────────────────────────────────
+
+/** 분기 행 인덱스: (연도, 분기, statement, account_std) → 값 */
+function indexQ(rows: FinancialRow[]) {
+  const idx = new Map<string, number>();
+  for (const r of rows) {
+    if (!SINGLE_Q.includes(r.period) || r.value == null || !r.account_std) continue;
+    const key = `${r.fiscal_year}|${r.period}|${r.statement}|${r.account_std}`;
+    if (!idx.has(key)) idx.set(key, r.value);
+  }
+  return idx;
+}
+
+function pickQ(
+  idx: Map<string, number>, year: number, q: string, statements: string[], std: string,
+): number | null {
+  for (const s of statements) {
+    const v = idx.get(`${year}|${q}|${s}|${std}`);
+    if (v != null) return v;
+  }
+  return null;
+}
+
+function capexByQuarter(rows: FinancialRow[]): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const r of rows) {
+    if (!SINGLE_Q.includes(r.period) || r.statement !== "CF" || r.value == null) continue;
+    const name = r.account_raw.replace(/\s/g, "");
+    if (name.includes("유형자산") && name.includes("취득")) {
+      const key = `${r.fiscal_year}|${r.period}`;
+      if (!out.has(key)) out.set(key, r.value);
+    }
+  }
+  return out;
+}
+
+function buildCharts(fin: FinancialRow[], metrics: MetricsRow[], finQ: FinancialRow[]): ChartData {
   const idx = indexFY(fin);
   const years = [...new Set(fin.filter(r => r.period === "FY").map(r => r.fiscal_year))].sort();
   const capex = capexByYear(fin);
@@ -80,84 +123,135 @@ function buildCharts(fin: FinancialRow[], metrics: MetricsRow[]): ChartData {
   const maxYear = Math.max(...perAll.map(m => m.fiscal_year), 0);
   const per = perAll
     .filter(m => m.fiscal_year >= maxYear - 3)
-    .map(m => ({ label: `${String(m.fiscal_year).slice(2)}.${m.period}`, per: m.per }));
+    .map(m => ({ label: qLabel(m.fiscal_year, m.period), per: m.per }));
 
-  return { revenueOp, margins, roe, cashflow, per };
-}
+  // ── 분기 시리즈 (최근 20개 분기 = 5년) ──────────────────────
+  const idxQ = indexQ(finQ);
+  const capexQ = capexByQuarter(finQ);
 
-/** 재무제표 탭용: 주요 계정만, 연도별 컬럼 (최근 10년) */
-function buildStatements(fin: FinancialRow[]): StatementsData {
-  const idx = indexFY(fin);
-  const capex = capexByYear(fin);
-  const years = [...new Set(fin.filter(r => r.period === "FY").map(r => r.fiscal_year))]
-    .sort()
-    .slice(-10);
+  // 존재하는 (연도, 분기) 목록 — 손익 또는 현금흐름에 값이 있는 분기만
+  const quarters = [...new Set(
+    finQ.filter(r => SINGLE_Q.includes(r.period)).map(r => `${r.fiscal_year}|${r.period}`),
+  )]
+    .map(k => {
+      const [y, q] = k.split("|");
+      return { year: Number(y), q };
+    })
+    .sort((a, b) =>
+      a.year !== b.year ? a.year - b.year : QORDER.indexOf(a.q) - QORDER.indexOf(b.q))
+    .slice(-20);
 
-  const row = (name: string, statements: string[], std: string) => ({
-    name,
-    values: years.map(y => pick(idx, y, statements, std)),
+  const revenueOpQ = quarters.map(({ year, q }) => ({
+    label: qLabel(year, q),
+    revenue: toJo(pickQ(idxQ, year, q, ["IS", "CIS"], "매출액")),
+    op: toJo(pickQ(idxQ, year, q, ["IS", "CIS"], "영업이익")),
+  }));
+
+  const cashflowQ = quarters.map(({ year, q }) => {
+    const ocf = pickQ(idxQ, year, q, ["CF"], "영업현금흐름");
+    const cx = capexQ.get(`${year}|${q}`) ?? null;
+    return {
+      label: qLabel(year, q),
+      ocf: toJo(ocf),
+      fcf: ocf != null && cx != null ? toJo(ocf - Math.abs(cx)) : null,
+    };
   });
 
-  const tables = [
-    {
-      title: "손익계산서",
-      rows: [
-        row("매출액", ["IS", "CIS"], "매출액"),
-        row("매출총이익", ["IS", "CIS"], "매출총이익"),
-        row("영업이익", ["IS", "CIS"], "영업이익"),
-        row("당기순이익", ["IS", "CIS"], "당기순이익"),
-      ],
-    },
-    {
-      title: "재무상태표",
-      rows: [
-        row("자산총계", ["BS"], "자산총계"),
-        row("유동자산", ["BS"], "유동자산"),
-        row("부채총계", ["BS"], "부채총계"),
-        row("유동부채", ["BS"], "유동부채"),
-        row("자본총계", ["BS"], "자본총계"),
-      ],
-    },
-    {
-      title: "현금흐름표",
-      rows: [
-        row("영업활동현금흐름", ["CF"], "영업현금흐름"),
-        {
-          name: "유형자산 취득(Capex)",
-          values: years.map(y => {
-            const v = capex.get(y);
-            return v == null ? null : -Math.abs(v); // 지출이므로 음수 표기
-          }),
-        },
-        {
-          name: "잉여현금흐름(FCF)",
-          values: years.map(y => {
-            const ocf = pick(idx, y, ["CF"], "영업현금흐름");
-            const cx = capex.get(y);
-            return ocf != null && cx != null ? ocf - Math.abs(cx) : null;
-          }),
-        },
-      ],
-    },
-  ];
+  // 마진·ROE 분기 시리즈 — metrics의 분기 행(TTM 기준) 사용
+  const qMetrics = metrics
+    .filter(m => m.period !== "FY")
+    .sort((a, b) =>
+      a.fiscal_year !== b.fiscal_year
+        ? a.fiscal_year - b.fiscal_year
+        : QORDER.indexOf(a.period) - QORDER.indexOf(b.period))
+    .slice(-20);
 
-  // 값이 하나도 없는 행 제거 (금융업 등)
-  for (const t of tables) t.rows = t.rows.filter(r => r.values.some(v => v != null));
+  const marginsQ = qMetrics.map(m => ({
+    label: qLabel(m.fiscal_year, m.period),
+    gross: m.gross_margin, op: m.op_margin, net: m.net_margin,
+  }));
+  const roeQ = qMetrics.map(m => ({
+    label: qLabel(m.fiscal_year, m.period), roe: m.roe, roa: m.roa,
+  }));
 
-  return { years, tables };
+  // 값이 전혀 없는 시리즈는 비워서 토글을 숨긴다
+  const empty = <T,>(arr: T[], has: (t: T) => boolean) => (arr.some(has) ? arr : []);
+
+  return {
+    revenueOp, margins, roe, cashflow, per,
+    revenueOpQ: empty(revenueOpQ, p => p.revenue != null || p.op != null),
+    marginsQ: empty(marginsQ, p => p.gross != null || p.op != null || p.net != null),
+    roeQ: empty(roeQ, p => p.roe != null || p.roa != null),
+    cashflowQ: empty(cashflowQ, p => p.ocf != null || p.fcf != null),
+  };
 }
 
+// 재무제표 탭 빌더는 lib/statements.ts로 분리 (계정 매핑 정의 포함)
+
 export async function getStockPageData(stockCode: string): Promise<StockPageData | null> {
-  const [companyQ, finQ, metricsQ, pricesQ, articleQ] = await Promise.all([
+  const [companyQ, finQ, finDetailQ, finQuarterQ, finQuarterDetailQ, finQuarterDetail2Q, bsQuarterQ, rndQ, metricsQ, pricesQ, articleQ] = await Promise.all([
     supabase.from("companies").select("*").eq("stock_code", stockCode).maybeSingle(),
-    // 웹에는 연간(FY)·표준계정 매핑된 행만 필요 — 필터 없이 다 가져오면
-    // PostgREST 기본 상한(1,000행)에 걸려 시계열이 잘린다(실측)
+    // PostgREST가 요청당 1,000행으로 하드캡(실측: limit(5000)도 1,000에서 잘림)이라
+    // '매핑된 행'과 '미매핑 세부 행'을 나눠 각각 1,000행 아래로 가져온다.
     supabase.from("financials")
       .select("fiscal_year,period,statement,account_raw,account_std,value")
       .eq("stock_code", stockCode)
       .eq("period", "FY")
       .not("account_std", "is", null)
-      .limit(5000),
+      .limit(1000),
+    // 재무제표 탭 세부항목용: 미매핑 원본 계정 (IS/CIS/CF만 — BS 세부는 안 씀)
+    supabase.from("financials")
+      .select("fiscal_year,period,statement,account_raw,account_std,value")
+      .eq("stock_code", stockCode)
+      .eq("period", "FY")
+      .is("account_std", null)
+      .in("statement", ["IS", "CIS", "CF"])
+      .limit(1000),
+    // 분기 차트용: 단일(3개월) 분기 행 — 흐름(IS/CIS/CF)만
+    supabase.from("financials")
+      .select("fiscal_year,period,statement,account_raw,account_std,value")
+      .eq("stock_code", stockCode)
+      .in("period", ["1Q", "2Q", "3Q", "4Q"])
+      .in("statement", ["IS", "CIS", "CF"])
+      .not("account_std", "is", null)
+      .limit(1000),
+    // 재무제표 탭 분기 뷰·TTM용: 미매핑 흐름 세부 — 분기 20개(5년) 커버.
+    // 요청당 1,000행 하드캡이라 정렬 고정 후 2페이지로 나눠 받는다 (아래 2번째 쿼리와 합침)
+    supabase.from("financials")
+      .select("fiscal_year,period,statement,account_raw,account_std,value")
+      .eq("stock_code", stockCode)
+      .in("period", ["1Q", "2Q", "3Q", "4Q"])
+      .in("statement", ["IS", "CIS", "CF"])
+      .is("account_std", null)
+      .gte("fiscal_year", new Date().getFullYear() - 6)
+      .order("fiscal_year", { ascending: false })
+      .order("account_raw")
+      .range(0, 999),
+    supabase.from("financials")
+      .select("fiscal_year,period,statement,account_raw,account_std,value")
+      .eq("stock_code", stockCode)
+      .in("period", ["1Q", "2Q", "3Q", "4Q"])
+      .in("statement", ["IS", "CIS", "CF"])
+      .is("account_std", null)
+      .gte("fiscal_year", new Date().getFullYear() - 6)
+      .order("fiscal_year", { ascending: false })
+      .order("account_raw")
+      .range(1000, 1999),
+    // 재무제표 탭 분기 뷰용: BS 분기말 잔액 (시점 잔액 — 1Q/2Q_cum/3Q_cum/FY)
+    supabase.from("financials")
+      .select("fiscal_year,period,statement,account_raw,account_std,value")
+      .eq("stock_code", stockCode)
+      .eq("statement", "BS")
+      .in("period", ["1Q", "2Q_cum", "3Q_cum", "FY"])
+      .not("account_std", "is", null)
+      .gte("fiscal_year", new Date().getFullYear() - 6)
+      .limit(1000),
+    // R&D 금액 (보고서 파싱분 — load_rnd.py가 적재)
+    supabase.from("financials")
+      .select("fiscal_year,period,statement,account_raw,account_std,value")
+      .eq("stock_code", stockCode)
+      .eq("statement", "RND")
+      .limit(50),
     supabase.from("metrics").select("*").eq("stock_code", stockCode),
     supabase.from("prices").select("date,close,market_cap")
       .eq("stock_code", stockCode).order("date", { ascending: false }).limit(2),
@@ -169,6 +263,14 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
   if (!company) return null;
 
   const fin = (finQ.data ?? []) as FinancialRow[];
+  const finDetail = (finDetailQ.data ?? []) as FinancialRow[];
+  const rndRows = (rndQ.data ?? []) as FinancialRow[];
+  const finQuarter = (finQuarterQ.data ?? []) as FinancialRow[];
+  const finQuarterDetail = [
+    ...(finQuarterDetailQ.data ?? []),
+    ...(finQuarterDetail2Q.data ?? []),
+  ] as FinancialRow[];
+  const bsQuarter = (bsQuarterQ.data ?? []) as FinancialRow[];
   const metrics = (metricsQ.data ?? []) as MetricsRow[];
   const prices = (pricesQ.data ?? []) as PriceRow[];
   const article = ((articleQ.data ?? [])[0] ?? null) as Article | null;
@@ -191,7 +293,12 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
     article,
     latestMetrics,
     fyMetrics: metrics.filter(m => m.period === "FY"),
-    charts: buildCharts(fin, metrics),
-    statements: buildStatements(fin),
+    charts: buildCharts(fin, metrics, finQuarter),
+    statements: buildStatements(
+      [...fin, ...finDetail],
+      [...finQuarter, ...finQuarterDetail, ...bsQuarter],
+      rndRows,
+      company.sector,
+    ),
   };
 }

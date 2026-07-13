@@ -94,12 +94,43 @@ export interface PerPoint {
   per: number | null;
 }
 
+// 분기 시리즈 — x축은 '24.1Q' 형태 라벨
+export interface RevenueOpQPoint {
+  label: string;
+  revenue: number | null; // 조 원 (단일 분기)
+  op: number | null;
+}
+
+export interface MarginQPoint {
+  label: string;
+  gross: number | null; // TTM 기준
+  op: number | null;
+  net: number | null;
+}
+
+export interface RoeQPoint {
+  label: string;
+  roe: number | null; // TTM 기준
+  roa: number | null;
+}
+
+export interface CashflowQPoint {
+  label: string;
+  ocf: number | null; // 조 원 (단일 분기)
+  fcf: number | null;
+}
+
 export interface ChartData {
   revenueOp: RevenueOpPoint[];
   margins: MarginPoint[];
   roe: RoePoint[];
   cashflow: CashflowPoint[];
   per: PerPoint[];
+  // 분기 보기 (연간/분기 토글) — 비어 있으면 토글을 숨긴다
+  revenueOpQ: RevenueOpQPoint[];
+  marginsQ: MarginQPoint[];
+  roeQ: RoeQPoint[];
+  cashflowQ: CashflowQPoint[];
 }
 
 export interface StockPageData {
@@ -115,12 +146,26 @@ export interface StockPageData {
 
 // ── 재무제표 탭 ────────────────────────────────────────────────
 
-export interface StatementTable {
-  title: string;
-  rows: { name: string; values: (number | null)[] }[];
+/** 표 한 행 — children이 있으면 펼침/접기 가능한 부모 행 */
+export interface StmtItem {
+  name: string;
+  values: (number | null)[];
+  emph?: boolean;                 // 합계류 강조
+  children?: StmtItem[];          // 세부항목
+}
+
+export interface StmtTable {
+  title: string;                  // 손익계산서 / 재무상태표 / 현금흐름표
+  blocks: StmtItem[][];           // 블록 사이에 구분선 (현금흐름표: 본문 | FCF)
+}
+
+/** 한 뷰(연간 또는 분기)의 컬럼 라벨 + 3표 */
+export interface StmtView {
+  cols: string[];                 // ["TTM", "2025", ...] 또는 ["TTM", "26.1Q", ...]
+  tables: StmtTable[];
 }
 
 export interface StatementsData {
-  years: number[];
-  tables: StatementTable[]; // 손익계산서 / 재무상태표 / 현금흐름표
+  annual: StmtView;
+  quarterly: StmtView;
 }
