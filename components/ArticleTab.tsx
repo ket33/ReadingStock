@@ -94,7 +94,7 @@ const mdComponents = {
     <h3 className="font-serif text-lg font-medium text-primary pt-4 mb-3" {...props} />
   ),
   p: (props: React.ComponentProps<"p">) => (
-    <p className="text-[14px] leading-[1.8] text-on-surface-variant mb-5" {...props} />
+    <p className="text-[15px] leading-[1.8] text-on-surface-variant mb-5" {...props} />
   ),
   strong: (props: React.ComponentProps<"strong">) => (
     <strong className="font-semibold text-on-surface" {...props} />
@@ -104,10 +104,10 @@ const mdComponents = {
   ),
   hr: () => <hr className="border-outline-variant my-10" />,
   ul: (props: React.ComponentProps<"ul">) => (
-    <ul className="list-disc pl-5 space-y-2 text-[12px] leading-[1.8] text-on-surface-variant mb-5" {...props} />
+    <ul className="list-disc pl-5 space-y-2 text-[14px] leading-[1.8] text-on-surface-variant mb-5" {...props} />
   ),
   ol: (props: React.ComponentProps<"ol">) => (
-    <ol className="list-decimal pl-5 space-y-2 text-[12px] leading-[1.8] text-on-surface-variant mb-5" {...props} />
+    <ol className="list-decimal pl-5 space-y-2 text-[14px] leading-[1.8] text-on-surface-variant mb-5" {...props} />
   ),
   blockquote: (props: React.ComponentProps<"blockquote">) => (
     <blockquote className="border-l-4 border-outline-variant pl-6 py-1 my-8 font-serif text-lg text-primary italic" {...props} />
