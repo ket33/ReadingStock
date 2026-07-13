@@ -23,17 +23,30 @@ const CHIPS = [
   { icon: "business", label: "산업별" },
 ];
 
-function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
+function Pill({ label, value, color }: { label: string; value: string; color?: string }) {
   return (
-    <div className="flex flex-col first:pl-0 pl-6 first:border-l-0 border-l border-outline-variant">
-      <span className="text-[11px] font-medium text-on-surface-variant uppercase tracking-wider">
+    <div className="flex flex-col items-center border border-outline-variant bg-surface-container-low rounded-lg px-2 py-0.5 leading-tight">
+      <span className="text-[9px] font-medium text-on-surface-variant tracking-wide">
         {label}
       </span>
-      <span className={`text-sm font-semibold tabular-nums ${color ?? "text-on-surface"}`}>
+      <span className={`text-[11px] font-semibold tabular-nums ${color ?? "text-on-surface"}`}>
         {value}
       </span>
     </div>
   );
+}
+
+// N/A(값 없음)인 지표는 제외하고 표시할 것만 반환 (지시서)
+function getMetrics(stock: StockCard): { label: string; value: string; color?: string }[] {
+  const out: { label: string; value: string; color?: string }[] = [];
+  if (stock.marketCap != null) out.push({ label: "시가총액", value: formatKrw(stock.marketCap) });
+  if (stock.divYield != null) out.push({ label: "배당수익률", value: formatMetric(stock.divYield, "%") });
+  if (stock.per != null && stock.per > 0) out.push({ label: "PER", value: formatMetric(stock.per, "배") });
+  if (stock.revCagr3y != null)
+    out.push({ label: "매출 성장률", value: fmtCagr(stock.revCagr3y), color: cagrColor(stock.revCagr3y) });
+  if (stock.niCagr3y != null)
+    out.push({ label: "순이익 성장률", value: fmtCagr(stock.niCagr3y), color: cagrColor(stock.niCagr3y) });
+  return out;
 }
 
 function cagrColor(v: number | null): string | undefined {
@@ -118,15 +131,15 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
         </section>
 
         {/* Browse Stocks */}
-        <section className="max-w-[1000px] mx-auto px-4 md:px-10 pt-8 pb-16">
+        <section className="max-w-[820px] mx-auto px-4 md:px-10 pt-8 pb-16">
           <div className="flex items-center justify-between mb-8 border-b border-outline-variant pb-4">
-            <h2 className="font-serif text-2xl font-medium text-primary">종목 둘러보기</h2>
+            <h2 className="font-serif text-base font-medium text-primary">종목 살펴보기</h2>
             <div className="flex gap-2">
               {SORTS.map(s => (
                 <button
                   key={s.key}
                   onClick={() => setSort(s.key)}
-                  className={`text-sm font-medium px-3 py-1 rounded transition-colors ${
+                  className={`text-xs font-medium px-2.5 py-1 rounded transition-colors ${
                     sort === s.key
                       ? "bg-primary-fixed text-on-primary-fixed"
                       : "text-on-surface-variant hover:text-primary"
@@ -138,48 +151,54 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
             </div>
           </div>
 
-          <div className="space-y-6">
-            {sorted.map(stock => (
-              <Link
-                key={stock.stockCode}
-                href={`/stock/${stock.stockCode}`}
-                className="block bg-white border border-outline-variant p-6 md:p-8 transition-all duration-300 group cursor-pointer hover:shadow-[0px_4px_12px_rgba(26,43,60,0.05)]"
-              >
-                <div className="flex justify-between items-start gap-4 mb-4">
-                  <div className="min-w-0">
-                    <h3 className="font-serif text-xl md:text-2xl font-medium text-primary">
-                      {stock.name}
-                      <span className="text-sm text-on-surface-variant font-sans font-normal ml-2">
-                        ({stock.stockCode})
-                      </span>
-                      {stock.sector && (
-                        <span className="text-xs bg-tertiary-fixed text-on-tertiary-fixed px-2 py-0.5 rounded-sm ml-2 align-middle font-sans">
-                          {stock.sector}
-                        </span>
+          <p className="-mt-6 mb-6 text-right text-[11px] text-outline">
+            * 성장률은 최근 3년 연평균 (TTM 기준)
+          </p>
+
+          <div>
+            {sorted.map(stock => {
+              const metrics = getMetrics(stock);
+              return (
+                <Link
+                  key={stock.stockCode}
+                  href={`/stock/${stock.stockCode}`}
+                  className="block border-b border-outline-variant py-6 transition-colors duration-200 group cursor-pointer hover:bg-surface-container-low"
+                >
+                  <div className="flex justify-between items-start gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+                        <h3 className="font-serif text-lg md:text-xl font-medium text-primary">
+                          {stock.name}
+                          <span className="text-[13px] text-on-surface-variant font-sans font-normal ml-2">
+                            ({stock.stockCode})
+                          </span>
+                          {stock.sector && (
+                            <span className="text-[11px] bg-tertiary-fixed text-on-tertiary-fixed px-2 py-0.5 rounded-sm ml-2 align-middle font-sans">
+                              {stock.sector}
+                            </span>
+                          )}
+                        </h3>
+                        {metrics.length > 0 && (
+                          <div className="flex flex-wrap gap-2 justify-end">
+                            {metrics.map(m => (
+                              <Pill key={m.label} label={m.label} value={m.value} color={m.color} />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      {stock.excerpt && (
+                        <p className="mt-4 text-on-surface-variant max-w-[620px] leading-relaxed line-clamp-3 text-[13px]">
+                          {stock.excerpt}
+                        </p>
                       )}
-                    </h3>
-                    <div className="flex flex-wrap gap-y-2 mt-4">
-                      <Stat label="시가총액" value={stock.marketCap != null ? formatKrw(stock.marketCap) : "N/A"} />
-                      <Stat label="PER" value={stock.per != null ? formatMetric(stock.per, "배") : "N/A"} />
-                      <Stat label="배당수익률" value={stock.divYield != null ? formatMetric(stock.divYield, "%") : "N/A"} />
-                      <Stat label="매출 성장률" value={fmtCagr(stock.revCagr3y)} color={cagrColor(stock.revCagr3y)} />
-                      <Stat label="순이익 성장률" value={fmtCagr(stock.niCagr3y)} color={cagrColor(stock.niCagr3y)} />
                     </div>
-                    <p className="mt-2 text-[11px] text-outline">
-                      * 성장률은 최근 3년 연평균 (TTM 기준)
-                    </p>
+                    <span className="material-symbols-outlined text-primary group-hover:translate-x-2 transition-transform shrink-0">
+                      arrow_forward_ios
+                    </span>
                   </div>
-                  <span className="material-symbols-outlined text-primary group-hover:translate-x-2 transition-transform shrink-0">
-                    arrow_forward_ios
-                  </span>
-                </div>
-                {stock.excerpt && (
-                  <p className="text-on-surface-variant max-w-[720px] leading-relaxed line-clamp-3 text-[13.5px]">
-                    {stock.excerpt}
-                  </p>
-                )}
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
           {/* 페이지네이션: 종목 수가 한 페이지(20개) 이하라 표시하지 않음 (지시서) */}
         </section>

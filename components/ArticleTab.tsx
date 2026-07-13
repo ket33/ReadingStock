@@ -46,6 +46,22 @@ function extractHead(body: string): { title: string | null; rest: string } {
   return { title, rest: lines.slice(i).join("\n") };
 }
 
+/** 본문 끝의 이탤릭 디스클레이머 줄을 분리 — 하단에서 작게 렌더하기 위해 걷어낸다 */
+function extractTail(body: string): { body: string; disclaimer: string | null } {
+  const lines = body.split("\n");
+  let end = lines.length - 1;
+  while (end >= 0 && lines[end].trim() === "") end--;
+  const t = lines[end]?.trim() ?? "";
+  if (end >= 0 && t.startsWith("*") && t.endsWith("*") && !t.startsWith("**") && t.length > 2) {
+    const disclaimer = t.slice(1, -1).trim();
+    let i = end - 1;
+    // 디스클레이머 위의 '---'(hr)도 함께 걷어낸다 (하단 구분선 제거)
+    while (i >= 0 && (lines[i].trim() === "" || lines[i].trim() === "---")) i--;
+    return { body: lines.slice(0, i + 1).join("\n"), disclaimer };
+  }
+  return { body, disclaimer: null };
+}
+
 /** based_on("2025 FY + 2026 1Q TTM + 2026-07-03 주가 + …")에서 재무 기준만 남긴다 */
 function basedOnCore(basedOn: string | null): string | null {
   if (!basedOn) return null;
@@ -113,7 +129,8 @@ export default function ArticleTab({ article, charts, sector }: {
   }
 
   const { title, rest } = extractHead(article.body);
-  const parts = splitBody(rest);
+  const { body: mainBody, disclaimer } = extractTail(rest);
+  const parts = splitBody(mainBody);
   const created = new Date(article.created_at).toLocaleDateString("ko-KR", {
     year: "numeric", month: "long", day: "numeric",
   });
@@ -165,12 +182,14 @@ export default function ArticleTab({ article, charts, sector }: {
         )}
       </div>
 
-      {/* 근거 시점 — 재무 기준만 표기 */}
-      {core && (
-        <p className="mt-12 pt-6 border-t border-outline-variant text-xs text-outline">
-          데이터 기준: {core}
-        </p>
-      )}
+      {/* 하단: 디스클레이머(작게) + 데이터 기준 + AI 안내 — 구분선 없이 */}
+      <div className="mt-12 space-y-1.5">
+        {disclaimer && (
+          <p className="text-[12px] leading-relaxed text-outline italic">{disclaimer}</p>
+        )}
+        {core && <p className="text-xs text-outline">데이터 기준: {core}</p>}
+        <p className="text-xs text-outline">이 글은 AI가 자동으로 작성했습니다.</p>
+      </div>
     </div>
   );
 }

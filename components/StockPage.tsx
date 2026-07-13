@@ -12,10 +12,10 @@ import Logo from "./Logo";
 
 type TabKey = "article" | "summary" | "financials";
 
-const TABS: { key: TabKey; label: string; icon: string }[] = [
-  { key: "article", label: "분석글", icon: "analytics" },
-  { key: "summary", label: "요약", icon: "description" },
-  { key: "financials", label: "재무제표", icon: "account_balance_wallet" },
+const TABS: { key: TabKey; label: string }[] = [
+  { key: "article", label: "리포트" },
+  { key: "summary", label: "요약" },
+  { key: "financials", label: "재무제표" },
 ];
 
 export default function StockPage({ data }: { data: StockPageData }) {
@@ -81,13 +81,12 @@ export default function StockPage({ data }: { data: StockPageData }) {
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-sm text-sm font-medium transition-colors text-left ${
+                className={`w-full px-4 py-3 rounded-sm text-sm font-medium transition-colors text-left ${
                   tab === t.key
                     ? "bg-surface-container-high text-primary"
                     : "text-on-surface-variant hover:bg-surface-container-low"
                 }`}
               >
-                <span className="material-symbols-outlined text-[20px]">{t.icon}</span>
                 {t.label}
               </button>
             ))}
