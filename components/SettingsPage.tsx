@@ -4,12 +4,35 @@
 // 비밀번호 변경은 Supabase Auth updateUser 사용 (직접 구현 없음).
 // 구글 로그인 회원도 비밀번호를 만들면 이메일 로그인이 함께 가능해진다.
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { useAuth } from "./auth/AuthProvider";
 import SiteHeader from "./SiteHeader";
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { user, loading, openSignIn } = useAuth();
+  const [confirmDel, setConfirmDel] = useState(false);
+  const [delBusy, setDelBusy] = useState(false);
+  const [delErr, setDelErr] = useState<string | null>(null);
+
+  const deleteAccount = async () => {
+    if (delBusy) return;
+    setDelBusy(true); setDelErr(null);
+    const { data: { session } } = await supabaseBrowser().auth.getSession();
+    const res = await fetch("/api/account", {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${session?.access_token ?? ""}` },
+    });
+    if (res.ok) {
+      await supabaseBrowser().auth.signOut();
+      alert("회원 탈퇴가 완료되었어요. 이용해 주셔서 감사합니다.");
+      router.push("/");
+    } else {
+      setDelBusy(false);
+      setDelErr("탈퇴 처리에 실패했어요. 잠시 후 다시 시도해 주세요.");
+    }
+  };
   const [formOpen, setFormOpen] = useState(false);
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
@@ -106,6 +129,35 @@ export default function SettingsPage() {
                 <p className={`mt-3 sm:ml-[8.5rem] text-xs ${msg.ok ? "text-secondary" : "text-error"}`}>
                   {msg.text}
                 </p>
+              )}
+            </div>
+
+            {/* 회원 탈퇴 */}
+            <div className="px-6 py-5 border-t border-surface-container-high">
+              {!confirmDel ? (
+                <button
+                  onClick={() => { setConfirmDel(true); setDelErr(null); }}
+                  className="text-sm text-error hover:underline underline-offset-2"
+                >
+                  회원 탈퇴
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-on-surface">
+                    정말 탈퇴하시겠어요? <span className="text-error font-medium">계정과 Watching·지표 설정이 모두 삭제되며 되돌릴 수 없어요.</span>
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button onClick={deleteAccount} disabled={delBusy}
+                            className="px-4 py-2 rounded-full text-sm font-semibold bg-error text-white disabled:opacity-40">
+                      {delBusy ? "처리 중…" : "탈퇴하기"}
+                    </button>
+                    <button onClick={() => setConfirmDel(false)} disabled={delBusy}
+                            className="px-4 py-2 rounded-full text-sm font-medium text-on-surface-variant hover:text-primary">
+                      취소
+                    </button>
+                  </div>
+                  {delErr && <p className="text-xs text-error">{delErr}</p>}
+                </div>
               )}
             </div>
           </section>
