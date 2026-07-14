@@ -43,6 +43,10 @@ export const metadata: Metadata = {
   },
   description: SITE_SLOGAN,
   applicationName: SITE_NAME,
+  // 구글 서치 콘솔 소유권 확인 (HTML 태그 방식)
+  verification: {
+    google: "DD0v283WeLJkJ7-J1q5q_Yymrj8u7zy6eg6B5AA00gU",
+  },
   openGraph: {
     type: "website",
     siteName: SITE_NAME,
