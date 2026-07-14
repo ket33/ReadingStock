@@ -86,7 +86,7 @@ export default function StockPage({ data }: { data: StockPageData }) {
                       {" "}({change.pct > 0 ? "+" : ""}{change.pct.toFixed(2)}%)
                     </span>
                   )}
-                  <span className="text-xs text-outline">전일 종가</span>
+                  <span className="text-xs text-outline">종가</span>
                 </span>
               )}
             </div>

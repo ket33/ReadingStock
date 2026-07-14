@@ -1,10 +1,12 @@
-# 매일 아침 전일 종가 갱신 — scripts/update_prices_daily.py 실행
-# KST 평일 오전 8시 = UTC 일~목 23:00 (장 마감 다음날 아침, 휴장일은 7일 창으로 자동 보정)
+# 매일 저녁 당일 종가 갱신 — scripts/update_prices_daily.py 실행
+# KST 평일 18시·20시 = UTC 월~금 09:00·11:00 (장 마감 15:30 이후.
+#  20시 실행은 데이터원 지연 대비 이중화 — upsert라 중복 무해, 휴장일은 7일 창으로 자동 보정)
 name: daily-prices
 
 on:
   schedule:
-    - cron: "0 23 * * 0-4"
+    - cron: "0 9 * * 1-5"
+    - cron: "0 11 * * 1-5"
   workflow_dispatch: {}   # 수동 실행 버튼 (테스트용)
 
 jobs:
