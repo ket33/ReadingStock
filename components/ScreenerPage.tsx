@@ -235,9 +235,9 @@ const METRICS: MetricDef[] = [
   { key: "ret_1y",  label: "1년",  cat: "수익률", fmt: "ret", unit: "%", mult: 1,
     d: "1년 전 대비 등락률", u: "최근 1년 성과", p: RET_P },
   { key: "ret_5y",  label: "5년",  cat: "수익률", fmt: "ret", unit: "%", mult: 1,
-    d: "5년 전 대비 등락률", u: "장기 성과 — 분할·증자 미반영 주의", p: RET_P },
+    d: "5년 전 대비 등락률 (수정주가 기준)", u: "장기 성과", p: RET_P },
   { key: "ret_10y", label: "10년", cat: "수익률", fmt: "ret", unit: "%", mult: 1,
-    d: "10년 전 대비 등락률", u: "초장기 성과 — 분할·증자 미반영 주의", p: RET_P },
+    d: "10년 전 대비 등락률 (수정주가 기준)", u: "기업의 초장기 주가 여정", p: RET_P },
 ];
 
 const BY_KEY = new Map(METRICS.map(m => [m.key as string, m]));
@@ -800,8 +800,8 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
           <p className="mt-3 text-[11px] text-outline leading-relaxed">
             * 재무 지표는 최신 분기 TTM(최근 4개 분기 합) 기준, 밸류에이션은 {priceDate ?? "최근"} 종가로 환산.
             PER 등 밸류에이션 배수는 적자면 &lsquo;적자&rsquo;로 표시하고 필터에서 제외.
-            성장률 YoY·CAGR은 비교 시점이 적자면 표시하지 않음. 수익률은 종가 기준(수정주가 아님 —
-            분할·증자 반영 안 됨). 금융사는 매출액·유동비율 등 일부 지표가 없을 수 있음.
+            성장률 YoY·CAGR은 비교 시점이 적자면 표시하지 않음. 수익률은 수정주가 기준
+            가격수익률(분할·증자 반영, 배당 미반영). 금융사는 매출액·유동비율 등 일부 지표가 없을 수 있음.
             구간 프리셋은 참고용 가이드일 뿐 투자 기준이 아닙니다.
           </p>
         </div>
