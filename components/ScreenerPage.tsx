@@ -13,6 +13,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ScreenerRow } from "@/lib/screener-data";
 import SiteHeader from "./SiteHeader";
+import SiteFooter from "./SiteFooter";
 
 import { type Fmt, type Preset, type MetricDef, CATS, METRICS, BY_KEY, fmtCell } from "@/lib/metrics-catalog";
 
@@ -565,16 +566,7 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
       )}
 
       {/* 푸터 (홈과 동일) */}
-      <footer className="bg-surface-container-low border-t border-outline-variant">
-        <div className="max-w-[1280px] mx-auto py-12 px-4 md:px-10">
-          <span className="font-serif text-lg font-bold text-primary mb-3 block">Reading Stock</span>
-          <p className="text-sm text-on-surface-variant max-w-xl leading-relaxed">
-            본 정보는 투자 판단의 참고 자료이며 매수·매도 권유가 아닙니다.
-            <br />
-            모든 콘텐츠는 공개 데이터를 바탕으로 자동 생성되며, 투자 결정과 책임은 본인에게 있습니다.
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </>
   );
 }

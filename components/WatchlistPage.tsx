@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { useAuth } from "./auth/AuthProvider";
 import SiteHeader from "./SiteHeader";
+import SiteFooter from "./SiteFooter";
 import { formatKrw } from "@/lib/format";
 
 interface Row {
@@ -111,6 +112,7 @@ export default function WatchlistPage() {
           </div>
         )}
       </main>
+      <SiteFooter />
     </>
   );
 }

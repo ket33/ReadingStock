@@ -7,6 +7,7 @@ import ArticleTab from "./ArticleTab";
 import SummaryTab from "./SummaryTab";
 import FinancialsTab from "./FinancialsTab";
 import SiteHeader from "./SiteHeader";
+import SiteFooter from "./SiteFooter";
 import StockMetrics from "./StockMetrics";
 import WatchButton from "./auth/WatchButton";
 
@@ -149,18 +150,7 @@ export default function StockPage({ data }: { data: StockPageData }) {
         </article>
       </main>
 
-      {/* 푸터 (디자인 축약) */}
-      <footer className="bg-primary text-on-primary py-10 px-10">
-        <div className="max-w-[1280px] mx-auto text-center space-y-3">
-          <div className="font-serif text-lg">Reading Stock</div>
-          <p className="text-xs text-on-primary-container max-w-xl mx-auto leading-relaxed">
-            본 사이트의 모든 콘텐츠는 공개 데이터를 바탕으로 자동 생성된 참고 자료이며,
-            투자 권유가 아닙니다.
-            <br />
-            투자 판단과 책임은 본인에게 있습니다.
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </>
   );
 }

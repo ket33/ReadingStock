@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { useAuth } from "./auth/AuthProvider";
 import SiteHeader from "./SiteHeader";
+import SiteFooter from "./SiteFooter";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -163,6 +164,7 @@ export default function SettingsPage() {
           </section>
         )}
       </main>
+      <SiteFooter />
     </>
   );
 }
