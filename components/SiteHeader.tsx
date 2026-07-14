@@ -29,15 +29,19 @@ export default function SiteHeader() {
         <div className="md:hidden" /> {/* 모바일: 중앙 빈 칸 (로고|공간|아이콘들) */}
 
         <div className="justify-self-end md:mr-8 flex items-center gap-3 md:gap-6">
-          {/* 모바일: 검색 토글 아이콘 */}
-          <button
-            onClick={() => setSearchOpen(o => !o)}
-            aria-label={searchOpen ? "검색 닫기" : "종목 검색"}
-            className="md:hidden material-symbols-outlined text-[24px] text-on-surface-variant
-                       hover:text-primary transition-colors"
-          >
-            {searchOpen ? "close" : "search"}
-          </button>
+          {/* 모바일: 검색 토글 아이콘
+              ※ 반응형 숨김은 래퍼에 — .material-symbols-outlined의 display:inline-block(전역 CSS,
+                unlayered)이 Tailwind 유틸리티(hidden)의 display:none을 덮어쓰기 때문 */}
+          <span className="md:hidden flex items-center">
+            <button
+              onClick={() => setSearchOpen(o => !o)}
+              aria-label={searchOpen ? "검색 닫기" : "종목 검색"}
+              className="material-symbols-outlined text-[24px] text-on-surface-variant
+                         hover:text-primary transition-colors"
+            >
+              {searchOpen ? "close" : "search"}
+            </button>
+          </span>
           <Link href="/screener"
                 className="hidden sm:block text-[15px] font-medium text-on-surface-variant hover:text-primary transition-colors">
             Picking
@@ -46,15 +50,17 @@ export default function SiteHeader() {
                 className="hidden sm:block text-[15px] font-medium text-on-surface-variant hover:text-primary transition-colors">
             Watching
           </Link>
-          {/* 모바일: 텍스트 메뉴 대신 아이콘 */}
-          <Link href="/screener" aria-label="Picking — 종목 골라보기"
-                className="sm:hidden material-symbols-outlined text-[22px] text-on-surface-variant hover:text-primary transition-colors">
-            filter_list
-          </Link>
-          <Link href="/watchlist" aria-label="Watching — 담아둔 종목"
-                className="sm:hidden material-symbols-outlined text-[22px] text-on-surface-variant hover:text-primary transition-colors">
-            star
-          </Link>
+          {/* 모바일: 텍스트 메뉴 대신 아이콘 (숨김은 래퍼에 — 위 주석 참고) */}
+          <span className="sm:hidden flex items-center gap-3">
+            <Link href="/screener" aria-label="Picking — 종목 골라보기"
+                  className="material-symbols-outlined text-[22px] text-on-surface-variant hover:text-primary transition-colors">
+              filter_list
+            </Link>
+            <Link href="/watchlist" aria-label="Watching — 담아둔 종목"
+                  className="material-symbols-outlined text-[22px] text-on-surface-variant hover:text-primary transition-colors">
+              star
+            </Link>
+          </span>
           <AuthButton />
         </div>
       </div>
