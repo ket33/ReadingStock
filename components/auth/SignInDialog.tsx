@@ -44,11 +44,15 @@ export default function SignInDialog({ onClose }: { onClose: () => void }) {
   };
 
   const google = async () => {
-    if (!required || busy) return;
+    if (busy) return;
     setBusy(true); setError(null);
-    localStorage.setItem(CONSENT_KEY, JSON.stringify({
-      at: new Date().toISOString(), marketing,
-    }));
+    // 회원가입 탭에서 필수 동의를 이미 체크했으면 그 값을 전달(리다이렉트 후 기록).
+    // 아니면 남기지 않아, 신규 회원은 로그인 후 ConsentGate에서 동의를 받는다.
+    if (required) {
+      localStorage.setItem(CONSENT_KEY, JSON.stringify({ at: new Date().toISOString(), marketing }));
+    } else {
+      localStorage.removeItem(CONSENT_KEY);
+    }
     const { error } = await supabaseBrowser().auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: window.location.origin + window.location.pathname },
@@ -198,10 +202,11 @@ export default function SignInDialog({ onClose }: { onClose: () => void }) {
           <span className="flex-1 border-t border-outline-variant" />
         </div>
 
-        {/* Google — 첫 로그인이 곧 가입이므로 회원가입 탭의 동의를 요구 */}
+        {/* Google — 로그인/가입 구분 없이 바로 진행. 신규 회원의 최초 동의는
+            로그인 후 ConsentGate가 받으므로, 여기선 탭 전환 없이 즉시 로그인한다. */}
         <button
-          onClick={mode === "signup" ? google : () => { setMode("signup"); setNotice("Google 시작은 아래 동의 후 눌러주세요."); }}
-          disabled={busy || (mode === "signup" && !required)}
+          onClick={google}
+          disabled={busy}
           className="w-full py-3 rounded-xl text-sm font-semibold transition-opacity
                      bg-white border border-outline-variant text-on-surface disabled:opacity-40"
         >

@@ -7,6 +7,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import SignInDialog from "./SignInDialog";
+import ConsentGate from "./ConsentGate";
 
 interface AuthCtx {
   user: User | null;
@@ -37,20 +38,22 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     });
     const { data: sub } = sb.auth.onAuthStateChange(async (event, session) => {
       setUser(session?.user ?? null);
-      // 첫 로그인: 다이얼로그에서 받아둔 동의를 계정 메타데이터에 기록
+      // 이메일 가입 등에서 리다이렉트 전 받아둔 동의가 있으면 계정 메타에 기록.
+      // (소셜 로그인 신규 회원은 이게 없어도 아래 ConsentGate가 최초 동의를 받는다)
       if (event === "SIGNED_IN" && session?.user) {
         const pending = localStorage.getItem(CONSENT_KEY);
         const meta = session.user.user_metadata ?? {};
         if (pending && !meta.terms_agreed_at) {
           try {
             const c = JSON.parse(pending);
-            await sb.auth.updateUser({
+            const { data } = await sb.auth.updateUser({
               data: {
-                terms_agreed_at: c.at,          // 이용약관·개인정보 동의 시각
-                age14_confirmed: true,           // 만 14세 이상 확인
-                marketing_opt_in: !!c.marketing, // (선택) 마케팅 수신 동의
+                terms_agreed_at: c.at,
+                age14_confirmed: true,
+                marketing_opt_in: !!c.marketing,
               },
             });
+            if (data.user) setUser(data.user);
           } catch { /* 메타 기록 실패는 로그인 자체를 막지 않음 */ }
         }
         localStorage.removeItem(CONSENT_KEY);
@@ -63,10 +66,19 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     await supabaseBrowser().auth.signOut();
   };
 
+  // 로그인은 됐지만 동의 기록이 없는 계정(주로 신규 소셜 로그인) → 동의 게이트
+  const needsConsent = !!user && !user.user_metadata?.terms_agreed_at;
+
   return (
     <Ctx.Provider value={{ user, loading, openSignIn: () => setDialogOpen(true), signOut }}>
       {children}
       {dialogOpen && <SignInDialog onClose={() => setDialogOpen(false)} />}
+      {needsConsent && (
+        <ConsentGate
+          onDone={() => supabaseBrowser().auth.getUser().then(({ data }) => setUser(data.user))}
+          onCancel={signOut}
+        />
+      )}
     </Ctx.Provider>
   );
 }
