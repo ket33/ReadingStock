@@ -439,8 +439,8 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
         <div className="max-w-[1280px] mx-auto px-4 md:px-10 pt-10 pb-16">
           {/* 제목 — 홈 히어로 한글 문구와 같은 톤(sans·medium·tracking-tight), 가운데 정렬 */}
           <div className="mb-8 text-center">
-            <h1 className="font-sans text-2xl md:text-3xl font-medium tracking-tight text-primary mb-2">
-              종목 골라보기
+            <h1 className="font-sans text-2xl md:text-3xl font-semibold tracking-tight text-primary mb-2">
+              Picking <span className="text-lg md:text-xl font-medium text-on-surface-variant">종목 골라보기</span>
             </h1>
             <p className="text-sm text-on-surface-variant">
               내가 원하는 조건에 맞는 종목을 골라보세요.

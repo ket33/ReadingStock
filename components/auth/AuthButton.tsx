@@ -35,7 +35,7 @@ export default function AuthButton() {
     return (
       <button
         onClick={openSignIn}
-        className="px-6 py-2.5 rounded-full text-[15px] font-semibold bg-primary text-on-primary
+        className="px-6 py-1.5 rounded-full text-[15px] font-semibold bg-primary text-on-primary
                    border-2 border-primary hover:bg-white hover:text-primary transition-colors shadow-sm"
       >
         Login

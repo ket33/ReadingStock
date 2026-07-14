@@ -16,14 +16,14 @@ export default function SiteHeader() {
         <div className="justify-self-center">
           <SearchBox size="small" />
         </div>
-        <div className="justify-self-end mr-2 md:mr-8 flex items-center gap-5">
+        <div className="justify-self-end mr-2 md:mr-8 flex items-center gap-6">
           <Link href="/screener"
-                className="hidden sm:block text-sm font-medium text-on-surface-variant hover:text-primary transition-colors">
-            골라보기
+                className="hidden sm:block text-[15px] font-medium text-on-surface-variant hover:text-primary transition-colors">
+            Picking
           </Link>
           <Link href="/watchlist"
-                className="hidden sm:block text-sm font-medium text-on-surface-variant hover:text-primary transition-colors">
-            워치리스트
+                className="hidden sm:block text-[15px] font-medium text-on-surface-variant hover:text-primary transition-colors">
+            Watching
           </Link>
           <AuthButton />
         </div>

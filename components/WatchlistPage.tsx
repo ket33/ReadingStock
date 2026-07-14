@@ -64,7 +64,9 @@ export default function WatchlistPage() {
       <SiteHeader />
 
       <main className="flex-grow max-w-[820px] mx-auto w-full px-4 md:px-10 py-10">
-        <h1 className="font-sans text-2xl font-medium tracking-tight text-primary mb-1">내 관심종목</h1>
+        <h1 className="font-sans text-2xl md:text-3xl font-semibold tracking-tight text-primary mb-1">
+          Watching <span className="text-lg md:text-xl font-medium text-on-surface-variant">담아둔 종목</span>
+        </h1>
         <p className="text-sm text-on-surface-variant mb-8">종목 페이지에서 ☆ 를 누르면 여기에 모여요.</p>
 
         {loading ? null : !user ? (

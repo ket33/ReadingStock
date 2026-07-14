@@ -19,8 +19,8 @@ const SORTS: { key: SortKey; label: string }[] = [
 
 // 빠른 이동 칩 — 구현된 것만 링크, 나머지는 비활성 + 준비 중 표시 (지시서)
 const CHIPS: { icon: string; label: string; href?: string }[] = [
-  { icon: "filter_list", label: "골라보기", href: "/screener" },
-  { icon: "star", label: "워치리스트", href: "/watchlist" },
+  { icon: "filter_list", label: "Picking", href: "/screener" },
+  { icon: "star", label: "Watching", href: "/watchlist" },
   { icon: "business", label: "산업별" },
 ];
 
