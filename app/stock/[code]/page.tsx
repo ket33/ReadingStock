@@ -1,15 +1,57 @@
+import { cache } from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getStockPageData } from "@/lib/data";
+import { articleDescription, SITE_URL, SITE_NAME, SITE_SLOGAN, OG_IMAGE } from "@/lib/seo";
 import StockPage from "@/components/StockPage";
 
 // 5분마다 재검증 (주가·글이 갱신되면 반영)
 export const revalidate = 300;
 
+// generateMetadata와 페이지가 같은 요청에서 DB를 두 번 치지 않도록 캐시로 감싼다
+const loadStock = cache(getStockPageData);
+
+export async function generateMetadata({ params }: {
+  params: Promise<{ code: string }>;
+}): Promise<Metadata> {
+  const { code } = await params;
+  const data = await loadStock(code);
+  if (!data) return {}; // 없는 종목은 notFound가 처리 — 기본 메타 유지
+
+  const { company, article } = data;
+  const title = `${company.name} (${company.stock_code}) 기업 분석`;
+  const description =
+    (article?.body ? articleDescription(article.body) : null) ??
+    `${company.name}(${company.stock_code})의 재무제표·실적·밸류에이션을 쉽게 풀어드려요. ${SITE_SLOGAN}`;
+  const url = `${SITE_URL}/stock/${company.stock_code}`;
+
+  return {
+    title, // 문서 제목: "…기업 분석 - Reading Stock" (layout 템플릿 적용)
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      type: "article",
+      siteName: SITE_NAME,
+      locale: "ko_KR",
+      url,
+      title: `${title} - ${SITE_NAME}`,
+      description,
+      images: [OG_IMAGE],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} - ${SITE_NAME}`,
+      description,
+      images: [OG_IMAGE.url],
+    },
+  };
+}
+
 export default async function Page({ params }: {
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const data = await getStockPageData(code);
+  const data = await loadStock(code);
   if (!data) notFound();
 
   return (
