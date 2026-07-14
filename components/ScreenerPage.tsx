@@ -452,9 +452,6 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
             </h1>
             <p className="text-sm text-on-surface-variant">
               내가 원하는 조건에 맞는 종목을 골라보세요.
-              {priceDate && (
-                <span className="text-outline"> · {priceDate} 종가, 최신 분기 TTM 기준</span>
-              )}
             </p>
           </div>
 
@@ -796,14 +793,15 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
             </table>
           </div>
 
-          {/* 기준 설명 */}
-          <p className="mt-3 text-[11px] text-outline leading-relaxed">
-            * 재무 지표는 최신 분기 TTM(최근 4개 분기 합) 기준, 밸류에이션은 {priceDate ?? "최근"} 종가로 환산.
-            PER 등 밸류에이션 배수는 적자면 &lsquo;적자&rsquo;로 표시하고 필터에서 제외.
-            성장률 YoY·CAGR은 비교 시점이 적자면 표시하지 않음. 수익률은 수정주가 기준
-            가격수익률(분할·증자 반영, 배당 미반영). 금융사는 매출액·유동비율 등 일부 지표가 없을 수 있음.
-            구간 프리셋은 참고용 가이드일 뿐 투자 기준이 아닙니다.
-          </p>
+          {/* 기준 설명 — 문장마다 한 줄 */}
+          <div className="mt-3 text-[11px] text-outline leading-relaxed space-y-0.5">
+            <p>* 재무 지표는 최신 분기 TTM(최근 4개 분기 합) 기준, 밸류에이션은 {priceDate ?? "최근"} 종가로 환산.</p>
+            <p>* PER 등 밸류에이션 배수는 적자면 &lsquo;적자&rsquo;로 표시하고 필터에서 제외.</p>
+            <p>* 성장률 YoY·CAGR은 비교 시점이 적자면 표시하지 않음.</p>
+            <p>* 수익률은 수정주가 기준 가격수익률(분할·증자 반영, 배당 미반영).</p>
+            <p>* 금융사는 매출액·유동비율 등 일부 지표가 없을 수 있음.</p>
+            <p>* 구간 프리셋은 참고용 가이드일 뿐 투자 기준이 아닙니다.</p>
+          </div>
         </div>
       </main>
 
