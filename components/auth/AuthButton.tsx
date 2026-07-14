@@ -9,7 +9,7 @@ import { useAuth } from "./AuthProvider";
 function AvatarIcon() {
   return (
     <svg width="34" height="34" viewBox="0 0 40 40" aria-hidden>
-      <circle cx="20" cy="20" r="19" fill="var(--color-surface-container-high)" />
+      <circle cx="20" cy="20" r="19" fill="var(--color-surface)" />
       <circle cx="20" cy="16" r="6" fill="var(--color-primary)" />
       <path d="M8.5 33.5a11.5 11.5 0 0 1 23 0" fill="var(--color-primary)" />
     </svg>
