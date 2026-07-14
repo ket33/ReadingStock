@@ -9,6 +9,8 @@ import SummaryTab from "./SummaryTab";
 import FinancialsTab from "./FinancialsTab";
 import SearchBox from "./SearchBox";
 import Logo from "./Logo";
+import AuthButton from "./auth/AuthButton";
+import WatchButton from "./auth/WatchButton";
 
 type TabKey = "article" | "summary" | "financials";
 
@@ -52,9 +54,12 @@ export default function StockPage({ data }: { data: StockPageData }) {
           <div className="justify-self-center">
             <SearchBox size="small" />
           </div>
-          <span className="text-xs text-on-surface-variant hidden md:block justify-self-end">
-            당신의 투자를, 당신이 이해하도록
-          </span>
+          <div className="justify-self-end flex items-center gap-3">
+            <span className="text-xs text-on-surface-variant hidden xl:block">
+              당신의 투자를, 당신이 이해하도록
+            </span>
+            <AuthButton />
+          </div>
         </div>
       </header>
 
@@ -97,6 +102,9 @@ export default function StockPage({ data }: { data: StockPageData }) {
               {price.date && <span className="text-xs text-outline ml-2">({price.date} 기준)</span>}
             </span>
           )}
+          <span className="ml-auto">
+            <WatchButton stockCode={company.stock_code} />
+          </span>
         </div>
       </div>
 

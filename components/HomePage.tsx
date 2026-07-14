@@ -7,6 +7,7 @@ import type { StockCard } from "@/lib/home-data";
 import { formatKrw, formatMetric } from "@/lib/format";
 import SearchBox from "./SearchBox";
 import Logo from "./Logo";
+import AuthButton from "./auth/AuthButton";
 
 type SortKey = "random" | "marketCap" | "latest";
 
@@ -19,7 +20,7 @@ const SORTS: { key: SortKey; label: string }[] = [
 // 빠른 이동 칩 — 구현된 것만 링크, 나머지는 비활성 + 준비 중 표시 (지시서)
 const CHIPS: { icon: string; label: string; href?: string }[] = [
   { icon: "filter_list", label: "골라보기", href: "/screener" },
-  { icon: "star", label: "워치리스트" },
+  { icon: "star", label: "워치리스트", href: "/watchlist" },
   { icon: "business", label: "산업별" },
 ];
 
@@ -94,8 +95,11 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
       <nav className="bg-surface border-b border-outline-variant sticky top-0 z-50 h-20 flex items-center">
         <div className="flex justify-between items-center w-full px-4 md:px-10 max-w-[1280px] mx-auto">
           <Logo mark={32} text={21} />
-          <div className="hidden lg:block">
-            <SearchBox size="small" />
+          <div className="flex items-center gap-3">
+            <div className="hidden lg:block">
+              <SearchBox size="small" />
+            </div>
+            <AuthButton />
           </div>
         </div>
       </nav>

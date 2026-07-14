@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, IBM_Plex_Serif, Noto_Sans_KR, Noto_Serif_KR } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import AuthProvider from "@/components/auth/AuthProvider";
+import { SITE_URL, SITE_NAME, SITE_SLOGAN } from "@/lib/seo";
 import "./globals.css";
 
 // 원 디자인 폰트(영문·숫자) — Inter / IBM Plex Serif
@@ -33,8 +35,28 @@ const notoSerifKR = Noto_Serif_KR({
 // (Shantell은 가변폰트라 next/font가 라틴 글자 범위를 U+??로 손상시켜 로고가 렌더 안 됨 — 실측)
 
 export const metadata: Metadata = {
-  title: "Reading Stock",
-  description: "당신의 투자를, 당신이 이해하도록 도와드려요",
+  // 모든 상대경로(OG 이미지 등)를 이 주소 기준 절대주소로 만든다
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_NAME,                 // 홈: "Reading Stock"
+    template: `%s - ${SITE_NAME}`,       // 하위 페이지: "…제목… - Reading Stock"
+  },
+  description: SITE_SLOGAN,
+  applicationName: SITE_NAME,
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "ko_KR",
+    url: SITE_URL,
+    title: SITE_NAME,
+    description: SITE_SLOGAN,
+    // og 이미지는 app/opengraph-image.tsx가 자동으로 추가한다(모든 페이지 공통)
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_NAME,
+    description: SITE_SLOGAN,
+  },
 };
 
 export default function RootLayout({
@@ -56,7 +78,7 @@ export default function RootLayout({
         href="https://fonts.googleapis.com/css2?family=Shantell+Sans:wght@500;600;700&display=swap"
       />
       <body className="min-h-full flex flex-col">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
         <Analytics />
       </body>
     </html>
