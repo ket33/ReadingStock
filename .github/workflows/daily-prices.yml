@@ -1,6 +1,9 @@
-# 매일 저녁 당일 종가 갱신 — scripts/update_prices_daily.py 실행
+# 매일 저녁 당일 종가 + 스크리너 스냅샷 갱신
+#   1) update_prices_daily.py   — 종가 upsert (수정주가 재조정 감지 시 전체 재적재)
+#   2) update_screener_daily.py — 골라보기 표(현재가 환산 밸류에이션·수익률) 갱신
 # KST 평일 18시·20시 = UTC 월~금 09:00·11:00 (장 마감 15:30 이후.
 #  20시 실행은 데이터원 지연 대비 이중화 — upsert라 중복 무해, 휴장일은 7일 창으로 자동 보정)
+# ※ metrics(TTM 지표) 자체는 분기 공시가 떠야 바뀜 → 루트 파이프라인(run_all.py) 소관
 name: daily-prices
 
 on:
@@ -28,3 +31,11 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python scripts/update_prices_daily.py
+
+      # 주가가 실패해도 스냅샷은 어제 주가 기준으로라도 갱신되도록 always()
+      - name: Update screener snapshot
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python scripts/update_screener_daily.py
