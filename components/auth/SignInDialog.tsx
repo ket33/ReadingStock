@@ -110,8 +110,8 @@ export default function SignInDialog({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4"
          role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-7 max-h-[90vh] overflow-y-auto">
+      <div className="absolute inset-0 bg-black/40 rs-fade-in" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-7 max-h-[90vh] overflow-y-auto rs-pop-in">
         <button onClick={onClose} aria-label="닫기"
                 className="absolute top-4 right-4 text-outline hover:text-primary text-xl leading-none">
           ×

@@ -92,3 +92,10 @@ body {
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
   vertical-align: middle;
 }
+
+/* 다이얼로그 등장 애니메이션 (로그인 창 등) */
+@keyframes rs-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rs-pop  { from { opacity: 0; transform: translateY(10px) scale(0.97); }
+                     to   { opacity: 1; transform: none; } }
+.rs-fade-in { animation: rs-fade 0.2s ease-out; }
+.rs-pop-in  { animation: rs-pop 0.25s ease-out; }

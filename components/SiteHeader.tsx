@@ -15,7 +15,7 @@ export default function SiteHeader() {
         <div className="justify-self-center">
           <SearchBox size="small" />
         </div>
-        <div className="justify-self-end">
+        <div className="justify-self-end mr-2 md:mr-8">
           <AuthButton />
         </div>
       </div>
