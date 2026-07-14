@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# python (scripts/ 실행 부산물)
+__pycache__/
+*.pyc
