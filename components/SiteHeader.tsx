@@ -1,6 +1,7 @@
 "use client";
 
 // 공통 상단 헤더 — 모든 페이지 동일: 로고(좌) | 종목 검색(중앙) | Login(우)
+import Link from "next/link";
 import Logo from "./Logo";
 import SearchBox from "./SearchBox";
 import AuthButton from "./auth/AuthButton";
@@ -15,7 +16,15 @@ export default function SiteHeader() {
         <div className="justify-self-center">
           <SearchBox size="small" />
         </div>
-        <div className="justify-self-end mr-2 md:mr-8">
+        <div className="justify-self-end mr-2 md:mr-8 flex items-center gap-5">
+          <Link href="/screener"
+                className="hidden sm:block text-sm font-medium text-on-surface-variant hover:text-primary transition-colors">
+            골라보기
+          </Link>
+          <Link href="/watchlist"
+                className="hidden sm:block text-sm font-medium text-on-surface-variant hover:text-primary transition-colors">
+            워치리스트
+          </Link>
           <AuthButton />
         </div>
       </div>

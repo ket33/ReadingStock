@@ -1,9 +1,20 @@
 "use client";
 
-// 헤더 Sign In 버튼 — 로그인 전: "시작하기", 후: 이메일 + 관심종목/로그아웃 메뉴
+// 헤더 로그인 영역 — 로그인 전: Login 버튼 / 후: 아바타(사람 아이콘) + Setting·Logout 메뉴
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "./AuthProvider";
+
+/** 회원 아바타 — 원 안의 사람 실루엣 (폰트 의존 없는 인라인 SVG) */
+function AvatarIcon() {
+  return (
+    <svg width="34" height="34" viewBox="0 0 40 40" aria-hidden>
+      <circle cx="20" cy="20" r="19" fill="var(--color-primary)" />
+      <circle cx="20" cy="16" r="6" fill="white" />
+      <path d="M8.5 33.5a11.5 11.5 0 0 1 23 0" fill="white" />
+    </svg>
+  );
+}
 
 export default function AuthButton() {
   const { user, loading, openSignIn, signOut } = useAuth();
@@ -25,39 +36,40 @@ export default function AuthButton() {
       <button
         onClick={openSignIn}
         className="px-6 py-2.5 rounded-full text-[15px] font-semibold bg-primary text-on-primary
-                   hover:opacity-90 transition-opacity shadow-sm"
+                   border-2 border-primary hover:bg-white hover:text-primary transition-colors shadow-sm"
       >
         Login
       </button>
     );
   }
 
-  const email = user.email ?? "회원";
   return (
     <div ref={boxRef} className="relative">
       <button
         onClick={() => setMenuOpen(o => !o)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm border border-outline-variant
-                   text-on-surface-variant hover:text-primary transition-colors bg-white max-w-[180px]"
+        aria-label="내 계정"
+        className="block rounded-full hover:opacity-85 transition-opacity"
       >
-        <span className="truncate">{email}</span>
-        <span className="text-[10px] text-outline">▾</span>
+        <AvatarIcon />
       </button>
       {menuOpen && (
-        <div className="absolute right-0 mt-1.5 w-44 bg-white border border-outline-variant rounded-xl shadow-lg
-                        overflow-hidden z-[60] text-sm">
+        <div className="absolute right-0 mt-2 w-48 bg-white border border-outline-variant rounded-xl shadow-lg
+                        overflow-hidden z-[60] text-sm rs-pop-in">
+          <div className="px-4 py-2.5 text-xs text-outline border-b border-outline-variant truncate">
+            {user.email}
+          </div>
           <Link
-            href="/watchlist"
+            href="/settings"
             onClick={() => setMenuOpen(false)}
             className="block px-4 py-2.5 text-on-surface hover:bg-surface-container-low"
           >
-            ★ 내 관심종목
+            Setting
           </Link>
           <button
             onClick={async () => { setMenuOpen(false); await signOut(); }}
             className="block w-full text-left px-4 py-2.5 text-on-surface-variant hover:bg-surface-container-low"
           >
-            로그아웃
+            Logout
           </button>
         </div>
       )}
