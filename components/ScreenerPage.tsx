@@ -13,8 +13,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ScreenerRow } from "@/lib/screener-data";
 import { formatKrw } from "@/lib/format";
-import SearchBox from "./SearchBox";
-import Logo from "./Logo";
+import SiteHeader from "./SiteHeader";
 
 // ── 지표 카탈로그 (필터·컬럼·표기의 단일 원천) ─────────────────
 // fmt: krw=조/억 표기, pct=%, x=배, won=원, turn=회,
@@ -434,14 +433,7 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
   return (
     <>
       {/* 상단 네비 (홈과 동일 패턴) */}
-      <nav className="bg-surface border-b border-outline-variant sticky top-0 z-50 h-20 flex items-center">
-        <div className="flex justify-between items-center w-full px-4 md:px-10 max-w-[1280px] mx-auto">
-          <Logo mark={32} text={21} />
-          <div className="hidden lg:block">
-            <SearchBox size="small" />
-          </div>
-        </div>
-      </nav>
+      <SiteHeader />
 
       <main className="flex-grow bg-surface-container-lowest">
         <div className="max-w-[1280px] mx-auto px-4 md:px-10 pt-10 pb-16">

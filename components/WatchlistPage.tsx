@@ -5,9 +5,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { useAuth } from "./auth/AuthProvider";
-import AuthButton from "./auth/AuthButton";
-import Logo from "./Logo";
-import SearchBox from "./SearchBox";
+import SiteHeader from "./SiteHeader";
 import { formatKrw } from "@/lib/format";
 
 interface Row {
@@ -63,13 +61,7 @@ export default function WatchlistPage() {
 
   return (
     <>
-      <nav className="bg-surface border-b border-outline-variant sticky top-0 z-50 h-16 flex items-center">
-        <div className="flex justify-between items-center w-full px-4 md:px-10 max-w-[1280px] mx-auto gap-4">
-          <Logo mark={28} text={19} />
-          <div className="hidden md:block"><SearchBox size="small" /></div>
-          <AuthButton />
-        </div>
-      </nav>
+      <SiteHeader />
 
       <main className="flex-grow max-w-[820px] mx-auto w-full px-4 md:px-10 py-10">
         <h1 className="font-sans text-2xl font-medium tracking-tight text-primary mb-1">내 관심종목</h1>

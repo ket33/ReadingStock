@@ -27,7 +27,7 @@ export default function AuthButton() {
         className="px-4 py-1.5 rounded-full text-sm font-medium border border-outline-variant
                    text-on-surface-variant hover:text-primary hover:border-primary transition-colors bg-white"
       >
-        시작하기
+        Login
       </button>
     );
   }

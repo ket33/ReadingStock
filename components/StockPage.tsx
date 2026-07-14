@@ -7,9 +7,7 @@ import { formatKrw } from "@/lib/format";
 import ArticleTab from "./ArticleTab";
 import SummaryTab from "./SummaryTab";
 import FinancialsTab from "./FinancialsTab";
-import SearchBox from "./SearchBox";
-import Logo from "./Logo";
-import AuthButton from "./auth/AuthButton";
+import SiteHeader from "./SiteHeader";
 import WatchButton from "./auth/WatchButton";
 
 type TabKey = "article" | "summary" | "financials";
@@ -45,23 +43,7 @@ export default function StockPage({ data }: { data: StockPageData }) {
 
   return (
     <>
-      {/* 상단 네비게이션 (디자인의 TopNavBar) — 로고=홈 링크, 가운데 종목 검색 */}
-      <header className="bg-surface border-b border-outline-variant sticky top-0 z-50 h-16 flex items-center">
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center w-full px-4 md:px-10 max-w-[1280px] mx-auto h-full gap-4">
-          <div className="justify-self-start">
-            <Logo mark={28} text={19} />
-          </div>
-          <div className="justify-self-center">
-            <SearchBox size="small" />
-          </div>
-          <div className="justify-self-end flex items-center gap-3">
-            <span className="text-xs text-on-surface-variant hidden xl:block">
-              당신의 투자를, 당신이 이해하도록
-            </span>
-            <AuthButton />
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       {/* 종목 헤더 (모든 탭 공통) */}
       <div className="bg-white border-b border-outline-variant">
