@@ -70,9 +70,10 @@ export default function SearchBox({ size = "small" }: { size?: "small" | "large"
 
   return (
     <div ref={boxRef} className={`relative ${isLarge ? "max-w-2xl mx-auto" : "w-72"}`}>
-      <div className={`flex items-center bg-white border border-outline-variant transition-all rounded-full
+      <div className={`flex items-center bg-white transition-all rounded-full
                        focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10
-                       ${isLarge ? "shadow-sm" : ""}`}>
+                       ${isLarge ? "border border-outline-variant shadow-sm"
+                                 : "border-2 border-primary/35 shadow-[0_2px_8px_rgba(4,22,39,0.10)]"}`}>
         <span className={`material-symbols-outlined text-on-surface-variant ${isLarge ? "ml-6" : "ml-3 text-[20px]"}`}>
           search
         </span>

@@ -605,12 +605,12 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
             >
               {/* 배경 딤 — 클릭하면 닫기 */}
               <div
-                className="fixed inset-0 bg-primary/40"
+                className="fixed inset-0 bg-primary/40 rs-fade-in"
                 onClick={() => setPickerOpen(false)}
               />
               <div className="relative min-h-full flex items-start md:items-center justify-center p-4 md:p-8">
                 <div className="relative bg-white rounded-xl border border-outline-variant shadow-xl
-                                w-full max-w-3xl max-h-[85vh] flex flex-col">
+                                w-full max-w-3xl max-h-[85vh] flex flex-col rs-pop-in">
                   {/* 헤더 */}
                   <div className="flex items-center justify-between px-5 md:px-6 py-4 border-b border-outline-variant">
                     <h2 className="font-serif text-base font-semibold text-primary">필터 추가</h2>

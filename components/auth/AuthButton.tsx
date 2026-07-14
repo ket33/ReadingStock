@@ -24,8 +24,8 @@ export default function AuthButton() {
     return (
       <button
         onClick={openSignIn}
-        className="px-4 py-1.5 rounded-full text-sm font-medium border border-outline-variant
-                   text-on-surface-variant hover:text-primary hover:border-primary transition-colors bg-white"
+        className="px-6 py-2.5 rounded-full text-[15px] font-semibold bg-primary text-on-primary
+                   hover:opacity-90 transition-opacity shadow-sm"
       >
         Login
       </button>
