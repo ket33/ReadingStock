@@ -79,6 +79,11 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
     setTip({ label: def.label, d: def.d, u: def.u, x, y: r.bottom + 8 });
   };
   const hideTip = () => setTip(null);
+  // 터치 기기엔 hover가 없음 → 탭하면 잠깐 보여주고 자동으로 닫는다
+  const tapTip = (e: React.MouseEvent, def: MetricDef) => {
+    showTip(e, def);
+    window.setTimeout(hideTip, 2500);
+  };
   const [colPreset, setColPreset] = useState<string>("기본");
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" }>({
     key: "market_cap", dir: "desc",
@@ -158,10 +163,12 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
     label: string; cat: string; def?: MetricDef; onRemove: () => void; children: React.ReactNode;
   }) => (
     <div className="flex flex-wrap items-center gap-2 py-2 border-b border-outline-variant/60 last:border-b-0">
+      {/* 모바일: 라벨이 한 줄 전체 차지(입력칸은 다음 줄), 데스크톱: 고정폭 좌측 */}
       <span
-        className="text-xs font-medium text-on-surface w-36 shrink-0"
+        className="text-xs font-medium text-on-surface w-full sm:w-36 shrink-0"
         onMouseEnter={def ? e => showTip(e, def) : undefined}
         onMouseLeave={def ? hideTip : undefined}
+        onClick={def ? e => tapTip(e, def) : undefined}
       >
         {label}
         <span className="text-outline font-normal ml-1">({cat})</span>

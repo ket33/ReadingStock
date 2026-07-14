@@ -49,7 +49,8 @@ export default function StockPage({ data }: { data: StockPageData }) {
       <div className="bg-white border-b border-outline-variant">
         <div className="max-w-[1280px] mx-auto px-4 md:px-10 py-6 flex flex-wrap items-end gap-x-8 gap-y-3">
           <div>
-            <div className="flex items-baseline gap-3">
+            {/* 모바일에서 주가가 화면 밖으로 밀리지 않게 줄바꿈 허용 */}
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <h1 className="font-serif text-3xl font-semibold text-primary">{company.name}</h1>
               <span className="text-sm text-on-surface-variant">{company.stock_code}</span>
               {company.market && (
