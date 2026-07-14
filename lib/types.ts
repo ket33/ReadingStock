@@ -133,6 +133,8 @@ export interface ChartData {
   cashflowQ: CashflowQPoint[];
 }
 
+import type { ScreenerRow } from "./screener-data";
+
 export interface StockPageData {
   company: Company;
   price: PriceRow | null;
@@ -142,6 +144,7 @@ export interface StockPageData {
   fyMetrics: MetricsRow[];
   charts: ChartData;
   statements: StatementsData;
+  screener: ScreenerRow | null;   // 종목 헤더 지표 줄용 (스크리너 스냅샷 1행)
 }
 
 // ── 재무제표 탭 ────────────────────────────────────────────────

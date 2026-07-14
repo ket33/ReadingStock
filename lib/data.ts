@@ -6,6 +6,8 @@ import type {
 } from "./types";
 import { toJo } from "./format";
 import { buildStatements } from "./statements";
+import { getScreenerRow } from "./screener-data";
+import type { ScreenerRow } from "./screener-data";
 
 const QORDER = ["1Q", "2Q", "3Q", "4Q", "FY"];
 const SINGLE_Q = ["1Q", "2Q", "3Q", "4Q"]; // 단일(3개월) 분기 — normalize_quarters가 생성
@@ -262,6 +264,9 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
   const company = companyQ.data as Company | null;
   if (!company) return null;
 
+  // 종목 지표 줄용 스크리너 행 (공개 데이터). 실패해도 페이지는 뜬다.
+  const screenerRow: ScreenerRow | null = await getScreenerRow(stockCode).catch(() => null);
+
   const fin = (finQ.data ?? []) as FinancialRow[];
   const finDetail = (finDetailQ.data ?? []) as FinancialRow[];
   const rndRows = (rndQ.data ?? []) as FinancialRow[];
@@ -293,6 +298,7 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
     article,
     latestMetrics,
     fyMetrics: metrics.filter(m => m.period === "FY"),
+    screener: screenerRow,
     charts: buildCharts(fin, metrics, finQuarter),
     statements: buildStatements(
       [...fin, ...finDetail],

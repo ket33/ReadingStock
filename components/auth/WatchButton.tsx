@@ -43,14 +43,14 @@ export default function WatchButton({ stockCode }: { stockCode: string }) {
     <button
       onClick={toggle}
       disabled={busy}
-      title={saved ? "관심종목에서 빼기" : "관심종목에 담기"}
+      title={saved ? "Watching에서 빼기" : "Watching에 담기"}
       className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-medium border transition-colors
         ${saved
-          ? "border-[#f2b01e] bg-[#fff8e6] text-[#b07d00]"
+          ? "border-primary bg-primary text-on-primary"
           : "border-outline-variant bg-white text-on-surface-variant hover:text-primary hover:border-primary"}`}
     >
-      <span className="text-base leading-none">{saved ? "★" : "☆"}</span>
-      {saved ? "담김" : "관심종목"}
+      <span className="text-base leading-none">{saved ? "✓" : "+"}</span>
+      Watching
     </button>
   );
 }

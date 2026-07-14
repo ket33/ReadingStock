@@ -3,11 +3,11 @@
 // 종목 페이지 본체 — 상단 종목 헤더(공통) + 좌측 사이드바 3탭 + 콘텐츠
 import { useState, useEffect } from "react";
 import type { StockPageData } from "@/lib/types";
-import { formatKrw } from "@/lib/format";
 import ArticleTab from "./ArticleTab";
 import SummaryTab from "./SummaryTab";
 import FinancialsTab from "./FinancialsTab";
 import SiteHeader from "./SiteHeader";
+import StockMetrics from "./StockMetrics";
 import WatchButton from "./auth/WatchButton";
 
 type TabKey = "article" | "summary" | "financials";
@@ -78,15 +78,17 @@ export default function StockPage({ data }: { data: StockPageData }) {
               )}
             </div>
           </div>
-          {price?.market_cap != null && (
-            <span className="text-sm text-on-surface-variant">
-              시가총액 {formatKrw(price.market_cap)} 원
-              {price.date && <span className="text-xs text-outline ml-2">({price.date} 기준)</span>}
-            </span>
-          )}
           <span className="ml-auto">
             <WatchButton stockCode={company.stock_code} />
           </span>
+
+          {/* 지표 줄 (종목명·주가 아래 한 줄) — 회원은 편집 가능 */}
+          <div className="w-full mt-1">
+            <StockMetrics screener={data.screener} />
+            {price?.date && (
+              <span className="block mt-1.5 text-xs text-outline">{price.date} 기준</span>
+            )}
+          </div>
         </div>
       </div>
 

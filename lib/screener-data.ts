@@ -83,3 +83,13 @@ export async function getScreenerData(): Promise<ScreenerRow[]> {
     .limit(1000); // PostgREST 요청당 1,000행 하드캡 — 종목이 늘면 페이징 필요
   return (data ?? []) as ScreenerRow[];
 }
+
+/** 종목 한 개의 스크리너 지표 행 (종목 페이지 지표 줄용) */
+export async function getScreenerRow(stockCode: string): Promise<ScreenerRow | null> {
+  const { data } = await supabase
+    .from("screener")
+    .select("*")
+    .eq("stock_code", stockCode)
+    .maybeSingle();
+  return (data ?? null) as ScreenerRow | null;
+}
