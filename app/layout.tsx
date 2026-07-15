@@ -44,9 +44,13 @@ export const metadata: Metadata = {
   },
   description: SITE_SLOGAN,
   applicationName: SITE_NAME,
-  // 구글 서치 콘솔 소유권 확인 (HTML 태그 방식)
+  // 구글/네이버 서치 콘솔 소유권 확인 (HTML 태그 방식)
   verification: {
     google: "DD0v283WeLJkJ7-J1q5q_Yymrj8u7zy6eg6B5AA00gU",
+    // 네이버 서치어드바이저 (other 키는 그대로 meta name이 된다)
+    other: {
+      "naver-site-verification": "f0c8f5dda11291f050c04cc6328c598a5eba8168",
+    },
   },
   openGraph: {
     type: "website",
