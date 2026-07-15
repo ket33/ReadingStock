@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, IBM_Plex_Serif, Noto_Sans_KR, Noto_Serif_KR } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import AuthProvider from "@/components/auth/AuthProvider";
+import ThirdPartyAnalytics from "@/components/ThirdPartyAnalytics";
 import { SITE_URL, SITE_NAME, SITE_SLOGAN } from "@/lib/seo";
 import "./globals.css";
 
@@ -84,6 +85,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <AuthProvider>{children}</AuthProvider>
         <Analytics />
+        <ThirdPartyAnalytics />
       </body>
     </html>
   );

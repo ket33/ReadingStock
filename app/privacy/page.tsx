@@ -121,6 +121,18 @@ export default function PrivacyPage() {
                   <td>각사 정책 및 회원 탈퇴 시까지</td>
                 </tr>
                 <tr>
+                  <td><strong>Google LLC (Google Analytics)</strong> (미국)<br /><span className="text-outline">policies.google.com</span></td>
+                  <td>서비스 이용통계 분석</td>
+                  <td>방문 페이지, 기기·브라우저 정보, 쿠키 식별자(개인 미식별 집계)</td>
+                  <td>각사 정책에 따름</td>
+                </tr>
+                <tr>
+                  <td><strong>Microsoft Corp. (Clarity)</strong> (미국)<br /><span className="text-outline">privacy.microsoft.com</span></td>
+                  <td>서비스 사용성 분석(방문 패턴 등)</td>
+                  <td>방문 페이지, 기기·브라우저 정보, 쿠키 식별자(개인 미식별 집계)</td>
+                  <td>각사 정책에 따름</td>
+                </tr>
+                <tr>
                   <td><strong>Resend</strong> (미국)<br /><span className="text-outline">privacy@resend.com</span></td>
                   <td>가입 확인·비밀번호 재설정·마케팅 메일 발송</td>
                   <td>이메일 주소</td>
@@ -171,8 +183,10 @@ export default function PrivacyPage() {
             <li>Safari: 설정 → Safari → 고급 → 모든 쿠키 차단</li>
           </ul>
           <p className="text-[13px] text-outline">
-            서비스는 이용통계 분석을 위해 Vercel Analytics를 이용하며, 이는 개인을 식별하지 않는 익명 통계로
-            처리됩니다. 서비스는 맞춤형 광고를 위한 행태정보를 수집하지 않습니다.
+            서비스는 이용통계 및 사용성 분석을 위해 Vercel Analytics, Google Analytics, Microsoft Clarity를
+            이용합니다. 이들 도구는 개인을 식별하지 않는 집계·분석 목적으로만 사용되며, 서비스는 맞춤형 광고를
+            위한 행태정보를 수집하지 않습니다. 이용자는 아래 브라우저 쿠키 차단 설정 또는 Google Analytics
+            차단 부가기능(tools.google.com/dlpage/gaoptout)을 통해 통계 수집을 거부할 수 있습니다.
           </p>
 
           <H2 n={8}>만 14세 미만 아동의 개인정보 처리</H2>
