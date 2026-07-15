@@ -14,8 +14,6 @@ export interface StockCard {
   latestArticleAt: string | null;  // 정렬(Latest)용
 }
 
-const QORDER = ["1Q", "2Q", "3Q", "4Q", "FY"];
-
 const QIDX = ["1Q", "2Q", "3Q", "4Q"];
 
 /** (endYear, endQ)에서 뒤로 4개 단일분기 합 = TTM. 하나라도 없으면 null.
@@ -86,9 +84,10 @@ function extractSection1(body: string): string | null {
 
 export async function getHomeData(): Promise<StockCard[]> {
   // 종목 수가 늘어도 동작하도록 전부 서버 조회 (5~수십 종목 규모 가정)
-  const [companiesQ, metricsQ, finQ, articlesQ] = await Promise.all([
+  const [companiesQ, screenerQ, finQ, articlesQ] = await Promise.all([
     supabase.from("companies").select("stock_code,name,sector"),
-    supabase.from("metrics").select("stock_code,fiscal_year,period,per,div_yield"),
+    // PER·배당수익률은 종목 페이지 상단과 동일하게 screener 스냅샷(오늘 주가 기준)에서 가져온다
+    supabase.from("screener").select("stock_code,per,div_yield"),
     supabase.from("financials")
       .select("stock_code,fiscal_year,period,statement,account_std,value")
       .in("period", ["FY", "1Q", "2Q", "3Q", "4Q"])  // 누적분기(_cum) 제외 — 단일분기만
@@ -114,18 +113,10 @@ export async function getHomeData(): Promise<StockCard[]> {
   );
   const capMap = new Map(capEntries);
 
-  // 최신 metrics (분기 TTM 우선)
-  const latestMetrics = new Map<string, { per: number | null; div_yield: number | null }>();
-  for (const m of metricsQ.data ?? []) {
-    const cur = latestMetrics.get(m.stock_code) as
-      | { fy: number; pi: number; per: number | null; div_yield: number | null }
-      | undefined;
-    const pi = QORDER.indexOf(m.period);
-    if (!cur || m.fiscal_year > cur.fy || (m.fiscal_year === cur.fy && pi > cur.pi)) {
-      latestMetrics.set(m.stock_code, {
-        fy: m.fiscal_year, pi, per: m.per, div_yield: m.div_yield,
-      } as never);
-    }
+  // PER·배당수익률: screener 스냅샷(오늘 주가 기준) — 카드의 시가총액(현재가)·종목 페이지 상단과 정합
+  const valuation = new Map<string, { per: number | null; div_yield: number | null }>();
+  for (const s of screenerQ.data ?? []) {
+    valuation.set(s.stock_code, { per: s.per, div_yield: s.div_yield });
   }
 
   // CAGR용: 연간(FY)과 단일분기를 분리 적재 (같은 키 중복이면 첫 값 유지)
@@ -158,15 +149,15 @@ export async function getHomeData(): Promise<StockCard[]> {
   }
 
   return companies.map(c => {
-    const lm = latestMetrics.get(c.stock_code);
+    const val = valuation.get(c.stock_code);
     const art = latestArticle.get(c.stock_code);
     return {
       stockCode: c.stock_code,
       name: c.name,
       sector: c.sector,
       marketCap: capMap.get(c.stock_code) ?? null,
-      per: lm?.per ?? null,
-      divYield: lm?.div_yield ?? null,
+      per: val?.per ?? null,
+      divYield: val?.div_yield ?? null,
       revCagr3y: cagr3y(revFY.get(c.stock_code) ?? new Map(), revQ.get(c.stock_code) ?? new Map()),
       niCagr3y: cagr3y(niFY.get(c.stock_code) ?? new Map(), niQ.get(c.stock_code) ?? new Map()),
       excerpt: art ? extractSection1(art.body) : null,
