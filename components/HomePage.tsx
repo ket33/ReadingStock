@@ -96,7 +96,8 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
 
       <main className="flex-grow bg-surface-container-lowest">
         {/* 히어로 */}
-        <section className="relative pt-10 pb-10 bg-white overflow-hidden">
+        {/* overflow-hidden 금지 — 검색 드롭다운이 히어로 경계 아래로 겹쳐 보여야 한다 */}
+        <section className="relative pt-10 pb-10 bg-white">
           {/* 점 패턴 배경 (디자인) */}
           <div
             className="absolute inset-0 opacity-5 pointer-events-none"

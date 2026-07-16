@@ -74,10 +74,16 @@ export default function SearchBox({ size = "small", fullWidth = false, autoFocus
   }, []);
 
   // 방향키로 움직일 때 활성 항목이 스크롤 영역 밖으로 나가면 따라간다
+  // (scrollIntoView는 페이지까지 스크롤시켜 히어로가 움직여 보이므로 드롭다운 내부만 조정)
   useEffect(() => {
-    listRef.current
-      ?.querySelector(`[data-idx="${active}"]`)
-      ?.scrollIntoView({ block: "nearest" });
+    const c = listRef.current;
+    const el = c?.querySelector(`[data-idx="${active}"]`) as HTMLElement | null;
+    if (!c || !el) return;
+    if (el.offsetTop < c.scrollTop) {
+      c.scrollTop = el.offsetTop;
+    } else if (el.offsetTop + el.offsetHeight > c.scrollTop + c.clientHeight) {
+      c.scrollTop = el.offsetTop + el.offsetHeight - c.clientHeight;
+    }
   }, [active]);
 
   const go = (code: string) => {
