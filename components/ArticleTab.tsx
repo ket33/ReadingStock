@@ -179,8 +179,8 @@ export default function ArticleTab({ article, charts, sector, stockCode }: {
 
       {/* 핵심 요약 — 긴 글을 읽기 전 30초 만에 회사의 핵심을 잡는 앵커 (본문 15px보다 작은 14px) */}
       {summaryLines && (
-        <div className="bg-surface-container-low rounded-md px-5 py-4 mb-10">
-          <div className="text-xs font-semibold tracking-widest uppercase text-primary mb-3">
+        <div className="bg-white border-l-4 border-primary rounded-r-md px-5 py-4 mb-10">
+          <div className="text-sm font-semibold tracking-widest uppercase text-primary mb-3">
             핵심 요약
           </div>
           <ul className="list-disc pl-4 space-y-2">
