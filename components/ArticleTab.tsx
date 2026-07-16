@@ -3,6 +3,7 @@
 // 탭 1: 분석글 — DB의 마크다운 글을 렌더하고 〔차트 N〕 자리에 실제 차트를 끼운다
 import ReactMarkdown from "react-markdown";
 import { ChartByNumber } from "./charts";
+import RequestArticleButton from "./RequestArticleButton";
 import type { Article, ChartData } from "@/lib/types";
 
 // 〔차트 ①: …〕 / [차트 1: …] — 원문자·숫자 표기 모두 인식
@@ -114,16 +115,21 @@ const mdComponents = {
   ),
 };
 
-export default function ArticleTab({ article, charts, sector }: {
+export default function ArticleTab({ article, charts, sector, stockCode }: {
   article: Article | null;
   charts: ChartData;
   sector: string | null;
+  stockCode: string;
 }) {
   const isFinancial = sector === "금융";
   if (!article) {
     return (
       <div className="article-canvas py-24 text-center text-on-surface-variant">
-        아직 이 종목의 분석글이 없습니다.
+        <p className="mb-6">아직 이 종목의 분석글이 없습니다.</p>
+        <RequestArticleButton stockCode={stockCode} />
+        <p className="mt-3 text-xs text-outline">
+          요청하시면 분석글이 완성되는 대로 이메일로 알려드려요.
+        </p>
       </div>
     );
   }

@@ -141,7 +141,7 @@ export default function StockPage({ data }: { data: StockPageData }) {
         {/* 콘텐츠 캔버스 */}
         <article className="flex-grow bg-white min-h-screen px-4 md:px-10 py-12 pb-24 lg:pb-12 overflow-hidden">
           {tab === "article" && (
-            <ArticleTab article={data.article} charts={data.charts} sector={company.sector} />
+            <ArticleTab article={data.article} charts={data.charts} sector={company.sector} stockCode={company.stock_code} />
           )}
           {tab === "summary" && (
             <SummaryTab latest={data.latestMetrics} fyMetrics={data.fyMetrics} />

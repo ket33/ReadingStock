@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatKrw } from "@/lib/format";
+import RequestArticleButton from "./RequestArticleButton";
 
 interface Candidate {
   stockCode: string;
@@ -122,8 +123,14 @@ export default function SearchBox({ size = "small", fullWidth = false, autoFocus
               </button>
             ))
           ) : (
-            <div className="px-4 py-4 text-sm text-on-surface-variant">
-              검색 결과가 없어요. 아직 준비되지 않은 종목일 수 있어요.
+            <div className="px-4 py-4 space-y-3">
+              <p className="text-sm text-on-surface-variant">
+                검색 결과가 없어요. 아직 준비되지 않은 종목일 수 있어요.
+              </p>
+              <RequestArticleButton
+                companyQuery={q.trim()}
+                label={`'${q.trim()}' 분석글 요청하기`}
+              />
             </div>
           )}
         </div>
