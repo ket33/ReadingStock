@@ -203,8 +203,8 @@ export default function SearchBox({ size = "small", fullWidth = false, autoFocus
                     ) : (
                       <span className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium border transition-colors
                                         ${idx === active
-                                          ? "border-primary bg-primary text-on-primary"
-                                          : "border-primary text-primary"}`}>
+                                          ? "border-primary bg-white text-primary"
+                                          : "border-primary bg-primary text-on-primary"}`}>
                         {busyCode === l.stockCode ? "요청 중…" : "작성 요청"}
                       </span>
                     )}
