@@ -59,6 +59,7 @@ export interface Article {
   id: number;
   based_on: string | null;
   body: string;
+  summary: string | null; // 상단 요약 5줄 — JSON 배열 문자열 '["…", …]'
   created_at: string;
 }
 

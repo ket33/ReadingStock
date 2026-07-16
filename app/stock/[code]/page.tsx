@@ -2,7 +2,7 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getStockPageData } from "@/lib/data";
-import { articleDescription, SITE_URL, SITE_NAME, SITE_SLOGAN, OG_IMAGE } from "@/lib/seo";
+import { articleDescription, summaryDescription, SITE_URL, SITE_NAME, SITE_SLOGAN, OG_IMAGE } from "@/lib/seo";
 import StockPage from "@/components/StockPage";
 
 // 5분마다 재검증 (주가·글이 갱신되면 반영)
@@ -20,7 +20,9 @@ export async function generateMetadata({ params }: {
 
   const { company, article } = data;
   const title = `${company.name} (${company.stock_code}) 기업 분석`;
+  // 우선순위: 상단 요약(관통 문장+핵심 1 — 기업명 포함) → 본문 첫 문단 → 기본 문구
   const description =
+    summaryDescription(article?.summary ?? null) ??
     (article?.body ? articleDescription(article.body) : null) ??
     `${company.name}(${company.stock_code})의 재무제표·실적·밸류에이션을 쉽게 풀어드려요. ${SITE_SLOGAN}`;
   const url = `${SITE_URL}/stock/${company.stock_code}`;

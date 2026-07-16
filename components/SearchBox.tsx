@@ -14,6 +14,13 @@ interface Candidate {
   marketCap: number | null;
 }
 
+// 상장은 됐지만 아직 분석글이 준비 안 된 종목 — 작성 요청 대상
+interface ListedCandidate {
+  stockCode: string;
+  name: string;
+  market: string;
+}
+
 export default function SearchBox({ size = "small", fullWidth = false, autoFocus = false }: {
   size?: "small" | "large";
   fullWidth?: boolean;  // 모바일 헤더 펼침용 — 고정폭(w-72) 대신 부모 폭에 맞춤
@@ -22,6 +29,7 @@ export default function SearchBox({ size = "small", fullWidth = false, autoFocus
   const router = useRouter();
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Candidate[]>([]);
+  const [listed, setListed] = useState<ListedCandidate[]>([]);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [searched, setSearched] = useState(false);
@@ -29,17 +37,19 @@ export default function SearchBox({ size = "small", fullWidth = false, autoFocus
 
   // 입력 디바운스 → 서버 검색
   useEffect(() => {
-    if (!q.trim()) { setResults([]); setOpen(false); setSearched(false); return; }
+    if (!q.trim()) { setResults([]); setListed([]); setOpen(false); setSearched(false); return; }
     const t = setTimeout(async () => {
       try {
         const res = await fetch(`/api/search?q=${encodeURIComponent(q.trim())}`);
         const json = await res.json();
         setResults(json.results ?? []);
+        setListed(json.listed ?? []);
         setSearched(true);
         setOpen(true);
         setActive(0);
       } catch {
         setResults([]);
+        setListed([]);
       }
     }, 200);
     return () => clearTimeout(t);
@@ -99,38 +109,57 @@ export default function SearchBox({ size = "small", fullWidth = false, autoFocus
 
       {open && (
         <div className="absolute z-50 mt-1 w-full bg-white border border-outline-variant shadow-lg text-left">
-          {results.length > 0 ? (
-            results.map((r, i) => (
-              <button
-                key={r.stockCode}
-                onMouseEnter={() => setActive(i)}
-                onClick={() => go(r.stockCode)}
-                className={`w-full flex items-baseline justify-between gap-3 px-4 py-3 text-left transition-colors
-                            ${i === active ? "bg-surface-container-low" : "bg-white"}`}
-              >
-                <span className="flex items-baseline gap-2 min-w-0">
-                  <span className="font-medium text-primary truncate">{r.name}</span>
-                  <span className="text-xs text-on-surface-variant shrink-0">{r.stockCode}</span>
-                  {r.sector && (
-                    <span className="text-xs text-outline shrink-0">{r.sector}</span>
-                  )}
-                </span>
-                {r.marketCap != null && (
-                  <span className="text-xs text-on-surface-variant shrink-0">
-                    시총 {formatKrw(r.marketCap)}
-                  </span>
+          {/* ① 분석글이 준비된 종목 — 클릭하면 이동 */}
+          {results.map((r, i) => (
+            <button
+              key={r.stockCode}
+              onMouseEnter={() => setActive(i)}
+              onClick={() => go(r.stockCode)}
+              className={`w-full flex items-baseline justify-between gap-3 px-4 py-3 text-left transition-colors
+                          ${i === active ? "bg-surface-container-low" : "bg-white"}`}
+            >
+              <span className="flex items-baseline gap-2 min-w-0">
+                <span className="font-medium text-primary truncate">{r.name}</span>
+                <span className="text-xs text-on-surface-variant shrink-0">{r.stockCode}</span>
+                {r.sector && (
+                  <span className="text-xs text-outline shrink-0">{r.sector}</span>
                 )}
-              </button>
-            ))
-          ) : (
-            <div className="px-4 py-4 space-y-3">
-              <p className="text-sm text-on-surface-variant">
-                검색 결과가 없어요. 아직 준비되지 않은 종목일 수 있어요.
-              </p>
-              <RequestArticleButton
-                companyQuery={q.trim()}
-                label={`'${q.trim()}' 분석글 요청하기`}
-              />
+              </span>
+              {r.marketCap != null && (
+                <span className="text-xs text-on-surface-variant shrink-0">
+                  시총 {formatKrw(r.marketCap)}
+                </span>
+              )}
+            </button>
+          ))}
+
+          {/* ② 상장은 됐지만 아직 분석글이 없는 종목 — 작성 요청 */}
+          {listed.length > 0 && (
+            <>
+              <div className={`px-4 pt-3 pb-1 text-[11px] font-medium tracking-wide text-outline
+                               ${results.length > 0 ? "border-t border-outline-variant" : ""}`}>
+                아직 분석글이 준비되지 않은 종목
+              </div>
+              {listed.map(l => (
+                <div
+                  key={l.stockCode}
+                  className="w-full flex items-center justify-between gap-3 px-4 py-2.5"
+                >
+                  <span className="flex items-baseline gap-2 min-w-0">
+                    <span className="font-medium text-on-surface truncate">{l.name}</span>
+                    <span className="text-xs text-on-surface-variant shrink-0">{l.stockCode}</span>
+                    <span className="text-xs text-outline shrink-0">{l.market}</span>
+                  </span>
+                  <RequestArticleButton stockCode={l.stockCode} compact />
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* ③ 명부에도 없는 검색어 — 요청 대상 아님 */}
+          {results.length === 0 && listed.length === 0 && (
+            <div className="px-4 py-4 text-sm text-on-surface-variant">
+              코스피·코스닥 상장 종목 중에서 찾지 못했어요.
             </div>
           )}
         </div>

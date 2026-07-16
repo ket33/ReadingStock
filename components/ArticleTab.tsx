@@ -4,6 +4,7 @@
 import ReactMarkdown from "react-markdown";
 import { ChartByNumber } from "./charts";
 import RequestArticleButton from "./RequestArticleButton";
+import { parseSummary } from "@/lib/summary";
 import type { Article, ChartData } from "@/lib/types";
 
 // 〔차트 ①: …〕 / [차트 1: …] — 원문자·숫자 표기 모두 인식
@@ -137,6 +138,7 @@ export default function ArticleTab({ article, charts, sector, stockCode }: {
   const { title, rest } = extractHead(article.body);
   const { body: mainBody, disclaimer } = extractTail(rest);
   const parts = splitBody(mainBody);
+  const summaryLines = parseSummary(article.summary); // 없으면 박스 자체를 렌더하지 않는다
   const created = new Date(article.created_at).toLocaleDateString("ko-KR", {
     year: "numeric", month: "long", day: "numeric",
   });
@@ -174,6 +176,22 @@ export default function ArticleTab({ article, charts, sector, stockCode }: {
         <div>{created} 생성</div>
         {coreLabel && <div>{coreLabel}</div>}
       </div>
+
+      {/* 핵심 요약 — 긴 글을 읽기 전 30초 만에 회사의 핵심을 잡는 앵커 (본문 15px보다 작은 14px) */}
+      {summaryLines && (
+        <div className="bg-surface-container-low border-l-4 border-primary rounded-r-md px-5 py-4 mb-10">
+          <div className="text-xs font-semibold tracking-widest uppercase text-primary mb-3">
+            핵심 요약
+          </div>
+          <ul className="list-disc pl-4 space-y-2">
+            {summaryLines.map((line, i) => (
+              <li key={i} className="text-[14px] leading-[1.7] text-on-surface-variant">
+                {line}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* 본문 + 차트 */}
       <div className="max-w-none">

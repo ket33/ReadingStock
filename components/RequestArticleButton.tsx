@@ -7,10 +7,11 @@ import { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { useAuth } from "./auth/AuthProvider";
 
-export default function RequestArticleButton({ stockCode, companyQuery, label }: {
+export default function RequestArticleButton({ stockCode, companyQuery, label, compact = false }: {
   stockCode?: string;
   companyQuery?: string;
   label?: string;
+  compact?: boolean;  // 검색 드롭다운 행 안에 들어가는 작은 버전
 }) {
   const { user, openSignIn } = useAuth();
   const [state, setState] = useState<"idle" | "busy" | "done">("idle");
@@ -30,10 +31,27 @@ export default function RequestArticleButton({ stockCode, companyQuery, label }:
   };
 
   if (state === "done") {
+    if (compact) {
+      return <span className="text-xs text-primary font-medium shrink-0">요청 완료 ✓</span>;
+    }
     return (
       <p className="text-sm text-primary">
         요청 완료! 분석글이 완성되면 <span className="font-medium">{user?.email}</span>로 알려드릴게요.
       </p>
+    );
+  }
+
+  if (compact) {
+    return (
+      <button
+        onClick={request}
+        disabled={state === "busy"}
+        className="shrink-0 px-3 py-1 rounded-full text-xs font-medium
+                   border border-primary text-primary transition-colors
+                   hover:bg-primary hover:text-on-primary disabled:opacity-50"
+      >
+        {label ?? "작성 요청"}
+      </button>
     );
   }
 

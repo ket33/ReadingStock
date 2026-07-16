@@ -257,7 +257,7 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
     supabase.from("metrics").select("*").eq("stock_code", stockCode),
     supabase.from("prices").select("date,close,market_cap")
       .eq("stock_code", stockCode).order("date", { ascending: false }).limit(2),
-    supabase.from("articles").select("id,based_on,body,created_at")
+    supabase.from("articles").select("id,based_on,body,summary,created_at")
       .eq("stock_code", stockCode).order("created_at", { ascending: false }).limit(1),
   ]);
 

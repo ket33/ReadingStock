@@ -40,6 +40,19 @@ function stripMarkdown(md: string): string {
     .trim();
 }
 
+import { parseSummary } from "./summary";
+
+/**
+ * 상단 요약(1~2줄: 관통 문장 + 핵심 사실 1)으로 설명 문구를 만든다.
+ * 관통 문장에 기업명이 들어 있어 검색 결과에 더 적합 — 있으면 본문 첫 문단보다 우선.
+ */
+export function summaryDescription(summary: string | null): string | null {
+  const lines = parseSummary(summary);
+  if (!lines) return null;
+  const text = lines.slice(0, 2).join(" ");
+  return text.length >= 20 ? truncate(text) : null;
+}
+
 /**
  * 분석글 본문에서 페이지 설명(description) 문구를 만든다.
  * 우선순위: 섹션 1("## 1. …")의 첫 문단 → 없으면 본문의 첫 실질 문단.
