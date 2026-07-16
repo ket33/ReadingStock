@@ -1,17 +1,16 @@
 "use client";
 
 // 분석글 작성 요청 버튼 — 비로그인 시 로그인 다이얼로그로 유도 (WatchButton과 같은 흐름)
-// 두 자리에서 쓴다: ① 종목 페이지(stockCode) ② 검색 결과 없음(companyQuery)
+// 종목 페이지(글 없음 상태)에서 쓴다. 검색 드롭다운은 SearchBox가 행 단위로 자체 처리.
 // 완성되면 가입 이메일로 알림이 가므로 요청 완료 문구에 그 사실을 밝힌다.
 import { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { useAuth } from "./auth/AuthProvider";
 
-export default function RequestArticleButton({ stockCode, companyQuery, label, compact = false }: {
+export default function RequestArticleButton({ stockCode, companyQuery, label }: {
   stockCode?: string;
   companyQuery?: string;
   label?: string;
-  compact?: boolean;  // 검색 드롭다운 행 안에 들어가는 작은 버전
 }) {
   const { user, openSignIn } = useAuth();
   const [state, setState] = useState<"idle" | "busy" | "done">("idle");
@@ -31,27 +30,10 @@ export default function RequestArticleButton({ stockCode, companyQuery, label, c
   };
 
   if (state === "done") {
-    if (compact) {
-      return <span className="text-xs text-primary font-medium shrink-0">요청 완료 ✓</span>;
-    }
     return (
       <p className="text-sm text-primary">
         요청 완료! 분석글이 완성되면 <span className="font-medium">{user?.email}</span>로 알려드릴게요.
       </p>
-    );
-  }
-
-  if (compact) {
-    return (
-      <button
-        onClick={request}
-        disabled={state === "busy"}
-        className="shrink-0 px-3 py-1 rounded-full text-xs font-medium
-                   border border-primary text-primary transition-colors
-                   hover:bg-primary hover:text-on-primary disabled:opacity-50"
-      >
-        {label ?? "작성 요청"}
-      </button>
     );
   }
 
