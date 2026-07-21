@@ -4,7 +4,7 @@
 // '뉴스 보러가기'를 누르면 같은 탭 안(히어로·사이드탭 유지)에서 기사 전문으로 전환된다.
 import { useState } from "react";
 import type { CompanyNews } from "@/lib/types";
-import { CATEGORY_LABEL, formatNewsDate } from "@/lib/news-format";
+import { CATEGORY_LABEL, formatNewsDate, stripCompanyPrefix } from "@/lib/news-format";
 import ShareButton from "./ShareButton";
 
 function MetaLine({ n }: { n: CompanyNews }) {
@@ -56,7 +56,7 @@ export default function NewsTab({ news, companyName, stockCode }: {
         <div className="mb-3"><MetaLine n={open} /></div>
 
         <h1 className="font-serif text-[24px] md:text-[28px] leading-snug font-bold text-primary mb-6">
-          {open.title}
+          {stripCompanyPrefix(open.title, companyName)}
         </h1>
 
         {/* 본문 — 문단 구분은 빈 줄 */}
@@ -109,7 +109,7 @@ export default function NewsTab({ news, companyName, stockCode }: {
               <div className="flex items-start justify-between gap-3">
                 <h3 className="font-serif text-lg md:text-xl leading-snug font-bold text-primary
                                group-hover:underline underline-offset-4 decoration-1">
-                  {n.title}
+                  {stripCompanyPrefix(n.title, companyName)}
                 </h3>
                 <span className="shrink-0 pt-1"><MetaLine n={n} /></span>
               </div>

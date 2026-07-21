@@ -1,5 +1,15 @@
 // 홈 화면 데이터 로더 — 종목 카드에 필요한 값을 서버에서 조립
 import { supabase } from "./supabase";
+import { stripCompanyPrefix } from "./news-format";
+
+// 홈 우측 '최신 뉴스' 한 줄 (종목명 + 뉴스 제목만)
+export interface HomeNewsItem {
+  id: number;
+  stockCode: string;
+  companyName: string;
+  title: string;        // "종목명, " 접두어 제거본
+  publishedAt: string;
+}
 
 export interface StockCard {
   stockCode: string;
@@ -80,6 +90,28 @@ function extractSection1(body: string): string | null {
     .replace(/\s+/g, " ")
     .trim();
   return text || null;
+}
+
+/** 홈 우측 최신 뉴스 — 전 종목 최신순 (10개씩 더보기라 넉넉히 100건) */
+export async function getHomeNews(): Promise<HomeNewsItem[]> {
+  const [newsQ, companiesQ] = await Promise.all([
+    supabase.from("company_news")
+      .select("id,stock_code,title,published_at")
+      .order("published_at", { ascending: false })
+      .limit(100),
+    supabase.from("companies").select("stock_code,name"),
+  ]);
+  const names = new Map((companiesQ.data ?? []).map(c => [c.stock_code as string, c.name as string]));
+  return (newsQ.data ?? []).map(n => {
+    const companyName = names.get(n.stock_code as string) ?? (n.stock_code as string);
+    return {
+      id: n.id as number,
+      stockCode: n.stock_code as string,
+      companyName,
+      title: stripCompanyPrefix(n.title as string, companyName),
+      publishedAt: n.published_at as string,
+    };
+  });
 }
 
 export async function getHomeData(): Promise<StockCard[]> {

@@ -16,3 +16,13 @@ export function formatNewsDate(iso: string): string {
     year: "numeric", month: "long", day: "numeric",
   });
 }
+
+/** 기사 제목의 "종목명, " 접두어 제거 — 종목 문맥에선 중복이라 표시에서 뺀다 */
+export function stripCompanyPrefix(title: string, companyName: string): string {
+  const t = title.trim();
+  if (t.startsWith(companyName)) {
+    const rest = t.slice(companyName.length).replace(/^\s*[,·]\s*/, "");
+    if (rest) return rest;
+  }
+  return t;
+}

@@ -3,7 +3,7 @@
 // 홈 — 히어로(검색) + Browse Stocks (디자인: Stitch 홈 HTML의 겉모습 유지, 데이터는 DB)
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { StockCard } from "@/lib/home-data";
+import type { StockCard, HomeNewsItem } from "@/lib/home-data";
 import { formatKrw, formatMetric } from "@/lib/format";
 import SearchBox from "./SearchBox";
 import Logo from "./Logo";
@@ -61,9 +61,48 @@ function fmtCagr(v: number | null): string {
   return `${v > 0 ? "+" : ""}${v}%`;
 }
 
-const PAGE_SIZE = 8; // 종목 카드 기본 표시 개수 — '더보기'마다 이만큼 추가
+const PAGE_SIZE = 8;       // 종목 카드 기본 표시 개수 — '더보기'마다 이만큼 추가
+const NEWS_PAGE_SIZE = 10; // 우측 최신 뉴스 표시 개수 — '더보기'마다 이만큼 추가
 
-export default function HomePage({ stocks }: { stocks: StockCard[] }) {
+/** 홈 우측 '최신 뉴스' — 종목명 + 뉴스 제목만, 10개씩 더보기 */
+function LatestNews({ news }: { news: HomeNewsItem[] }) {
+  const [visible, setVisible] = useState(NEWS_PAGE_SIZE);
+  if (news.length === 0) return null;
+  return (
+    <aside>
+      <div className="mb-8 border-b border-outline-variant pb-4">
+        <h2 className="font-serif text-base font-medium text-primary">최신 뉴스</h2>
+      </div>
+      <div>
+        {news.slice(0, visible).map(n => (
+          <Link
+            key={n.id}
+            href={`/stock/${n.stockCode}?tab=news`}
+            className="block border-b border-outline-variant py-3 group"
+          >
+            <span className="text-[12px] font-semibold text-on-surface-variant">{n.companyName}</span>
+            <p className="text-[13px] leading-[1.5] text-on-surface line-clamp-2 group-hover:text-primary group-hover:underline underline-offset-2 transition-colors">
+              {n.title}
+            </p>
+          </Link>
+        ))}
+      </div>
+      {visible < news.length && (
+        <div className="mt-4 text-center">
+          <button
+            onClick={() => setVisible(v => v + NEWS_PAGE_SIZE)}
+            className="inline-flex items-center gap-1 px-5 py-1.5 border border-outline-variant rounded-full text-xs font-medium text-on-surface-variant bg-white hover:text-primary hover:border-primary transition-colors"
+          >
+            더보기
+            <span className="material-symbols-outlined text-[14px]">expand_more</span>
+          </button>
+        </div>
+      )}
+    </aside>
+  );
+}
+
+export default function HomePage({ stocks, news }: { stocks: StockCard[]; news: HomeNewsItem[] }) {
   const [sort, setSort] = useState<SortKey>("random"); // 기본: 랜덤
   const [visible, setVisible] = useState(PAGE_SIZE);
 
@@ -153,8 +192,10 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
           </div>
         </section>
 
-        {/* Browse Stocks */}
-        <section className="max-w-[820px] mx-auto px-4 md:px-10 pt-8 pb-16">
+        {/* Browse Stocks(좌) + 최신 뉴스(우) */}
+        <section className="max-w-[1140px] mx-auto px-4 md:px-10 pt-8 pb-16
+                            lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-12 lg:items-start">
+          <div>
           <div className="flex items-center justify-between mb-8 border-b border-outline-variant pb-4">
             <h2 className="font-serif text-base font-medium text-primary">종목 살펴보기</h2>
             <div className="flex gap-2">
@@ -239,6 +280,12 @@ export default function HomePage({ stocks }: { stocks: StockCard[] }) {
               </button>
             </div>
           )}
+          </div>
+
+          {/* 우측: 최신 뉴스 (모바일에선 종목 아래로) */}
+          <div className="mt-12 lg:mt-0">
+            <LatestNews news={news} />
+          </div>
         </section>
       </main>
 
