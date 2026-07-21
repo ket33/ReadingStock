@@ -14,16 +14,13 @@ import type { ScreenerRow } from "@/lib/screener-data";
 import { CATS, METRICS, BY_KEY, fmtCell } from "@/lib/metrics-catalog";
 import { formatPrice } from "@/lib/format";
 
-interface WatchList { id: number; name: string; share_token: string | null; }
+interface WatchList { id: number; name: string; share_token: string | null; metric_cols: string[] | null; }
 type Row = ScreenerRow & { weight: number | null };
+
+// 기본 지표 세팅 (손대지 않은 리스트가 보여줄 표 컬럼)
+const DEFAULT_COLS = ["per", "op_margin", "roe"];
 interface Candidate { stockCode: string; name: string; sector: string | null; }
 type Confirm = { kind: "remove"; code: string; name: string } | { kind: "deleteList"; list: WatchList } | null;
-
-function fmtChange(v: number | null): { text: string; cls: string } {
-  if (v == null) return { text: "—", cls: "text-outline" };
-  const cls = v > 0 ? "text-stock-up" : v < 0 ? "text-stock-down" : "text-on-surface-variant";
-  return { text: `${v > 0 ? "+" : ""}${v.toFixed(2)}%`, cls };
-}
 
 export default function WatchlistPage() {
   const { user, loading, openSignIn } = useAuth();
@@ -41,10 +38,11 @@ export default function WatchlistPage() {
   const [nameDraft, setNameDraft] = useState("");
   const [shareMsg, setShareMsg] = useState("");
 
-  // 컬럼(지표) 선택 — 기본 열 외에 추가로 보여줄 지표 key 목록
-  const [extraCols, setExtraCols] = useState<string[]>([]);
+  // 컬럼(지표) 선택 — 워치리스트마다 따로 저장·유지 (watchlists.metric_cols)
+  const [extraCols, setExtraCols] = useState<string[]>(DEFAULT_COLS);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(null);
+  const listsRef = useRef<WatchList[]>([]);   // 필터 로드 시 최신 리스트 참조(활성 전환 때만 반영)
 
   // 종목 추가 검색
   const [addOpen, setAddOpen] = useState(false);
@@ -65,9 +63,10 @@ export default function WatchlistPage() {
     (async () => {
       if (!user) { if (alive) { setLists(null); setActiveId(null); } return; }
       const { data } = await supabaseBrowser().from("watchlists")
-        .select("id,name,share_token").order("created_at", { ascending: true });
+        .select("id,name,share_token,metric_cols").order("created_at", { ascending: true });
       if (!alive) return;
       const ls = (data ?? []) as WatchList[];
+      listsRef.current = ls;
       setLists(ls);
       setActiveId(prev => (prev != null && ls.some(l => l.id === prev) ? prev : ls[0]?.id ?? null));
     })();
@@ -96,6 +95,19 @@ export default function WatchlistPage() {
     })();
     return () => { alive = false; };
   }, [user, activeId]);
+
+  // 리스트 목록이 바뀔 때마다 ref 동기화 (필터 로드가 최신 값을 읽도록)
+  useEffect(() => { if (lists) listsRef.current = lists; }, [lists]);
+
+  // 활성 리스트가 바뀔 때만 그 리스트의 저장된 지표 세팅을 불러온다
+  // (지표를 토글하면 lists는 바뀌지만 activeId는 그대로라 리셋되지 않는다)
+  useEffect(() => {
+    if (activeId == null) return;
+    const l = listsRef.current.find(x => x.id === activeId);
+    setExtraCols(l?.metric_cols ?? DEFAULT_COLS);
+    setSort(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
 
   // 검색 디바운스
   useEffect(() => {
@@ -126,7 +138,7 @@ export default function WatchlistPage() {
     if (!user || !lists) return;
     const name = `새 리스트 ${lists.length + 1}`;
     const { data } = await supabaseBrowser().from("watchlists")
-      .insert({ user_id: user.id, name }).select("id,name,share_token").single();
+      .insert({ user_id: user.id, name }).select("id,name,share_token,metric_cols").single();
     if (data) {
       const nl = data as WatchList;
       setLists([...lists, nl]);
@@ -230,10 +242,16 @@ export default function WatchlistPage() {
     return sum > 0 ? `${Math.round((r.weight / sum) * 1000) / 10}%` : "—";
   };
 
-  // ── 컬럼·정렬 ──
+  // ── 컬럼·정렬 ── (지표 세팅은 활성 리스트에 저장 → 다음에 열어도 그대로)
   const cols = useMemo(() => extraCols.map(k => BY_KEY.get(k)!).filter(Boolean), [extraCols]);
+  const persistCols = async (next: string[]) => {
+    setExtraCols(next);
+    if (activeId == null) return;
+    setLists(ls => (ls ?? []).map(l => (l.id === activeId ? { ...l, metric_cols: next } : l)));
+    await supabaseBrowser().from("watchlists").update({ metric_cols: next }).eq("id", activeId);
+  };
   const toggleCol = (key: string) =>
-    setExtraCols(cs => cs.includes(key) ? cs.filter(k => k !== key) : [...cs, key]);
+    persistCols(extraCols.includes(key) ? extraCols.filter(k => k !== key) : [...extraCols, key]);
   const toggleSort = (key: string) =>
     setSort(s => (s?.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" }));
   const view = useMemo(() => {
@@ -251,12 +269,6 @@ export default function WatchlistPage() {
     return out;
   }, [rows, sort]);
 
-  const sectors = useMemo(() => {
-    if (!rows || rows.length === 0) return [];
-    const count = new Map<string, number>();
-    for (const r of rows) { const s = r.sector ?? "기타"; count.set(s, (count.get(s) ?? 0) + 1); }
-    return [...count.entries()].map(([sector, n]) => ({ sector, n, pct: Math.round((n / rows.length) * 100) })).sort((a, b) => b.n - a.n);
-  }, [rows]);
   const perfItems = useMemo(() => (rows ?? []).map(r => ({ code: r.stock_code, weight: r.weight })), [rows]);
 
   return (
@@ -392,15 +404,31 @@ export default function WatchlistPage() {
                 )}
               </div>
 
-              <button onClick={() => setPickerOpen(true)}
-                      className={`inline-flex items-center gap-1 pl-2.5 pr-3 py-1 text-xs font-medium rounded-full border transition-colors ${
-                        extraCols.length > 0
-                          ? "bg-primary-fixed text-on-primary-fixed border-primary-fixed"
+              {/* 필터 — picking(종목 골라보기)과 같은 알약 버튼 + 팝업 */}
+              <button onClick={() => setPickerOpen(o => !o)}
+                      className={`inline-flex items-center gap-1 pl-3 pr-4 py-1.5 text-xs font-medium rounded-full border transition-colors ${
+                        pickerOpen
+                          ? "bg-primary text-on-primary border-primary"
                           : "bg-white text-on-surface-variant border-outline-variant hover:text-primary hover:border-primary"}`}>
-                <span className="material-symbols-outlined text-[14px]">tune</span>
-                지표{extraCols.length > 0 ? ` ${extraCols.length}` : ""}
+                <span className="material-symbols-outlined text-[16px]">{pickerOpen ? "close" : "add"}</span>
+                필터
               </button>
             </div>
+
+            {/* 선택된 지표 칩 (picking처럼 한눈에 보고 바로 제거) */}
+            {cols.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                {cols.map(def => (
+                  <span key={def.key as string}
+                        className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-[11px] font-medium
+                                   bg-primary-fixed text-on-primary-fixed">
+                    {def.cat === "수익률" ? `수익률 ${def.label}` : def.label}
+                    <button onClick={() => toggleCol(def.key as string)} aria-label={`${def.label} 제거`}
+                            className="material-symbols-outlined text-[13px] hover:opacity-70">close</button>
+                  </span>
+                ))}
+              </div>
+            )}
 
             {rows == null ? (
               <p className="text-sm text-outline py-10 text-center">불러오는 중…</p>
@@ -417,7 +445,6 @@ export default function WatchlistPage() {
                         <th className="sticky left-0 z-10 bg-surface-container-low text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">종목</th>
                         <th className="text-right px-3 py-2.5 text-xs font-medium text-on-surface-variant whitespace-nowrap">비중</th>
                         <th className="text-right px-3 py-2.5 text-xs font-medium text-on-surface-variant whitespace-nowrap">현재가</th>
-                        <th className="text-right px-3 py-2.5 text-xs font-medium text-on-surface-variant whitespace-nowrap">등락</th>
                         {cols.map(def => {
                           const sorted = sort?.key === (def.key as string);
                           return (
@@ -433,7 +460,6 @@ export default function WatchlistPage() {
                     </thead>
                     <tbody>
                       {view.map(r => {
-                        const chg = fmtChange(r.ret_1d);
                         return (
                           <tr key={r.stock_code}
                               onClick={() => { if (!weightEdit) router.push(`/stock/${r.stock_code}`); }}
@@ -455,7 +481,6 @@ export default function WatchlistPage() {
                               ) : effectiveWeight(r)}
                             </td>
                             <td className="text-right px-3 py-3 tabular-nums whitespace-nowrap font-medium text-on-surface">{formatPrice(r.price)}</td>
-                            <td className={`text-right px-3 py-3 tabular-nums whitespace-nowrap ${chg.cls}`}>{chg.text}</td>
                             {cols.map(def => {
                               const { text, cls } = fmtCell(def, r[def.key] as number | null);
                               return <td key={def.key as string} className={`text-right px-3 py-3 tabular-nums whitespace-nowrap ${cls}`}>{text}</td>;
@@ -493,23 +518,6 @@ export default function WatchlistPage() {
                 </div>
 
                 <WatchlistPerformance items={perfItems} />
-
-                {sectors.length > 0 && (
-                  <section className="bg-white border border-outline-variant rounded-xl p-5 mt-6">
-                    <h2 className="text-sm font-semibold tracking-widest uppercase text-primary mb-4">업종 구성</h2>
-                    <div className="space-y-2.5">
-                      {sectors.map(s => (
-                        <div key={s.sector} className="flex items-center gap-3">
-                          <span className="w-24 shrink-0 text-sm text-on-surface-variant truncate">{s.sector}</span>
-                          <div className="flex-1 h-2 rounded-full bg-surface-container-high overflow-hidden">
-                            <div className="h-full rounded-full bg-primary" style={{ width: `${s.pct}%` }} />
-                          </div>
-                          <span className="w-16 shrink-0 text-right text-xs tabular-nums text-on-surface-variant">{s.n}종목 · {s.pct}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                )}
               </>
             )}
           </>
@@ -544,7 +552,7 @@ export default function WatchlistPage() {
                 ))}
               </div>
               <div className="flex items-center justify-between px-5 md:px-6 py-3 border-t border-outline-variant">
-                <button onClick={() => setExtraCols([])} className="text-xs text-on-surface-variant hover:text-error">모두 지우기</button>
+                <button onClick={() => persistCols([])} className="text-xs text-on-surface-variant hover:text-error">모두 지우기</button>
                 <button onClick={() => setPickerOpen(false)} className="px-5 py-1.5 rounded-full text-xs font-medium bg-primary text-on-primary hover:opacity-90">완료</button>
               </div>
             </div>

@@ -16,8 +16,8 @@ type TabKey = "article" | "news" | "summary" | "financials";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "article", label: "리포트" },
-  { key: "news", label: "뉴스룸" },
   { key: "summary", label: "요약" },
+  { key: "news", label: "뉴스룸" },
   { key: "financials", label: "재무제표" },
 ];
 
