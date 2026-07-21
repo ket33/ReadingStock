@@ -4,6 +4,7 @@
 import ReactMarkdown from "react-markdown";
 import { ChartByNumber } from "./charts";
 import RequestArticleButton from "./RequestArticleButton";
+import ShareButton from "./ShareButton";
 import { parseSummary } from "@/lib/summary";
 import type { Article, ChartData } from "@/lib/types";
 
@@ -147,14 +148,15 @@ export default function ArticleTab({ article, charts, sector, stockCode }: {
 
   return (
     <div className="article-canvas">
-      {/* 카테고리 태그 (디자인의 Category Tag) */}
-      {sector && (
-        <div className="mb-6">
+      {/* 카테고리 태그(디자인의 Category Tag) + 공유하기 */}
+      <div className="flex items-center gap-3 mb-6">
+        {sector && (
           <span className="inline-block bg-tertiary-fixed text-on-tertiary-fixed px-3 py-1 text-xs font-medium rounded-sm tracking-widest uppercase">
             {sector}
           </span>
-        </div>
-      )}
+        )}
+        <ShareButton stockCode={stockCode} className="ml-auto" />
+      </div>
 
       {/* 헤드라인 (세리프) — "기업명," 뒤에서 줄바꿈 */}
       {title && (() => {
@@ -206,8 +208,13 @@ export default function ArticleTab({ article, charts, sector, stockCode }: {
         )}
       </div>
 
+      {/* 하단 공유하기 (디스클레이머 위) */}
+      <div className="mt-12 flex justify-center">
+        <ShareButton stockCode={stockCode} />
+      </div>
+
       {/* 하단: 디스클레이머(작게) + 데이터 기준 + AI 안내 — 구분선 없이 */}
-      <div className="mt-12 space-y-1.5">
+      <div className="mt-8 space-y-1.5">
         {disclaimer && (
           <p className="text-[12px] leading-relaxed text-outline italic">{disclaimer}</p>
         )}

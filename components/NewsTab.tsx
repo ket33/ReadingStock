@@ -73,29 +73,28 @@ export default function NewsTab({ news, companyName }: {
         </p>
       </div>
 
-      <div className="space-y-5">
+      <div className="space-y-4">
         {news.map(n => {
           const open = expanded.has(n.id);
           return (
             <article key={n.id} id={`news-${n.id}`}
-                     className="border-b border-outline-variant pb-5 last:border-b-0 scroll-mt-24">
-              {/* 메타줄: 날짜 + 카테고리 */}
-              <div className="flex items-center gap-2 mb-1.5 text-[13px] text-on-surface-variant">
-                <span>{formatDate(n.published_at)}</span>
-                <span className="text-outline">·</span>
-                <span className="inline-block bg-tertiary-fixed text-on-tertiary-fixed px-2 py-0.5 text-[11px] font-medium rounded-sm tracking-wide">
-                  {CATEGORY_LABEL[n.category] ?? n.category}
-                </span>
-              </div>
-
-              {/* 헤드라인 + (접힘) 본문 2줄 미리보기 — 클릭하면 펼침/접힘 */}
+                     className="bg-white border border-outline-variant rounded-xl p-5 scroll-mt-24">
+              {/* 헤드라인(좌) + 날짜·카테고리(우) 한 줄 — 클릭하면 펼침/접힘 */}
               <div onClick={() => toggle(n.id)} className="cursor-pointer group">
-                <h3 className="font-serif text-lg md:text-xl leading-snug font-semibold text-primary
-                               group-hover:underline underline-offset-4 decoration-1 mb-1.5">
-                  {n.title}
-                </h3>
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="font-serif text-lg md:text-xl leading-snug font-semibold text-primary
+                                 group-hover:underline underline-offset-4 decoration-1">
+                    {n.title}
+                  </h3>
+                  <span className="shrink-0 flex items-center gap-2 pt-1 text-[13px] text-on-surface-variant whitespace-nowrap">
+                    <span>{formatDate(n.published_at)}</span>
+                    <span className="inline-block bg-tertiary-fixed text-on-tertiary-fixed px-2 py-0.5 text-[11px] font-medium rounded-sm tracking-wide">
+                      {CATEGORY_LABEL[n.category] ?? n.category}
+                    </span>
+                  </span>
+                </div>
                 {!open && (
-                  <p className="text-[14px] leading-[1.7] text-on-surface-variant line-clamp-2">
+                  <p className="text-[14px] leading-[1.7] text-on-surface-variant line-clamp-2 mt-1.5">
                     {n.body.replace(/\n+/g, " ").trim()}
                   </p>
                 )}
