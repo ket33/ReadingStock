@@ -6,7 +6,7 @@
 // 지수 산식: 일별 리밸런싱 체인링크. 날짜별로 데이터가 있는 종목만으로
 // (비중을 그 종목들 합으로 재정규화해) 가중평균 수익률을 이어 붙인다.
 // 신규 상장 종목은 값이 생기는 날부터 자연스럽게 편입된다.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend, ReferenceLine,
@@ -121,8 +121,17 @@ function thin(rows: ChartRow[], max = 250): ChartRow[] {
 
 const fmtPct = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}%`;
 
-export default function WatchlistPerformance({ items }: { items: PerfItem[] }) {
+export default function WatchlistPerformance({ items, listName }: { items: PerfItem[]; listName: string }) {
   const [range, setRange] = useState<RangeKey>("1Y");
+  const [benchOpen, setBenchOpen] = useState(false);
+  const benchRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (benchRef.current && !benchRef.current.contains(e.target as Node)) setBenchOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
   // 비교선 선택은 localStorage에 기억 (이 컴포넌트는 클라이언트 데이터 로드 후에만 그려짐)
   const [bench, setBench] = useState<string[]>(() => {
     if (typeof window === "undefined") return [];
@@ -198,55 +207,74 @@ export default function WatchlistPerformance({ items }: { items: PerfItem[] }) {
 
   return (
     <section className="bg-white border border-outline-variant rounded-xl p-5 mt-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
-        <h2 className="text-sm font-semibold tracking-widest uppercase text-primary">
-          수익률
-        </h2>
-        <div className="flex gap-1">
-          {RANGES.map(r => (
-            <button
-              key={r.key}
-              onClick={() => setRange(r.key)}
-              className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full border transition-colors ${
-                range === r.key
-                  ? "bg-primary-fixed text-on-primary-fixed border-transparent"
-                  : "text-on-surface-variant border-outline-variant hover:text-primary"
-              }`}
-            >
-              {r.key}
-            </button>
-          ))}
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+        {/* 제목 + 총수익률 */}
+        <div className="min-w-0">
+          <h2 className="text-sm font-semibold tracking-widest uppercase text-primary truncate">
+            {listName} 수익률
+          </h2>
+          {total != null && (
+            <p className={`text-lg font-semibold tabular-nums mt-1 ${
+              total > 0 ? "text-stock-up" : total < 0 ? "text-stock-down" : "text-on-surface"
+            }`}>
+              {fmtPct(total)}
+            </p>
+          )}
         </div>
-      </div>
 
-      {total != null && (
-        <p className={`text-lg font-semibold tabular-nums mb-2 ${
-          total > 0 ? "text-stock-up" : total < 0 ? "text-stock-down" : "text-on-surface"
-        }`}>
-          {fmtPct(total)}
-        </p>
-      )}
+        {/* 오른쪽: 기간 + 그 아래 시장지표 비교 드롭다운 */}
+        <div className="flex flex-col items-end gap-2 shrink-0">
+          <div className="flex gap-1">
+            {RANGES.map(r => (
+              <button
+                key={r.key}
+                onClick={() => setRange(r.key)}
+                className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full border transition-colors ${
+                  range === r.key
+                    ? "bg-primary-fixed text-on-primary-fixed border-transparent"
+                    : "text-on-surface-variant border-outline-variant hover:text-primary"
+                }`}
+              >
+                {r.key}
+              </button>
+            ))}
+          </div>
 
-      {/* 시장지표 비교 토글 */}
-      <div className="flex flex-wrap items-center gap-1.5 mb-3">
-        <span className="text-xs text-on-surface-variant mr-1">비교:</span>
-        {BENCHMARKS.map(b => {
-          const on = bench.includes(b.code);
-          return (
+          <div ref={benchRef} className="relative">
             <button
-              key={b.code}
-              onClick={() => toggleBench(b.code)}
-              className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full border transition-colors ${
-                on
-                  ? "text-white border-transparent"
-                  : "text-on-surface-variant border-outline-variant hover:text-primary"
+              onClick={() => setBenchOpen(o => !o)}
+              className={`inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full border text-[11px] font-medium transition-colors ${
+                benchOpen || bench.length > 0
+                  ? "border-primary text-primary"
+                  : "border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary"
               }`}
-              style={on ? { backgroundColor: b.color } : undefined}
             >
-              {on ? "✓ " : "+ "}{b.label}
+              <span className="material-symbols-outlined text-[14px]">show_chart</span>
+              시장지표 비교{bench.length > 0 ? ` ${bench.length}` : ""}
+              <span className="material-symbols-outlined text-[14px]">expand_more</span>
             </button>
-          );
-        })}
+            {benchOpen && (
+              <div className="absolute right-0 z-30 mt-1 w-40 bg-white border border-outline-variant rounded-lg shadow-lg py-1">
+                {BENCHMARKS.map(b => {
+                  const on = bench.includes(b.code);
+                  return (
+                    <button
+                      key={b.code}
+                      onClick={() => toggleBench(b.code)}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-on-surface hover:bg-surface-container-low transition-colors"
+                    >
+                      <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: b.color }} />
+                      <span className="flex-1 text-left">{b.label}</span>
+                      {on && (
+                        <span className="material-symbols-outlined text-[16px]" style={{ color: b.color }}>check</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <div className="h-64 w-full">

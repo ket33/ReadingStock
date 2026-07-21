@@ -490,7 +490,7 @@ export default function WatchlistPage() {
                 {/* MY News + 업종 비율 (워치리스트 표와 수익률 사이) */}
                 <WatchlistInsights items={rows.map(r => ({ code: r.stock_code, name: r.name, sector: r.sector, weight: r.weight }))} />
 
-                <WatchlistPerformance items={perfItems} />
+                <WatchlistPerformance items={perfItems} listName={activeList?.name ?? ""} />
               </>
             )}
           </>
