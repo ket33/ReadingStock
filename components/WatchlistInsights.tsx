@@ -3,7 +3,7 @@
 // 워치리스트 인사이트 — 왼쪽 'MY News'(담은 종목 뉴스 일자순) + 오른쪽 '업종 비율'(구성비율 반영 도넛)
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 
 export interface InsightItem {
@@ -82,17 +82,18 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
         ) : news.length === 0 ? (
           <p className="text-sm text-on-surface-variant py-10 text-center">담은 종목의 새 소식이 아직 없어요.</p>
         ) : (
-          <ul className="divide-y divide-outline-variant max-h-72 overflow-y-auto -mx-1 px-1">
+          // 한눈에 5개 정도만 보이고 나머지는 스크롤 (max-h)
+          <ul className="divide-y divide-outline-variant max-h-[21rem] overflow-y-auto -mx-1 px-1">
             {news.map(n => (
               <li key={n.id}>
-                <Link href={`/stock/${n.stock_code}?tab=news`}
+                <Link href={`/stock/${n.stock_code}?tab=news#news-${n.id}`}
                       className="block py-2.5 group">
                   <div className="flex items-center gap-2 mb-0.5 text-[11px] text-on-surface-variant">
                     <span className="tabular-nums">{fmtDate(n.published_at)}</span>
                     <span className="text-outline">·</span>
                     <span className="font-medium text-primary">{nameByCode.get(n.stock_code) ?? n.stock_code}</span>
                   </div>
-                  <p className="text-[13px] leading-snug text-on-surface group-hover:text-primary transition-colors line-clamp-2">
+                  <p className="text-[12px] leading-snug text-on-surface group-hover:text-primary transition-colors line-clamp-2">
                     {n.title}
                   </p>
                 </Link>
@@ -108,22 +109,20 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
         {sectorData.length === 0 ? (
           <p className="text-sm text-on-surface-variant py-10 text-center">표시할 업종이 없어요.</p>
         ) : (
-          <div className="flex items-center gap-4">
-            <div className="w-40 h-40 shrink-0">
-              <ResponsiveContainer>
-                <PieChart>
-                  <Pie data={sectorData} dataKey="pct" nameKey="sector"
-                       cx="50%" cy="50%" innerRadius={44} outerRadius={72} paddingAngle={1} stroke="none">
-                    {sectorData.map((d, i) => (
-                      <Cell key={d.sector} fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(v, n) => [`${v}%`, String(n)] as [string, string]}
-                           contentStyle={{ background: "#fff", border: "1px solid #c4c6cd", borderRadius: 4, fontSize: 12 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <ul className="flex-1 min-w-0 space-y-1.5 max-h-40 overflow-y-auto">
+          <div className="flex items-center gap-5">
+            {/* 고정 크기 PieChart — ResponsiveContainer가 flex 안에서 0으로 접히는 문제 회피 */}
+            <PieChart width={150} height={150} className="shrink-0">
+              <Pie data={sectorData} dataKey="pct" nameKey="sector"
+                   cx={75} cy={75} innerRadius={44} outerRadius={72}
+                   paddingAngle={sectorData.length > 1 ? 2 : 0} stroke="#fff" strokeWidth={1}>
+                {sectorData.map((d, i) => (
+                  <Cell key={d.sector} fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip formatter={(v, n) => [`${v}%`, String(n)] as [string, string]}
+                       contentStyle={{ background: "#fff", border: "1px solid #c4c6cd", borderRadius: 4, fontSize: 12 }} />
+            </PieChart>
+            <ul className="flex-1 min-w-0 space-y-1.5 max-h-36 overflow-y-auto">
               {sectorData.map((d, i) => (
                 <li key={d.sector} className="flex items-center gap-2 text-xs">
                   <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: SECTOR_COLORS[i % SECTOR_COLORS.length] }} />
