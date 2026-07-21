@@ -71,7 +71,7 @@ function LatestNews({ news }: { news: HomeNewsItem[] }) {
   return (
     <aside>
       <div className="mb-8 border-b border-outline-variant pb-4">
-        <h2 className="font-serif text-base font-medium text-primary">최신 뉴스</h2>
+        <h2 className="font-serif text-base font-medium text-primary">News</h2>
       </div>
       <div className="space-y-2">
         {news.slice(0, visible).map(n => (
