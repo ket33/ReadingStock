@@ -9,6 +9,7 @@ import { useAuth } from "./auth/AuthProvider";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import WatchlistPerformance from "./WatchlistPerformance";
+import WatchlistInsights from "./WatchlistInsights";
 import ConfirmDialog from "./ConfirmDialog";
 import type { ScreenerRow } from "@/lib/screener-data";
 import { CATS, METRICS, BY_KEY, fmtCell } from "@/lib/metrics-catalog";
@@ -485,6 +486,9 @@ export default function WatchlistPage() {
                     </button>
                   )}
                 </div>
+
+                {/* MY News + 업종 비율 (워치리스트 표와 수익률 사이) */}
+                <WatchlistInsights items={rows.map(r => ({ code: r.stock_code, name: r.name, sector: r.sector, weight: r.weight }))} />
 
                 <WatchlistPerformance items={perfItems} />
               </>

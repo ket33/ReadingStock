@@ -200,7 +200,7 @@ export default function WatchlistPerformance({ items }: { items: PerfItem[] }) {
     <section className="bg-white border border-outline-variant rounded-xl p-5 mt-6">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-1">
         <h2 className="text-sm font-semibold tracking-widest uppercase text-primary">
-          워치리스트 성과
+          수익률
         </h2>
         <div className="flex gap-1">
           {RANGES.map(r => (
