@@ -77,19 +77,26 @@ function LatestNews({ news }: { news: HomeNewsItem[] }) {
         {news.slice(0, visible).map(n => (
           <Link
             key={n.id}
-            href={`/stock/${n.stockCode}?tab=news`}
-            className="block border border-transparent rounded-lg px-3.5 py-2.5
-                       hover:border-primary hover:bg-surface-container-low transition-colors group"
+            href={`/stock/${n.stockCode}?tab=news&news=${n.id}`}
+            className="flex items-center gap-2 px-1 py-2 group"
           >
-            <span className="flex items-baseline gap-1.5">
-              <span className="text-[12px] font-semibold text-on-surface-variant">{n.companyName}</span>
-              <span className="text-[11px] text-outline">
-                {n.publishedAt.slice(0, 10).replaceAll("-", ".")}
+            <span className="flex-1 min-w-0">
+              <span className="flex items-baseline gap-1.5">
+                <span className="text-[12px] font-semibold text-on-surface-variant group-hover:text-[#4a8eff] transition-colors">
+                  {n.companyName}
+                </span>
+                <span className="text-[11px] text-outline">
+                  {n.publishedAt.slice(0, 10).replaceAll("-", ".")}
+                </span>
               </span>
+              <p className="text-[13px] leading-[1.5] text-on-surface line-clamp-2">
+                {n.title}
+              </p>
             </span>
-            <p className="text-[13px] leading-[1.5] text-on-surface line-clamp-2 group-hover:text-primary transition-colors">
-              {n.title}
-            </p>
+            <span className="material-symbols-outlined text-[14px] text-[#4a8eff] opacity-0
+                             group-hover:opacity-100 transition-opacity shrink-0">
+              arrow_forward_ios
+            </span>
           </Link>
         ))}
       </div>
