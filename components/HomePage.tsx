@@ -73,17 +73,24 @@ function LatestNews({ news }: { news: HomeNewsItem[] }) {
       <div className="mb-8 border-b border-outline-variant pb-4">
         <h2 className="font-serif text-base font-medium text-primary">최신 뉴스</h2>
       </div>
-      <div>
+      <div className="space-y-2">
         {news.slice(0, visible).map(n => (
           <Link
             key={n.id}
             href={`/stock/${n.stockCode}?tab=news`}
-            className="block border-b border-outline-variant py-3 group"
+            className="flex items-center gap-2 border border-outline-variant/50 rounded-lg px-3.5 py-2.5 bg-white
+                       hover:border-primary hover:bg-surface-container-low transition-colors group"
           >
-            <span className="text-[12px] font-semibold text-on-surface-variant">{n.companyName}</span>
-            <p className="text-[13px] leading-[1.5] text-on-surface line-clamp-2 group-hover:text-primary group-hover:underline underline-offset-2 transition-colors">
-              {n.title}
-            </p>
+            <span className="flex-1 min-w-0">
+              <span className="text-[12px] font-semibold text-on-surface-variant">{n.companyName}</span>
+              <p className="text-[13px] leading-[1.5] text-on-surface line-clamp-2 group-hover:text-primary transition-colors">
+                {n.title}
+              </p>
+            </span>
+            <span className="material-symbols-outlined text-[14px] text-outline group-hover:text-primary
+                             group-hover:translate-x-0.5 transition-all shrink-0">
+              arrow_forward_ios
+            </span>
           </Link>
         ))}
       </div>
