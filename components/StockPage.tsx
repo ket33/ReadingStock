@@ -154,7 +154,7 @@ export default function StockPage({ data }: { data: StockPageData }) {
             <ArticleTab article={data.article} charts={data.charts} sector={company.sector} stockCode={company.stock_code} />
           )}
           {tab === "news" && (
-            <NewsTab news={data.news} companyName={company.name} />
+            <NewsTab news={data.news} companyName={company.name} stockCode={company.stock_code} />
           )}
           {tab === "summary" && (
             <SummaryTab latest={data.latestMetrics} fyMetrics={data.fyMetrics} />
