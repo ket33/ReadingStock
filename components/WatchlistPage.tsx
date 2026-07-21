@@ -36,7 +36,7 @@ export default function WatchlistPage() {
 
   const [editingId, setEditingId] = useState<number | null>(null); // 드롭다운 내 이름 편집 중인 리스트
   const [nameDraft, setNameDraft] = useState("");
-  const [shareMsg, setShareMsg] = useState("");
+  const [shareCopied, setShareCopied] = useState(false);
 
   // 컬럼(지표) 선택 — 워치리스트마다 따로 저장·유지 (watchlists.metric_cols)
   const [extraCols, setExtraCols] = useState<string[]>(DEFAULT_COLS);
@@ -172,16 +172,10 @@ export default function WatchlistPage() {
       setLists(ls => (ls ?? []).map(l => (l.id === activeList.id ? { ...l, share_token: token } : l)));
     }
     const url = `${window.location.origin}/w/${token}`;
-    try { await navigator.clipboard.writeText(url); setShareMsg("공유 링크를 복사했어요"); }
-    catch { setShareMsg(url); }
-    window.setTimeout(() => setShareMsg(""), 3000);
-  };
-  const stopShare = async () => {
-    if (!activeList) return;
-    await supabaseBrowser().from("watchlists").update({ share_token: null }).eq("id", activeList.id);
-    setLists(ls => (ls ?? []).map(l => (l.id === activeList.id ? { ...l, share_token: null } : l)));
-    setShareMsg("공유를 중지했어요");
-    window.setTimeout(() => setShareMsg(""), 3000);
+    try { await navigator.clipboard.writeText(url); }
+    catch { window.prompt("아래 링크를 복사하세요", url); return; }
+    setShareCopied(true);
+    window.setTimeout(() => setShareCopied(false), 2000);
   };
 
   // ── 종목 추가/빼기 ──
@@ -284,22 +278,14 @@ export default function WatchlistPage() {
 
           {user && activeList && (
             <div className="flex items-center gap-2 ml-auto">
-              {shareMsg && <span className="text-xs text-primary">{shareMsg}</span>}
-
-              {/* 공유 링크 */}
+              {/* 공유 링크 — 누르면 복사되고 잠깐 체크 표시 */}
               <button onClick={shareLink} title="공유 링크 복사"
                       className={`inline-flex items-center justify-center w-9 h-9 rounded-lg border transition-colors ${
-                        activeList.share_token
+                        shareCopied
                           ? "border-primary text-primary bg-primary-fixed/10"
                           : "border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary"}`}>
-                <span className="material-symbols-outlined text-[18px]">link</span>
+                <span className="material-symbols-outlined text-[18px]">{shareCopied ? "check" : "link"}</span>
               </button>
-              {activeList.share_token && (
-                <button onClick={stopShare}
-                        className="text-xs text-on-surface-variant hover:text-error transition-colors">
-                  공유 중지
-                </button>
-              )}
 
               {/* 리스트 선택 드롭다운 — 이름 바꾸기·삭제를 각 행에서 */}
               <div ref={dropdownRef} className="relative">
