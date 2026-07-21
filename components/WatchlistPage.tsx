@@ -404,31 +404,14 @@ export default function WatchlistPage() {
                 )}
               </div>
 
-              {/* 필터 — picking(종목 골라보기)과 같은 알약 버튼 + 팝업 */}
-              <button onClick={() => setPickerOpen(o => !o)}
-                      className={`inline-flex items-center gap-1 pl-3 pr-4 py-1.5 text-xs font-medium rounded-full border transition-colors ${
-                        pickerOpen
-                          ? "bg-primary text-on-primary border-primary"
-                          : "bg-white text-on-surface-variant border-outline-variant hover:text-primary hover:border-primary"}`}>
-                <span className="material-symbols-outlined text-[16px]">{pickerOpen ? "close" : "add"}</span>
+              {/* 필터 — 아웃라인 알약 + 깔때기 아이콘 (picking 버튼과 같은 모양) */}
+              <button onClick={() => setPickerOpen(true)}
+                      className="inline-flex items-center gap-1.5 pl-3 pr-4 py-1.5 text-xs font-medium rounded-full border
+                                 border-outline-variant bg-white text-on-surface hover:text-primary hover:border-primary transition-colors">
+                <span className="material-symbols-outlined text-[16px]">filter_list</span>
                 필터
               </button>
             </div>
-
-            {/* 선택된 지표 칩 (picking처럼 한눈에 보고 바로 제거) */}
-            {cols.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 mb-3">
-                {cols.map(def => (
-                  <span key={def.key as string}
-                        className="inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full text-[11px] font-medium
-                                   bg-primary-fixed text-on-primary-fixed">
-                    {def.cat === "수익률" ? `수익률 ${def.label}` : def.label}
-                    <button onClick={() => toggleCol(def.key as string)} aria-label={`${def.label} 제거`}
-                            className="material-symbols-outlined text-[13px] hover:opacity-70">close</button>
-                  </span>
-                ))}
-              </div>
-            )}
 
             {rows == null ? (
               <p className="text-sm text-outline py-10 text-center">불러오는 중…</p>
