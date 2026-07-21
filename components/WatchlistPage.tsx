@@ -17,7 +17,7 @@ import { formatPrice } from "@/lib/format";
 interface WatchList { id: number; name: string; share_token: string | null; }
 type Row = ScreenerRow & { weight: number | null };
 interface Candidate { stockCode: string; name: string; sector: string | null; }
-type Confirm = { kind: "remove"; code: string; name: string } | { kind: "deleteList" } | null;
+type Confirm = { kind: "remove"; code: string; name: string } | { kind: "deleteList"; list: WatchList } | null;
 
 function fmtChange(v: number | null): { text: string; cls: string } {
   if (v == null) return { text: "—", cls: "text-outline" };
@@ -35,11 +35,9 @@ export default function WatchlistPage() {
   const [confirm, setConfirm] = useState<Confirm>(null);
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
 
-  const [editingName, setEditingName] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null); // 드롭다운 내 이름 편집 중인 리스트
   const [nameDraft, setNameDraft] = useState("");
   const [shareMsg, setShareMsg] = useState("");
 
@@ -117,8 +115,7 @@ export default function WatchlistPage() {
     const onDown = (e: MouseEvent) => {
       const t = e.target as Node;
       if (addRef.current && !addRef.current.contains(t)) { setAddOpen(false); setQ(""); }
-      if (dropdownRef.current && !dropdownRef.current.contains(t)) setDropdownOpen(false);
-      if (menuRef.current && !menuRef.current.contains(t)) setMenuOpen(false);
+      if (dropdownRef.current && !dropdownRef.current.contains(t)) { setDropdownOpen(false); setEditingId(null); }
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
@@ -137,19 +134,19 @@ export default function WatchlistPage() {
       setDropdownOpen(false);
     }
   };
-  const saveName = async () => {
+  const saveName = async (id: number) => {
     const name = nameDraft.trim();
-    if (!activeList || !name || name === activeList.name) { setEditingName(false); return; }
-    await supabaseBrowser().from("watchlists").update({ name }).eq("id", activeList.id);
-    setLists(ls => (ls ?? []).map(l => (l.id === activeList.id ? { ...l, name } : l)));
-    setEditingName(false);
+    const target = lists?.find(l => l.id === id);
+    if (!target || !name || name === target.name) { setEditingId(null); return; }
+    await supabaseBrowser().from("watchlists").update({ name }).eq("id", id);
+    setLists(ls => (ls ?? []).map(l => (l.id === id ? { ...l, name } : l)));
+    setEditingId(null);
   };
-  const deleteList = async () => {
-    if (!activeList) return;
-    await supabaseBrowser().from("watchlists").delete().eq("id", activeList.id);
-    const rest = (lists ?? []).filter(l => l.id !== activeList.id);
+  const deleteList = async (list: WatchList) => {
+    await supabaseBrowser().from("watchlists").delete().eq("id", list.id);
+    const rest = (lists ?? []).filter(l => l.id !== list.id);
     setLists(rest);
-    setActiveId(rest[0]?.id ?? null);
+    setActiveId(prev => (prev === list.id ? rest[0]?.id ?? null : prev));
     setConfirm(null);
   };
 
@@ -171,7 +168,6 @@ export default function WatchlistPage() {
     if (!activeList) return;
     await supabaseBrowser().from("watchlists").update({ share_token: null }).eq("id", activeList.id);
     setLists(ls => (ls ?? []).map(l => (l.id === activeList.id ? { ...l, share_token: null } : l)));
-    setMenuOpen(false);
     setShareMsg("공유를 중지했어요");
     window.setTimeout(() => setShareMsg(""), 3000);
   };
@@ -286,25 +282,55 @@ export default function WatchlistPage() {
                           : "border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary"}`}>
                 <span className="material-symbols-outlined text-[18px]">link</span>
               </button>
+              {activeList.share_token && (
+                <button onClick={stopShare}
+                        className="text-xs text-on-surface-variant hover:text-error transition-colors">
+                  공유 중지
+                </button>
+              )}
 
-              {/* 리스트 선택 드롭다운 */}
+              {/* 리스트 선택 드롭다운 — 이름 바꾸기·삭제를 각 행에서 */}
               <div ref={dropdownRef} className="relative">
-                <button onClick={() => setDropdownOpen(o => !o)}
+                <button onClick={() => { setDropdownOpen(o => !o); setEditingId(null); }}
                         className="inline-flex items-center gap-2 pl-3.5 pr-2.5 h-9 rounded-lg border border-outline-variant
                                    text-sm font-medium text-on-surface hover:border-primary transition-colors bg-white">
                   <span className="max-w-[140px] truncate">{activeList.name}</span>
                   <span className="material-symbols-outlined text-[18px] text-on-surface-variant">expand_more</span>
                 </button>
                 {dropdownOpen && (
-                  <div className="absolute right-0 z-40 mt-1 w-60 bg-white border border-outline-variant rounded-lg shadow-lg py-1">
+                  <div className="absolute right-0 z-40 mt-1 w-72 bg-white border border-outline-variant rounded-lg shadow-lg py-1">
                     {(lists ?? []).map(l => (
-                      <button key={l.id}
-                              onClick={() => { setActiveId(l.id); setDropdownOpen(false); }}
-                              className={`w-full flex items-center gap-2 px-3.5 py-2.5 text-left text-sm transition-colors ${
-                                l.id === activeId ? "text-primary font-medium bg-surface-container-low" : "text-on-surface hover:bg-surface-container-low"}`}>
-                        <span className="truncate flex-1">{l.name}</span>
-                        {l.share_token && <span className="material-symbols-outlined text-[14px] text-outline">link</span>}
-                      </button>
+                      editingId === l.id ? (
+                        <div key={l.id} className="flex items-center gap-1.5 px-2.5 py-2">
+                          <input value={nameDraft} onChange={e => setNameDraft(e.target.value)}
+                                 onKeyDown={e => { if (e.key === "Enter") saveName(l.id); if (e.key === "Escape") setEditingId(null); }}
+                                 autoFocus maxLength={30}
+                                 className="flex-1 min-w-0 px-2.5 py-1.5 rounded-md border border-outline-variant text-sm focus:outline-none focus:border-primary" />
+                          <button onClick={() => saveName(l.id)}
+                                  className="px-2.5 py-1.5 rounded-full text-xs font-medium bg-primary text-on-primary shrink-0">저장</button>
+                          <button onClick={() => setEditingId(null)} aria-label="취소"
+                                  className="material-symbols-outlined text-[16px] text-outline hover:text-on-surface shrink-0">close</button>
+                        </div>
+                      ) : (
+                        <div key={l.id}
+                             className={`group flex items-center gap-1 pl-3.5 pr-2 py-2.5 text-sm transition-colors ${
+                               l.id === activeId ? "bg-surface-container-low" : "hover:bg-surface-container-low"}`}>
+                          <button onClick={() => { setActiveId(l.id); setDropdownOpen(false); }}
+                                  className={`flex items-center gap-1.5 flex-1 min-w-0 text-left ${
+                                    l.id === activeId ? "text-primary font-medium" : "text-on-surface"}`}>
+                            <span className="truncate">{l.name}</span>
+                            {l.share_token && <span className="material-symbols-outlined text-[14px] text-outline shrink-0">link</span>}
+                          </button>
+                          <button onClick={() => { setNameDraft(l.name); setEditingId(l.id); }} title="이름 바꾸기"
+                                  className="p-1 text-on-surface-variant hover:text-primary shrink-0">
+                            <span className="material-symbols-outlined text-[15px] align-middle">edit</span>
+                          </button>
+                          <button onClick={() => { setConfirm({ kind: "deleteList", list: l }); setDropdownOpen(false); }} title="삭제"
+                                  className="p-1 text-on-surface-variant hover:text-error shrink-0">
+                            <span className="material-symbols-outlined text-[15px] align-middle">delete</span>
+                          </button>
+                        </div>
+                      )
                     ))}
                     <div className="border-t border-outline-variant mt-1 pt-1">
                       <button onClick={createList}
@@ -315,48 +341,9 @@ export default function WatchlistPage() {
                   </div>
                 )}
               </div>
-
-              {/* ⋮ 메뉴 */}
-              <div ref={menuRef} className="relative">
-                <button onClick={() => setMenuOpen(o => !o)} title="리스트 관리"
-                        className="inline-flex items-center justify-center w-9 h-9 rounded-lg border border-outline-variant
-                                   text-on-surface-variant hover:text-primary hover:border-primary transition-colors bg-white">
-                  <span className="material-symbols-outlined text-[18px]">more_vert</span>
-                </button>
-                {menuOpen && (
-                  <div className="absolute right-0 z-40 mt-1 w-40 bg-white border border-outline-variant rounded-lg shadow-lg py-1">
-                    <button onClick={() => { setNameDraft(activeList.name); setEditingName(true); setMenuOpen(false); }}
-                            className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left text-sm text-on-surface hover:bg-surface-container-low">
-                      <span className="material-symbols-outlined text-[16px]">edit</span>이름 바꾸기
-                    </button>
-                    {activeList.share_token && (
-                      <button onClick={stopShare}
-                              className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left text-sm text-on-surface hover:bg-surface-container-low">
-                        <span className="material-symbols-outlined text-[16px]">link_off</span>공유 중지
-                      </button>
-                    )}
-                    <button onClick={() => { setConfirm({ kind: "deleteList" }); setMenuOpen(false); }}
-                            className="w-full flex items-center gap-2 px-3.5 py-2.5 text-left text-sm text-error hover:bg-surface-container-low">
-                      <span className="material-symbols-outlined text-[16px]">delete</span>삭제
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
           )}
         </div>
-
-        {/* 이름 편집(인라인) */}
-        {editingName && activeList && (
-          <div className="flex items-center gap-2 mb-4">
-            <input value={nameDraft} onChange={e => setNameDraft(e.target.value)}
-                   onKeyDown={e => { if (e.key === "Enter") saveName(); if (e.key === "Escape") setEditingName(false); }}
-                   autoFocus maxLength={30}
-                   className="px-3 py-1.5 rounded-lg border border-outline-variant text-sm focus:outline-none focus:border-primary w-56" />
-            <button onClick={saveName} className="px-3.5 py-1.5 rounded-full text-xs font-medium bg-primary text-on-primary">저장</button>
-            <button onClick={() => setEditingName(false)} className="px-3 py-1.5 rounded-full text-xs text-on-surface-variant hover:bg-surface-container-low">취소</button>
-          </div>
-        )}
 
         {loading ? null : !user ? (
           <div className="text-center py-20 border border-outline-variant rounded-xl bg-white">
@@ -569,11 +556,11 @@ export default function WatchlistPage() {
         open={confirm != null}
         message={
           confirm?.kind === "remove" ? `${confirm.name}을(를) 이 리스트에서 뺄까요?`
-          : confirm?.kind === "deleteList" ? `'${activeList?.name}' 리스트를 삭제할까요?\n담아둔 종목도 함께 사라져요.`
+          : confirm?.kind === "deleteList" ? `'${confirm.list.name}' 리스트를 삭제할까요?\n담아둔 종목도 함께 사라져요.`
           : ""
         }
         confirmLabel={confirm?.kind === "deleteList" ? "삭제" : "빼기"}
-        onConfirm={() => { if (confirm?.kind === "remove") removeItem(confirm.code); else if (confirm?.kind === "deleteList") deleteList(); }}
+        onConfirm={() => { if (confirm?.kind === "remove") removeItem(confirm.code); else if (confirm?.kind === "deleteList") deleteList(confirm.list); }}
         onCancel={() => setConfirm(null)}
       />
       <SiteFooter />
