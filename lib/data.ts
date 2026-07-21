@@ -1,7 +1,7 @@
 // 종목 페이지 데이터 로더 — 페이지 진입 시 서버에서 5개 테이블을 한 번에 조회
 import { supabase } from "./supabase";
 import type {
-  Company, FinancialRow, MetricsRow, PriceRow, Article,
+  Company, FinancialRow, MetricsRow, PriceRow, Article, CompanyNews,
   ChartData, StockPageData,
 } from "./types";
 import { toJo } from "./format";
@@ -191,7 +191,7 @@ function buildCharts(fin: FinancialRow[], metrics: MetricsRow[], finQ: Financial
 // 재무제표 탭 빌더는 lib/statements.ts로 분리 (계정 매핑 정의 포함)
 
 export async function getStockPageData(stockCode: string): Promise<StockPageData | null> {
-  const [companyQ, finQ, finDetailQ, finQuarterQ, finQuarterDetailQ, finQuarterDetail2Q, bsQuarterQ, rndQ, metricsQ, pricesQ, articleQ] = await Promise.all([
+  const [companyQ, finQ, finDetailQ, finQuarterQ, finQuarterDetailQ, finQuarterDetail2Q, bsQuarterQ, rndQ, metricsQ, pricesQ, articleQ, newsQ] = await Promise.all([
     supabase.from("companies").select("*").eq("stock_code", stockCode).maybeSingle(),
     // PostgREST가 요청당 1,000행으로 하드캡(실측: limit(5000)도 1,000에서 잘림)이라
     // '매핑된 행'과 '미매핑 세부 행'을 나눠 각각 1,000행 아래로 가져온다.
@@ -259,6 +259,10 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
       .eq("stock_code", stockCode).order("date", { ascending: false }).limit(2),
     supabase.from("articles").select("id,based_on,body,summary,created_at")
       .eq("stock_code", stockCode).order("created_at", { ascending: false }).limit(1),
+    // 뉴스룸 — 공시 해설 기사 (최신순)
+    supabase.from("company_news")
+      .select("id,stock_code,rcept_no,report_nm,category,title,body,dart_url,is_fallback,published_at")
+      .eq("stock_code", stockCode).order("published_at", { ascending: false }).limit(50),
   ]);
 
   const company = companyQ.data as Company | null;
@@ -296,6 +300,7 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
     price: prices[0] ?? null,
     prevPrice: prices[1] ?? null,
     article,
+    news: (newsQ.data ?? []) as CompanyNews[],
     latestMetrics,
     fyMetrics: metrics.filter(m => m.period === "FY"),
     screener: screenerRow,

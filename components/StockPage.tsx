@@ -6,22 +6,32 @@ import type { StockPageData } from "@/lib/types";
 import ArticleTab from "./ArticleTab";
 import SummaryTab from "./SummaryTab";
 import FinancialsTab from "./FinancialsTab";
+import NewsTab from "./NewsTab";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import StockMetrics from "./StockMetrics";
 import WatchButton from "./auth/WatchButton";
 
-type TabKey = "article" | "summary" | "financials";
+type TabKey = "article" | "news" | "summary" | "financials";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "article", label: "리포트" },
+  { key: "news", label: "뉴스룸" },
   { key: "summary", label: "요약" },
   { key: "financials", label: "재무제표" },
 ];
 
+const TAB_KEYS = TABS.map(t => t.key);
+
 export default function StockPage({ data }: { data: StockPageData }) {
   const [tab, setTab] = useState<TabKey>("article");
   const { company, price, prevPrice } = data;
+
+  // 이메일 링크(?tab=news)로 진입하면 해당 탭을 바로 연다
+  useEffect(() => {
+    const t = new URLSearchParams(window.location.search).get("tab") as TabKey | null;
+    if (t && TAB_KEYS.includes(t)) setTab(t);
+  }, []);
 
   // 전일 종가 대비 변화 (한국 관례: 상승=빨강, 하락=파랑)
   const change = (() => {
@@ -142,6 +152,9 @@ export default function StockPage({ data }: { data: StockPageData }) {
         <article className="flex-grow bg-white min-h-screen px-4 md:px-10 py-12 pb-24 lg:pb-12 overflow-hidden">
           {tab === "article" && (
             <ArticleTab article={data.article} charts={data.charts} sector={company.sector} stockCode={company.stock_code} />
+          )}
+          {tab === "news" && (
+            <NewsTab news={data.news} companyName={company.name} />
           )}
           {tab === "summary" && (
             <SummaryTab latest={data.latestMetrics} fyMetrics={data.fyMetrics} />

@@ -136,11 +136,26 @@ export interface ChartData {
 
 import type { ScreenerRow } from "./screener-data";
 
+// ── 뉴스룸 (공시 해설 기사) ──────────────────────────────────
+export interface CompanyNews {
+  id: number;
+  stock_code: string;
+  rcept_no: string;
+  report_nm: string;
+  category: string;      // 'earnings'|'contract'|'invest'|'capital'|'shareholder'|'structure'|'risk'|'governance'
+  title: string;
+  body: string;
+  dart_url: string;
+  is_fallback: boolean;
+  published_at: string;
+}
+
 export interface StockPageData {
   company: Company;
   price: PriceRow | null;
   prevPrice: PriceRow | null;
   article: Article | null;
+  news: CompanyNews[];            // 뉴스룸 탭 (최신순)
   latestMetrics: MetricsRow & { label: string };
   fyMetrics: MetricsRow[];
   charts: ChartData;
