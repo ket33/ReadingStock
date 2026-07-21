@@ -39,9 +39,8 @@ export default function NewsTab({ news, companyName }: {
   return (
     <div className="article-canvas">
       <div className="mb-10">
-        <h2 className="font-serif text-2xl font-semibold text-primary">뉴스룸</h2>
-        <p className="mt-2 text-sm text-on-surface-variant">
-          {companyName}의 펀더멘털 공시를 쉽게 풀어 전해드려요. 사실은 공시에서만 가져오고, 판단은 하지 않아요.
+        <p className="text-base text-on-surface-variant">
+          {companyName}의 실적과 사업에 영향을 주는 뉴스만 쉽게 풀어 전해드려요
         </p>
       </div>
 
