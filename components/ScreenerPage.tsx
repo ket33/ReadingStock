@@ -15,51 +15,8 @@ import type { ScreenerRow } from "@/lib/screener-data";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 
-import { type Fmt, type Preset, type MetricDef, CATS, METRICS, BY_KEY, fmtCell } from "@/lib/metrics-catalog";
-
-// 컬럼 프리셋 — '기본'은 시가총액만. 필터를 추가하면 그 지표 열이 하나씩 늘어난다.
-// 시가총액은 기준점 역할이라 어느 프리셋에서든 첫 컬럼으로 고정.
-const COL_PRESETS: { name: string; cols: string[] }[] = [
-  { name: "기본", cols: ["market_cap"] },
-  ...CATS.map(c => ({
-    name: c,
-    cols: [
-      "market_cap",
-      ...METRICS.filter(m => m.cat === c && m.key !== "market_cap").map(m => m.key as string),
-    ],
-  })),
-];
-
-
-// ── 필터 ──────────────────────────────────────────────────────
-interface MetricFilter {
-  key: string;  // 지표 key
-  min: string;  // 입력 문자열 (빈 값 = 조건 없음)
-  max: string;
-}
-
-function passes(row: ScreenerRow, f: MetricFilter): boolean {
-  const def = BY_KEY.get(f.key);
-  if (!def) return true;
-  const min = f.min.trim() === "" ? null : parseFloat(f.min) * def.mult;
-  const max = f.max.trim() === "" ? null : parseFloat(f.max) * def.mult;
-  if (min == null && max == null) return true;  // 값 미입력 → 통과
-  const v = row[def.key] as number | null;
-  if (v == null) return false;                   // 조건이 있는데 값이 없으면 제외
-  // 적자로 음수가 된 밸류에이션 배수는 'PER 15 이하' 같은 조건의 의도(저평가+흑자)와
-  // 어긋나므로 값 없음과 동일하게 제외 (표시도 '적자' — fmtCell 참고)
-  if (def.cat === "밸류에이션" && v < 0) return false;
-  if (min != null && !Number.isNaN(min) && v < min) return false;
-  if (max != null && !Number.isNaN(max) && v > max) return false;
-  return true;
-}
-
-// 프리셋 ↔ 현재 입력값 일치 여부 (칩 활성 표시용)
-function presetActive(f: MetricFilter, p: Preset): boolean {
-  const eq = (s: string, n?: number) =>
-    n == null ? s.trim() === "" : parseFloat(s) === n;
-  return eq(f.min, p.min) && eq(f.max, p.max);
-}
+import { type MetricDef, CATS, METRICS, BY_KEY, fmtCell } from "@/lib/metrics-catalog";
+import { type MetricFilter, COL_PRESETS, passes, presetActive } from "@/lib/screener-filter";
 
 // ── 본체 ──────────────────────────────────────────────────────
 export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
