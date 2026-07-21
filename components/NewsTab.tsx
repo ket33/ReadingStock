@@ -82,7 +82,7 @@ export default function NewsTab({ news, companyName }: {
               {/* 헤드라인(좌) + 날짜·카테고리(우) 한 줄 — 클릭하면 펼침/접힘 */}
               <div onClick={() => toggle(n.id)} className="cursor-pointer group">
                 <div className="flex items-start justify-between gap-3">
-                  <h3 className="font-serif text-xl md:text-[23px] leading-snug font-bold text-primary
+                  <h3 className="font-serif text-lg md:text-xl leading-snug font-bold text-primary
                                  group-hover:underline underline-offset-4 decoration-1">
                     {n.title}
                   </h3>
