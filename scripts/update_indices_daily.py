@@ -18,6 +18,10 @@ import sys
 import FinanceDataReader as fdr
 from supabase import create_client
 
+# Windows 로컬 실행 시 cp949 콘솔에서도 ✓ 등 출력이 깨지지 않게
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 INDICES = [
     ("KS11", "코스피"),
     ("KQ11", "코스닥"),
