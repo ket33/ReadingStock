@@ -27,17 +27,11 @@ export default function StockPage({ data }: { data: StockPageData }) {
   const [tab, setTab] = useState<TabKey>("article");
   const { company, price, prevPrice } = data;
 
-  // 이메일·MY News 링크(?tab=news#news-{id})로 진입하면 그 탭을 열고 해당 기사로 스크롤
+  // 이메일·MY News 링크(?tab=news)로 진입하면 뉴스룸 탭을 연다
+  // (특정 기사는 NewsTab이 ?news={id}를 읽어 펼친다)
   useEffect(() => {
     const t = new URLSearchParams(window.location.search).get("tab") as TabKey | null;
     if (t && TAB_KEYS.includes(t)) setTab(t);
-    const hash = window.location.hash;
-    if (hash && /^#news-\d+$/.test(hash)) {
-      // 탭 콘텐츠가 렌더된 뒤에 스크롤 (window.scrollTo(0,0) 효과보다 나중에 실행되도록 지연)
-      window.setTimeout(() => {
-        document.querySelector(hash)?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }, 350);
-    }
   }, []);
 
   // 전일 종가 대비 변화 (한국 관례: 상승=빨강, 하락=파랑)

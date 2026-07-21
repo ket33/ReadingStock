@@ -73,29 +73,35 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
   if (items.length === 0) return null;
 
   return (
-    <div className="grid md:grid-cols-2 gap-4 mt-6">
-      {/* MY News */}
-      <section className="bg-white border border-outline-variant rounded-xl p-5">
-        <h2 className="text-sm font-semibold tracking-widest uppercase text-primary mb-4">MY News</h2>
+    <div className="grid md:grid-cols-5 gap-4 mt-6">
+      {/* MY News — 넓게(3/5) */}
+      <section className="md:col-span-3 bg-white border border-outline-variant rounded-xl p-5 flex flex-col">
+        <h2 className="text-sm font-semibold tracking-widest uppercase text-primary mb-3">MY News</h2>
         {news == null ? (
           <p className="text-sm text-outline py-10 text-center">불러오는 중…</p>
         ) : news.length === 0 ? (
           <p className="text-sm text-on-surface-variant py-10 text-center">담은 종목의 새 소식이 아직 없어요.</p>
         ) : (
-          // 한눈에 5개 정도만 보이고 나머지는 스크롤 (max-h)
-          <ul className="divide-y divide-outline-variant max-h-[21rem] overflow-y-auto -mx-1 px-1">
+          <ul className="divide-y divide-outline-variant max-h-[21rem] overflow-y-auto">
             {news.map(n => (
               <li key={n.id}>
-                <Link href={`/stock/${n.stock_code}?tab=news#news-${n.id}`}
-                      className="block py-2.5 group">
-                  <div className="flex items-center gap-2 mb-0.5 text-[11px] text-on-surface-variant">
-                    <span className="tabular-nums">{fmtDate(n.published_at)}</span>
-                    <span className="text-outline">·</span>
-                    <span className="font-medium text-primary">{nameByCode.get(n.stock_code) ?? n.stock_code}</span>
-                  </div>
-                  <p className="text-[12px] leading-snug text-on-surface group-hover:text-primary transition-colors line-clamp-2">
-                    {n.title}
-                  </p>
+                <Link href={`/stock/${n.stock_code}?tab=news&news=${n.id}`}
+                      className="flex items-center gap-2 py-2.5 px-2 rounded-lg group hover:bg-surface-container-low transition-colors">
+                  <span className="flex-1 min-w-0">
+                    <span className="flex items-center gap-2 mb-0.5 text-[11px] text-on-surface-variant">
+                      <span className="tabular-nums">{fmtDate(n.published_at)}</span>
+                      <span className="text-outline">·</span>
+                      <span className="font-medium text-primary">{nameByCode.get(n.stock_code) ?? n.stock_code}</span>
+                    </span>
+                    <span className="block text-[12px] leading-snug text-on-surface group-hover:text-primary transition-colors line-clamp-2">
+                      {n.title}
+                    </span>
+                  </span>
+                  {/* 커서 대면 슬라이드로 나타나는 화살표 — 눌러볼 신호 */}
+                  <span className="material-symbols-outlined text-[18px] text-primary shrink-0 opacity-0 -translate-x-1
+                                   group-hover:opacity-100 group-hover:translate-x-0 transition-all">
+                    chevron_right
+                  </span>
                 </Link>
               </li>
             ))}
@@ -103,17 +109,17 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
         )}
       </section>
 
-      {/* 업종 비율 */}
-      <section className="bg-white border border-outline-variant rounded-xl p-5">
-        <h2 className="text-sm font-semibold tracking-widest uppercase text-primary mb-4">업종 비율</h2>
+      {/* 업종 비율 — 좁게(2/5) */}
+      <section className="md:col-span-2 bg-white border border-outline-variant rounded-xl p-5 flex flex-col">
+        <h2 className="text-sm font-semibold tracking-widest uppercase text-primary mb-3">업종 비율</h2>
         {sectorData.length === 0 ? (
           <p className="text-sm text-on-surface-variant py-10 text-center">표시할 업종이 없어요.</p>
         ) : (
-          <div className="flex items-center gap-5">
+          <div className="flex items-center gap-3">
             {/* 고정 크기 PieChart — ResponsiveContainer가 flex 안에서 0으로 접히는 문제 회피 */}
-            <PieChart width={150} height={150} className="shrink-0">
+            <PieChart width={132} height={132} className="shrink-0">
               <Pie data={sectorData} dataKey="pct" nameKey="sector"
-                   cx={75} cy={75} innerRadius={44} outerRadius={72}
+                   cx={66} cy={66} innerRadius={38} outerRadius={62}
                    paddingAngle={sectorData.length > 1 ? 2 : 0} stroke="#fff" strokeWidth={1}>
                 {sectorData.map((d, i) => (
                   <Cell key={d.sector} fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} />
@@ -122,18 +128,19 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
               <Tooltip formatter={(v, n) => [`${v}%`, String(n)] as [string, string]}
                        contentStyle={{ background: "#fff", border: "1px solid #c4c6cd", borderRadius: 4, fontSize: 12 }} />
             </PieChart>
-            <ul className="flex-1 min-w-0 space-y-1.5 max-h-36 overflow-y-auto">
+            {/* 업종명 옆에 비율 — ml-auto로 붙여 간격을 좁힌다, 글자는 sm으로 키움 */}
+            <ul className="flex-1 min-w-0 space-y-2">
               {sectorData.map((d, i) => (
-                <li key={d.sector} className="flex items-center gap-2 text-xs">
+                <li key={d.sector} className="flex items-center gap-2 text-sm">
                   <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: SECTOR_COLORS[i % SECTOR_COLORS.length] }} />
-                  <span className="flex-1 min-w-0 truncate text-on-surface-variant">{d.sector}</span>
-                  <span className="tabular-nums text-on-surface font-medium shrink-0">{d.pct}%</span>
+                  <span className="min-w-0 truncate text-on-surface">{d.sector}</span>
+                  <span className="ml-auto tabular-nums text-on-surface font-medium shrink-0">{d.pct}%</span>
                 </li>
               ))}
             </ul>
           </div>
         )}
-        <p className="text-[11px] text-outline mt-3">* 설정한 구성비율(미설정 시 동일가중) 기준.</p>
+        <p className="text-[11px] text-outline mt-auto pt-6">* 설정한 구성비율(미설정 시 동일가중) 기준.</p>
       </section>
     </div>
   );

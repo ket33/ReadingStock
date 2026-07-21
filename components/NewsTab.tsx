@@ -2,7 +2,7 @@
 
 // 탭: 뉴스룸 — 공시 해설 기사. 목록은 카드(날짜·카테고리·제목·2줄 미리보기)로 훑고,
 // '뉴스 보러가기'를 누르면 같은 탭 안(히어로·사이드탭 유지)에서 기사 전문으로 전환된다.
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { CompanyNews } from "@/lib/types";
 import { CATEGORY_LABEL, formatNewsDate, stripCompanyPrefix } from "@/lib/news-format";
 import ShareButton from "./ShareButton";
@@ -30,6 +30,12 @@ export default function NewsTab({ news, companyName, stockCode }: {
     setOpenId(id);
     window.scrollTo({ top: 0 });
   };
+
+  // MY News·이메일 딥링크(?tab=news&news={id})로 들어오면 그 기사를 펼친 상태로 연다
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search).get("news");
+    if (p && news.some(n => n.id === Number(p))) setOpenId(Number(p));
+  }, [news]);
 
   if (news.length === 0) {
     return (

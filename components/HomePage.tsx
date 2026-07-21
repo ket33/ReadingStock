@@ -78,19 +78,18 @@ function LatestNews({ news }: { news: HomeNewsItem[] }) {
           <Link
             key={n.id}
             href={`/stock/${n.stockCode}?tab=news`}
-            className="flex items-center gap-2 border border-outline-variant/50 rounded-lg px-3.5 py-2.5 bg-white
+            className="block border border-transparent rounded-lg px-3.5 py-2.5
                        hover:border-primary hover:bg-surface-container-low transition-colors group"
           >
-            <span className="flex-1 min-w-0">
+            <span className="flex items-baseline gap-1.5">
               <span className="text-[12px] font-semibold text-on-surface-variant">{n.companyName}</span>
-              <p className="text-[13px] leading-[1.5] text-on-surface line-clamp-2 group-hover:text-primary transition-colors">
-                {n.title}
-              </p>
+              <span className="text-[11px] text-outline">
+                {n.publishedAt.slice(0, 10).replaceAll("-", ".")}
+              </span>
             </span>
-            <span className="material-symbols-outlined text-[14px] text-outline group-hover:text-primary
-                             group-hover:translate-x-0.5 transition-all shrink-0">
-              arrow_forward_ios
-            </span>
+            <p className="text-[13px] leading-[1.5] text-on-surface line-clamp-2 group-hover:text-primary transition-colors">
+              {n.title}
+            </p>
           </Link>
         ))}
       </div>
