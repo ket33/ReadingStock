@@ -20,6 +20,7 @@ export default function SiteFooter() {
             이용약관
           </Link>
         </div>
+        <p className="mt-6 text-xs text-outline">© 2026 Reading Stock. All rights reserved.</p>
       </div>
     </footer>
   );
