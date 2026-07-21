@@ -67,7 +67,11 @@ create table if not exists public.market_indices (
   close       numeric,
   primary key (index_code, date)
 );
--- prices와 동일하게 RLS 없이 공개 읽기 (개인 데이터 아님)
+-- 새 테이블은 RLS가 자동으로 켜져 있을 수 있음 → 누구나 읽기 정책을 명시 (개인 데이터 아님)
+alter table public.market_indices enable row level security;
+drop policy if exists "market_indices_public_read" on public.market_indices;
+create policy "market_indices_public_read" on public.market_indices
+  for select using (true);
 
 -- =====================================================================
 -- 확인용: 아래 결과에 watchlists 정책 4개, watchlist에 update 정책이 보여야 정상
