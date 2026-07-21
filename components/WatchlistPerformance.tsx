@@ -229,7 +229,7 @@ export default function WatchlistPerformance({ items, listName }: { items: PerfI
               <button
                 key={r.key}
                 onClick={() => setRange(r.key)}
-                className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full border transition-colors ${
+                className={`text-[10px] font-medium px-2 py-0.5 rounded-full border transition-colors ${
                   range === r.key
                     ? "bg-primary-fixed text-on-primary-fixed border-transparent"
                     : "text-on-surface-variant border-outline-variant hover:text-primary"
@@ -243,30 +243,29 @@ export default function WatchlistPerformance({ items, listName }: { items: PerfI
           <div ref={benchRef} className="relative">
             <button
               onClick={() => setBenchOpen(o => !o)}
-              className={`inline-flex items-center gap-1 pl-2.5 pr-1.5 py-1 rounded-full border text-[11px] font-medium transition-colors ${
+              className={`inline-flex items-center gap-0.5 pl-2 pr-1 py-0.5 rounded-full border text-[10px] font-medium transition-colors ${
                 benchOpen || bench.length > 0
                   ? "border-primary text-primary"
                   : "border-outline-variant text-on-surface-variant hover:text-primary hover:border-primary"
               }`}
             >
-              <span className="material-symbols-outlined text-[14px]">show_chart</span>
-              시장지표 비교{bench.length > 0 ? ` ${bench.length}` : ""}
-              <span className="material-symbols-outlined text-[14px]">expand_more</span>
+              시장지수 추가{bench.length > 0 ? ` ${bench.length}` : ""}
+              <span className="material-symbols-outlined text-[13px]">expand_more</span>
             </button>
             {benchOpen && (
-              <div className="absolute right-0 z-30 mt-1 w-40 bg-white border border-outline-variant rounded-lg shadow-lg py-1">
+              <div className="absolute right-0 z-30 mt-1 w-36 bg-white border border-outline-variant rounded-lg shadow-lg py-1">
                 {BENCHMARKS.map(b => {
                   const on = bench.includes(b.code);
                   return (
                     <button
                       key={b.code}
                       onClick={() => toggleBench(b.code)}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs text-on-surface hover:bg-surface-container-low transition-colors"
+                      className="w-full flex items-center gap-2 px-2.5 py-1.5 text-[11px] text-on-surface hover:bg-surface-container-low transition-colors"
                     >
-                      <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: b.color }} />
+                      <span className="w-2 h-2 rounded-sm shrink-0" style={{ backgroundColor: b.color }} />
                       <span className="flex-1 text-left">{b.label}</span>
                       {on && (
-                        <span className="material-symbols-outlined text-[16px]" style={{ color: b.color }}>check</span>
+                        <span className="material-symbols-outlined text-[14px]" style={{ color: b.color }}>check</span>
                       )}
                     </button>
                   );
