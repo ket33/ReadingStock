@@ -12,6 +12,7 @@ import WatchlistPerformance from "./WatchlistPerformance";
 import WatchlistInsights from "./WatchlistInsights";
 import ConfirmDialog from "./ConfirmDialog";
 import type { ScreenerRow } from "@/lib/screener-data";
+import { fetchGroups } from "@/lib/groups";
 import { CATS, METRICS, BY_KEY, fmtCell } from "@/lib/metrics-catalog";
 import { formatPrice } from "@/lib/format";
 
@@ -88,9 +89,12 @@ export default function WatchlistPage() {
       if (items.length === 0) { if (alive) setRows([]); return; }
       const { data: sc } = await sb.from("screener").select("*").in("stock_code", items.map(i => i.stock_code));
       const byCode = new Map((sc ?? []).map(s => [s.stock_code as string, s as ScreenerRow]));
+      const gmap = await fetchGroups(sb, items.map(i => i.stock_code));
       const merged: Row[] = items.map(i => {
         const s = byCode.get(i.stock_code);
-        return { ...(s ?? ({ stock_code: i.stock_code, name: i.stock_code } as ScreenerRow)), weight: i.weight };
+        const g = gmap.get(i.stock_code);
+        return { ...(s ?? ({ stock_code: i.stock_code, name: i.stock_code } as ScreenerRow)),
+                 groupPrimary: g?.primary ?? null, groups: g?.groups ?? [], weight: i.weight };
       });
       if (alive) setRows(merged);
     })();
@@ -187,10 +191,13 @@ export default function WatchlistPage() {
       .insert({ user_id: user.id, list_id: activeId, stock_code: code });
     if (!error || error.code === "23505") {
       setQ(""); setAddOpen(false);
-      const { data: sc } = await supabaseBrowser().from("screener").select("*").eq("stock_code", code).maybeSingle();
+      const sb = supabaseBrowser();
+      const { data: sc } = await sb.from("screener").select("*").eq("stock_code", code).maybeSingle();
+      const g = (await fetchGroups(sb, [code])).get(code);
       setRows(rs => {
         if (rs?.some(r => r.stock_code === code)) return rs;
-        const row = { ...((sc as ScreenerRow) ?? ({ stock_code: code, name: code } as ScreenerRow)), weight: null };
+        const row = { ...((sc as ScreenerRow) ?? ({ stock_code: code, name: code } as ScreenerRow)),
+                      groupPrimary: g?.primary ?? null, groups: g?.groups ?? [], weight: null };
         return [row, ...(rs ?? [])];
       });
     }
@@ -438,7 +445,7 @@ export default function WatchlistPage() {
                               <div className="font-medium text-primary whitespace-nowrap">
                                 {r.name}<span className="text-[11px] text-on-surface-variant font-normal ml-1.5">{r.stock_code}</span>
                               </div>
-                              {r.sector && <div className="text-[11px] text-outline">{r.sector}</div>}
+                              {(r.groupPrimary ?? r.sector) && <div className="text-[11px] text-outline">{r.groupPrimary ?? r.sector}</div>}
                             </td>
                             <td className="text-right px-3 py-3 tabular-nums whitespace-nowrap text-on-surface-variant">
                               {weightEdit ? (
@@ -488,7 +495,7 @@ export default function WatchlistPage() {
                 </div>
 
                 {/* MY News + 업종 비율 (워치리스트 표와 수익률 사이) */}
-                <WatchlistInsights items={rows.map(r => ({ code: r.stock_code, name: r.name, sector: r.sector, weight: r.weight }))} />
+                <WatchlistInsights items={rows.map(r => ({ code: r.stock_code, name: r.name, sector: r.groupPrimary ?? r.sector, weight: r.weight }))} />
 
                 <WatchlistPerformance items={perfItems} listName={activeList?.name ?? ""} />
               </>

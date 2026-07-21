@@ -1,12 +1,15 @@
 // 스크리너 데이터 로더 — screener 표(종목당 한 줄 스냅샷)를 통째로 가져온다.
 // 필터·정렬은 전부 클라이언트에서 수행 (종목 수가 수백 이하인 동안은 이게 가장 단순·빠름)
 import { supabase } from "./supabase";
+import { fetchGroups } from "./groups";
 
 export interface ScreenerRow {
   stock_code: string;
   name: string;
   market: string | null;
   sector: string | null;
+  groupPrimary?: string | null;   // 산업 그룹 분류 primary 그룹명 (표시용)
+  groups?: string[];              // 소속 그룹 전체 = primary+secondary (업종 필터용)
   price: number | null;
   price_date: string | null;
   market_cap: number | null;
@@ -81,7 +84,15 @@ export async function getScreenerData(): Promise<ScreenerRow[]> {
     .select("*")
     .order("market_cap", { ascending: false })
     .limit(1000); // PostgREST 요청당 1,000행 하드캡 — 종목이 늘면 페이징 필요
-  return (data ?? []) as ScreenerRow[];
+  const rows = (data ?? []) as ScreenerRow[];
+  // 산업 그룹(primary+secondary) 붙이기 — 업종 필터·표시용
+  const gmap = await fetchGroups(supabase, rows.map(r => r.stock_code));
+  for (const r of rows) {
+    const g = gmap.get(r.stock_code);
+    r.groupPrimary = g?.primary ?? null;
+    r.groups = g?.groups ?? [];
+  }
+  return rows;
 }
 
 /** 종목 한 개의 스크리너 지표 행 (종목 페이지 지표 줄용) */

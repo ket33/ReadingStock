@@ -161,6 +161,7 @@ export interface StockPageData {
   charts: ChartData;
   statements: StatementsData;
   screener: ScreenerRow | null;   // 종목 헤더 지표 줄용 (스크리너 스냅샷 1행)
+  primaryGroup: string | null;    // 산업 그룹 분류의 primary 그룹명 (리포트 탭 카테고리 태그용)
 }
 
 // ── 재무제표 탭 ────────────────────────────────────────────────

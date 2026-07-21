@@ -7,6 +7,7 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { SITE_URL, SITE_NAME } from "@/lib/seo";
 import { formatKrw, formatPrice } from "@/lib/format";
+import { fetchGroups } from "@/lib/groups";
 
 export const revalidate = 300;
 
@@ -22,6 +23,7 @@ interface SharedRow {
   stock_code: string;
   name: string;
   sector: string | null;
+  groupPrimary: string | null;   // 산업 그룹 분류 primary 그룹명 (표시용)
   price: number | null;
   ret_1d: number | null;
   market_cap: number | null;
@@ -46,9 +48,13 @@ async function loadShared(token: string): Promise<{ name: string; rows: SharedRo
     .select("stock_code,name,sector,price,ret_1d,market_cap,per,pbr,div_yield")
     .in("stock_code", codes);
   const byCode = new Map((sc ?? []).map(s => [s.stock_code as string, s]));
+  const gmap = await fetchGroups(sb, codes);
   const rows: SharedRow[] = codes.map(code => {
-    const s = byCode.get(code) as SharedRow | undefined;
-    return s ?? { stock_code: code, name: code, sector: null, price: null, ret_1d: null, market_cap: null, per: null, pbr: null, div_yield: null };
+    const s = byCode.get(code) as Omit<SharedRow, "groupPrimary"> | undefined;
+    const groupPrimary = gmap.get(code)?.primary ?? null;
+    return s
+      ? { ...s, groupPrimary }
+      : { stock_code: code, name: code, sector: null, groupPrimary, price: null, ret_1d: null, market_cap: null, per: null, pbr: null, div_yield: null };
   });
   return { name: list.name as string, rows };
 }
@@ -119,7 +125,7 @@ export default async function SharedWatchlistPage({ params }: { params: Promise<
                       <Link href={`/stock/${r.stock_code}`} className="font-medium text-primary hover:underline whitespace-nowrap">
                         {r.name}<span className="text-[11px] text-on-surface-variant font-normal ml-1.5">{r.stock_code}</span>
                       </Link>
-                      {r.sector && <div className="text-[11px] text-outline">{r.sector}</div>}
+                      {(r.groupPrimary ?? r.sector) && <div className="text-[11px] text-outline">{r.groupPrimary ?? r.sector}</div>}
                     </td>
                     <td className="text-right px-3 py-3 tabular-nums whitespace-nowrap font-medium text-on-surface">{formatPrice(r.price)}</td>
                     <td className={`text-right px-3 py-3 tabular-nums whitespace-nowrap ${chgClass(r.ret_1d)}`}>

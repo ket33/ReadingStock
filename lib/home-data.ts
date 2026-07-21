@@ -1,6 +1,7 @@
 // 홈 화면 데이터 로더 — 종목 카드에 필요한 값을 서버에서 조립
 import { supabase } from "./supabase";
 import { stripCompanyPrefix } from "./news-format";
+import { fetchGroups } from "./groups";
 
 // 홈 우측 '최신 뉴스' 한 줄 (종목명 + 뉴스 제목만)
 export interface HomeNewsItem {
@@ -15,6 +16,7 @@ export interface StockCard {
   stockCode: string;
   name: string;
   sector: string | null;
+  industryGroup: string | null;    // 산업 그룹 분류 primary 그룹명 (배지 표시용, 없으면 sector 폴백)
   marketCap: number | null;        // 원
   per: number | null;              // 최신(TTM 우선)
   divYield: number | null;         // %
@@ -180,6 +182,9 @@ export async function getHomeData(): Promise<StockCard[]> {
     if (!latestArticle.has(a.stock_code)) latestArticle.set(a.stock_code, a);
   }
 
+  // 산업 그룹 분류 primary 그룹명 (배지용)
+  const gmap = await fetchGroups(supabase, companies.map(c => c.stock_code));
+
   return companies.map(c => {
     const val = valuation.get(c.stock_code);
     const art = latestArticle.get(c.stock_code);
@@ -187,6 +192,7 @@ export async function getHomeData(): Promise<StockCard[]> {
       stockCode: c.stock_code,
       name: c.name,
       sector: c.sector,
+      industryGroup: gmap.get(c.stock_code)?.primary ?? null,
       marketCap: capMap.get(c.stock_code) ?? null,
       per: val?.per ?? null,
       divYield: val?.div_yield ?? null,

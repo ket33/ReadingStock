@@ -118,13 +118,16 @@ const mdComponents = {
   ),
 };
 
-export default function ArticleTab({ article, charts, sector, stockCode }: {
+export default function ArticleTab({ article, charts, sector, industryGroup, stockCode }: {
   article: Article | null;
   charts: ChartData;
   sector: string | null;
+  industryGroup: string | null;   // 산업 그룹 분류의 primary 그룹명 (카테고리 태그용)
   stockCode: string;
 }) {
   const isFinancial = sector === "금융";
+  // 리포트 탭 카테고리 태그: 분류한 산업 그룹 우선, 없으면 기존 업종 라벨
+  const categoryLabel = industryGroup ?? sector;
   if (!article) {
     return (
       <div className="article-canvas py-24 text-center text-on-surface-variant">
@@ -151,9 +154,9 @@ export default function ArticleTab({ article, charts, sector, stockCode }: {
     <div className="article-canvas">
       {/* 카테고리 태그(디자인의 Category Tag) + 공유하기 */}
       <div className="flex items-center gap-3 mb-6">
-        {sector && (
+        {categoryLabel && (
           <span className="inline-block bg-tertiary-fixed text-on-tertiary-fixed px-3 py-1 text-xs font-medium rounded-sm tracking-widest uppercase">
-            {sector}
+            {categoryLabel}
           </span>
         )}
         <ShareButton stockCode={stockCode} className="ml-auto" />

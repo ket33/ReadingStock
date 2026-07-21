@@ -249,9 +249,9 @@ export default function HomePage({ stocks, news }: { stocks: StockCard[]; news: 
                           <span className="text-[13px] text-on-surface-variant font-sans font-normal ml-2">
                             ({stock.stockCode})
                           </span>
-                          {stock.sector && (
+                          {(stock.industryGroup ?? stock.sector) && (
                             <span className="text-[11px] bg-tertiary-fixed text-on-tertiary-fixed px-2 py-0.5 rounded-sm ml-2 align-middle font-sans">
-                              {stock.sector}
+                              {stock.industryGroup ?? stock.sector}
                             </span>
                           )}
                         </h3>

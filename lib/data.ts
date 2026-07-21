@@ -191,7 +191,7 @@ function buildCharts(fin: FinancialRow[], metrics: MetricsRow[], finQ: Financial
 // 재무제표 탭 빌더는 lib/statements.ts로 분리 (계정 매핑 정의 포함)
 
 export async function getStockPageData(stockCode: string): Promise<StockPageData | null> {
-  const [companyQ, finQ, finDetailQ, finQuarterQ, finQuarterDetailQ, finQuarterDetail2Q, bsQuarterQ, rndQ, metricsQ, pricesQ, articleQ, newsQ] = await Promise.all([
+  const [companyQ, finQ, finDetailQ, finQuarterQ, finQuarterDetailQ, finQuarterDetail2Q, bsQuarterQ, rndQ, metricsQ, pricesQ, articleQ, newsQ, groupQ] = await Promise.all([
     supabase.from("companies").select("*").eq("stock_code", stockCode).maybeSingle(),
     // PostgREST가 요청당 1,000행으로 하드캡(실측: limit(5000)도 1,000에서 잘림)이라
     // '매핑된 행'과 '미매핑 세부 행'을 나눠 각각 1,000행 아래로 가져온다.
@@ -263,6 +263,10 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
     supabase.from("company_news")
       .select("id,stock_code,rcept_no,report_nm,category,title,body,dart_url,is_fallback,published_at")
       .eq("stock_code", stockCode).order("published_at", { ascending: false }).limit(50),
+    // 산업 그룹 분류: primary 그룹명 (리포트 탭 카테고리 태그용). 미분류면 null.
+    supabase.from("company_groups")
+      .select("industry_groups(name)")
+      .eq("company_id", stockCode).eq("is_primary", true).maybeSingle(),
   ]);
 
   const company = companyQ.data as Company | null;
@@ -284,6 +288,10 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
   const prices = (pricesQ.data ?? []) as PriceRow[];
   const article = ((articleQ.data ?? [])[0] ?? null) as Article | null;
 
+  // 산업 그룹 분류 primary 그룹명 (임베드 결과: { industry_groups: { name } })
+  const groupRel = (groupQ.data as { industry_groups?: { name?: string } | null } | null)?.industry_groups;
+  const primaryGroup = (Array.isArray(groupRel) ? groupRel[0]?.name : groupRel?.name) ?? null;
+
   // 최신 지표 행 (분기 TTM 우선)
   const sorted = [...metrics].sort((a, b) =>
     a.fiscal_year !== b.fiscal_year
@@ -304,6 +312,7 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
     latestMetrics,
     fyMetrics: metrics.filter(m => m.period === "FY"),
     screener: screenerRow,
+    primaryGroup,
     charts: buildCharts(fin, metrics, finQuarter),
     statements: buildStatements(
       [...fin, ...finDetail],

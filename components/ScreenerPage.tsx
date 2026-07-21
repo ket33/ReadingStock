@@ -26,6 +26,9 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
   // 시장·업종 필터: null = 추가 안 됨, Set = 추가됨(빈 Set은 전체 통과)
   const [marketSel, setMarketSel] = useState<Set<string> | null>(null);
   const [sectorSel, setSectorSel] = useState<Set<string> | null>(null);
+  // 업종(산업 그룹) 드롭다운: 부분검색 입력 + 열림 상태
+  const [sectorQuery, setSectorQuery] = useState("");
+  const [sectorOpen, setSectorOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   // 지표 설명 툴팁 — 헤더·모달·필터행 어디서든 hover하면 fixed로 띄운다
@@ -47,8 +50,9 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
     key: "market_cap", dir: "desc",
   });
 
+  // 업종 = 산업 그룹명. 종목의 소속 그룹(primary+secondary) 전체에서 뽑는다(드롭다운 목록).
   const sectors = useMemo(
-    () => [...new Set(rows.map(r => r.sector).filter((s): s is string => !!s))].sort(),
+    () => [...new Set(rows.flatMap(r => r.groups ?? []))].sort((a, b) => a.localeCompare(b, "ko")),
     [rows],
   );
   const markets = useMemo(
@@ -70,8 +74,9 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
     let out = rows;
     if (marketSel && marketSel.size > 0)
       out = out.filter(r => r.market != null && marketSel.has(r.market));
+    // 업종 필터는 소속 그룹(primary+secondary) 중 하나라도 걸리면 통과 (서브까지 포함)
     if (sectorSel && sectorSel.size > 0)
-      out = out.filter(r => r.sector != null && sectorSel.has(r.sector));
+      out = out.filter(r => (r.groups ?? []).some(g => sectorSel.has(g)));
     for (const f of filters) out = out.filter(r => passes(r, f));
 
     const def = BY_KEY.get(sort.key);
@@ -189,26 +194,57 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
                 )}
 
                 {sectorSel != null && (
-                  <FilterRow label="업종" cat="기본" onRemove={() => setSectorSel(null)}>
-                    {sectors.map(s => {
-                      const on = sectorSel.has(s);
-                      return (
-                        <button
-                          key={s}
-                          onClick={() => setSectorSel(prev => toggleIn(prev!, s))}
-                          className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                            on
-                              ? "bg-primary-fixed text-on-primary-fixed border-primary-fixed font-medium"
-                              : "bg-white text-on-surface-variant border-outline-variant hover:text-primary"
-                          }`}
-                        >
-                          {s}
-                        </button>
-                      );
-                    })}
-                    {sectorSel.size === 0 && (
-                      <span className="text-[11px] text-outline">선택 없음 = 전체</span>
-                    )}
+                  <FilterRow label="업종" cat="기본"
+                             onRemove={() => { setSectorSel(null); setSectorQuery(""); setSectorOpen(false); }}>
+                    {/* 산업 그룹 드롭다운 — 선택 칩 + 부분검색 입력 (다중선택) */}
+                    <div className="relative flex-1 min-w-[220px]">
+                      <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 rounded-md border border-outline-variant bg-white min-h-[34px]">
+                        {[...sectorSel].map(s => (
+                          <span key={s}
+                                className="inline-flex items-center gap-0.5 pl-2 pr-1 py-0.5 rounded-full text-[11px] bg-primary-fixed text-on-primary-fixed font-medium">
+                            {s}
+                            <button onClick={() => setSectorSel(prev => toggleIn(prev!, s))} aria-label={`${s} 제거`}
+                                    className="material-symbols-outlined text-[13px] leading-none hover:opacity-70">close</button>
+                          </span>
+                        ))}
+                        <input
+                          value={sectorQuery}
+                          onChange={e => { setSectorQuery(e.target.value); setSectorOpen(true); }}
+                          onFocus={() => setSectorOpen(true)}
+                          onBlur={() => window.setTimeout(() => setSectorOpen(false), 150)}
+                          placeholder={sectorSel.size ? "" : "업종 검색·선택 (일부 글자로)"}
+                          className="flex-1 min-w-[90px] px-1 py-0.5 text-xs bg-transparent focus:outline-none"
+                        />
+                      </div>
+                      {sectorOpen && (() => {
+                        const opts = sectors.filter(s => s.toLowerCase().includes(sectorQuery.trim().toLowerCase()));
+                        return (
+                          <div className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto rounded-md border border-outline-variant bg-white shadow-lg">
+                            {opts.length === 0 ? (
+                              <div className="px-3 py-2 text-[11px] text-outline">일치하는 업종이 없어요</div>
+                            ) : opts.map(s => {
+                              const on = sectorSel.has(s);
+                              return (
+                                <button
+                                  key={s}
+                                  onMouseDown={e => e.preventDefault()}
+                                  onClick={() => setSectorSel(prev => toggleIn(prev ?? new Set<string>(), s))}
+                                  className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-surface-container-low ${
+                                    on ? "text-primary font-medium" : "text-on-surface"
+                                  }`}
+                                >
+                                  <span className="truncate">{s}</span>
+                                  {on && <span className="material-symbols-outlined text-[15px] shrink-0">check</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        );
+                      })()}
+                      {sectorSel.size === 0 && (
+                        <span className="block mt-1 text-[11px] text-outline">선택 없음 = 전체</span>
+                      )}
+                    </div>
                   </FilterRow>
                 )}
 
