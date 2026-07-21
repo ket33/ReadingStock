@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { ChartByNumber } from "./charts";
 import RequestArticleButton from "./RequestArticleButton";
 import ShareButton from "./ShareButton";
+import WatchButton from "./auth/WatchButton";
 import { parseSummary } from "@/lib/summary";
 import type { Article, ChartData } from "@/lib/types";
 
@@ -208,8 +209,9 @@ export default function ArticleTab({ article, charts, sector, stockCode }: {
         )}
       </div>
 
-      {/* 하단 공유하기 (디스클레이머 위) */}
-      <div className="mt-12 flex justify-center">
+      {/* 하단 워칭 + 공유하기 (디스클레이머 위) */}
+      <div className="mt-12 flex justify-center items-center gap-2">
+        <WatchButton stockCode={stockCode} />
         <ShareButton stockCode={stockCode} />
       </div>
 
