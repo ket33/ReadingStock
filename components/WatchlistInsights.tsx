@@ -76,7 +76,12 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
     <div className="grid md:grid-cols-5 gap-4 mt-6">
       {/* MY News — 넓게(3/5) */}
       <section className="md:col-span-3 bg-white border border-outline-variant rounded-xl p-5 flex flex-col">
-        <h2 className="text-sm font-semibold tracking-widest uppercase text-primary mb-3">MY News</h2>
+        <h2 className="flex items-baseline gap-2 text-sm font-semibold tracking-widest uppercase text-primary mb-3">
+          MY News
+          <span className="text-[11px] font-normal tracking-normal normal-case text-outline">
+            펀더멘탈 관련 뉴스만 선별해드려요
+          </span>
+        </h2>
         {news == null ? (
           <p className="text-sm text-outline py-10 text-center">불러오는 중…</p>
         ) : news.length === 0 ? (
@@ -115,32 +120,32 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
         {sectorData.length === 0 ? (
           <p className="text-sm text-on-surface-variant py-10 text-center">표시할 업종이 없어요.</p>
         ) : (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4 flex-1">
             {/* 고정 크기 PieChart — ResponsiveContainer가 flex 안에서 0으로 접히는 문제 회피 */}
-            <PieChart width={132} height={132} className="shrink-0">
+            <PieChart width={176} height={176} className="shrink-0">
               <Pie data={sectorData} dataKey="pct" nameKey="sector"
-                   cx={66} cy={66} innerRadius={38} outerRadius={62}
+                   cx={88} cy={88} innerRadius={50} outerRadius={84}
                    paddingAngle={sectorData.length > 1 ? 2 : 0} stroke="#fff" strokeWidth={1}>
                 {sectorData.map((d, i) => (
                   <Cell key={d.sector} fill={SECTOR_COLORS[i % SECTOR_COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip formatter={(v, n) => [`${v}%`, String(n)] as [string, string]}
-                       contentStyle={{ background: "#fff", border: "1px solid #c4c6cd", borderRadius: 4, fontSize: 12 }} />
+                       contentStyle={{ background: "#fff", border: "1px solid #c4c6cd", borderRadius: 4, fontSize: 13 }} />
             </PieChart>
-            {/* 업종명 옆에 비율 — ml-auto로 붙여 간격을 좁힌다, 글자는 sm으로 키움 */}
-            <ul className="flex-1 min-w-0 space-y-2">
+            {/* 업종명 옆에 비율 — ml-auto로 붙여 간격을 좁힌다 */}
+            <ul className="flex-1 min-w-0 space-y-2.5">
               {sectorData.map((d, i) => (
-                <li key={d.sector} className="flex items-center gap-2 text-sm">
-                  <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: SECTOR_COLORS[i % SECTOR_COLORS.length] }} />
+                <li key={d.sector} className="flex items-center gap-2.5 text-[15px]">
+                  <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: SECTOR_COLORS[i % SECTOR_COLORS.length] }} />
                   <span className="min-w-0 truncate text-on-surface">{d.sector}</span>
-                  <span className="ml-auto tabular-nums text-on-surface font-medium shrink-0">{d.pct}%</span>
+                  <span className="ml-auto tabular-nums text-on-surface font-semibold shrink-0">{d.pct}%</span>
                 </li>
               ))}
             </ul>
           </div>
         )}
-        <p className="text-[11px] text-outline mt-auto pt-6">* 설정한 구성비율(미설정 시 동일가중) 기준.</p>
+        <p className="text-[11px] text-outline pt-3">* 설정한 구성비율(미설정 시 동일가중) 기준.</p>
       </section>
     </div>
   );

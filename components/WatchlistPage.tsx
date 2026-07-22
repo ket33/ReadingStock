@@ -442,7 +442,7 @@ export default function WatchlistPage() {
                               onClick={() => { if (!weightEdit) router.push(`/stock/${r.stock_code}`); }}
                               className={`border-b border-outline-variant last:border-b-0 group ${weightEdit ? "" : "cursor-pointer hover:bg-surface-container-low"}`}>
                             <td className="sticky left-0 z-10 bg-white group-hover:bg-surface-container-low px-4 py-3 transition-colors">
-                              <div className="font-medium text-primary whitespace-nowrap">
+                              <div className="font-medium text-[#4a8eff] whitespace-nowrap">
                                 {r.name}<span className="text-[11px] text-on-surface-variant font-normal ml-1.5">{r.stock_code}</span>
                               </div>
                               {(r.groupPrimary ?? r.sector) && <div className="text-[11px] text-outline">{r.groupPrimary ?? r.sector}</div>}
