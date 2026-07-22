@@ -62,7 +62,7 @@ function fmtCagr(v: number | null): string {
 }
 
 const PAGE_SIZE = 8;       // 종목 카드 기본 표시 개수 — '더보기'마다 이만큼 추가
-const NEWS_PAGE_SIZE = 10; // 우측 최신 뉴스 표시 개수 — '더보기'마다 이만큼 추가
+const NEWS_PAGE_SIZE = 5; // 우측 최신 뉴스 기본 표시 개수 — '더보기'마다 이만큼 추가
 
 /** 홈 우측 '최신 뉴스' — 종목명 + 뉴스 제목만, 10개씩 더보기 */
 function LatestNews({ news }: { news: HomeNewsItem[] }) {
