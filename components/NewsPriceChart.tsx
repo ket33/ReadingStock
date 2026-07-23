@@ -166,7 +166,8 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
     const { cx, cy, payload } = (props ?? {}) as ShapeProps;
     const m = payload?.marker;
     if (cx == null || cy == null || !m) return <g />;
-    const y = cy - 16 - m.stack * 25; // 종가점 위로 띄우고, 같은 날은 위로 쌓기
+    const y = cy - 13 - m.stack * 21; // 종가점 위로 띄우고, 같은 날은 위로 쌓기
+    const active = hover?.x === cx && hover?.y === y;
     return (
       <g
         transform={`translate(${cx},${y})`}
@@ -176,15 +177,16 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
         onMouseLeave={() => setHover(null)}
       >
         {/* 종가점까지 얇은 연결선 */}
-        <line x1={0} y1={11} x2={0} y2={cy - y} stroke="#c4c6cd" strokeWidth={1} />
-        <circle r={11} fill="#ffffff" stroke={hover?.x === cx && hover?.y === y ? SKY : "#9aa0a6"} strokeWidth={1.6} />
-        {/* 작은 신문 아이콘 */}
-        <g transform="translate(-5.5,-5.5)">
-          <rect x="1" y="1.5" width="9" height="8" rx="1" fill="none" stroke="#44474c" strokeWidth="1" />
-          <rect x="2.5" y="3.2" width="2.6" height="2.2" fill="#44474c" />
-          <line x1="6.2" y1="3.6" x2="8.6" y2="3.6" stroke="#44474c" strokeWidth="0.9" />
-          <line x1="6.2" y1="5" x2="8.6" y2="5" stroke="#44474c" strokeWidth="0.9" />
-          <line x1="2.5" y1="7" x2="8.6" y2="7" stroke="#44474c" strokeWidth="0.9" />
+        <line x1={0} y1={9} x2={0} y2={cy - y} stroke="#c4c6cd" strokeWidth={1} />
+        {/* 작지만 눈에 띄게: 하늘색 채움 + 흰 테두리 (호버 시 네이비) */}
+        <circle r={9} fill={active ? NAVY : SKY} stroke="#ffffff" strokeWidth={1.5} />
+        {/* 작은 신문 아이콘 (흰색) */}
+        <g transform="translate(-5,-5) scale(0.9)">
+          <rect x="1" y="1.5" width="9" height="8" rx="1" fill="none" stroke="#ffffff" strokeWidth="1.1" />
+          <rect x="2.5" y="3.2" width="2.6" height="2.2" fill="#ffffff" />
+          <line x1="6.2" y1="3.6" x2="8.6" y2="3.6" stroke="#ffffff" strokeWidth="1" />
+          <line x1="6.2" y1="5" x2="8.6" y2="5" stroke="#ffffff" strokeWidth="1" />
+          <line x1="2.5" y1="7" x2="8.6" y2="7" stroke="#ffffff" strokeWidth="1" />
         </g>
       </g>
     );
@@ -194,7 +196,7 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
     <section className="mb-8">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <h2 className="text-sm font-semibold tracking-widest uppercase text-primary">
-          주가와 뉴스
+          주가 차트
           {ret != null && (
             <span className={`ml-2 tabular-nums normal-case tracking-normal ${
               ret > 0 ? "text-stock-up" : ret < 0 ? "text-stock-down" : "text-on-surface-variant"
@@ -241,7 +243,11 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
                        tickFormatter={tickFmt} minTickGap={56} />
                 <YAxis domain={yDomain} tick={AXIS} tickLine={false} axisLine={false} width={62}
                        tickFormatter={fmtWon} />
+                {/* shared 명시 — Scatter가 섞이면 v3 툴팁이 아이템 호버 모드로 바뀌어
+                    주가 라인 위 어디에 커서를 대도 안 뜨는 문제가 생긴다 */}
                 <Tooltip
+                  shared
+                  cursor={{ stroke: "#c4c6cd", strokeDasharray: "3 3" }}
                   contentStyle={{ background: "#fff", border: "1px solid #c4c6cd", borderRadius: 4, fontSize: 13 }}
                   formatter={v => [`${fmtWon(Number(v))}원`, "종가"]}
                   labelFormatter={l => new Date(Number(l)).toISOString().slice(0, 10).replaceAll("-", ".")}
@@ -255,20 +261,20 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
               </ComposedChart>
             </ResponsiveContainer>
 
-            {/* 마커 호버 툴팁: 일자 + 제목 */}
+            {/* 마커 호버 툴팁: 일자 + 제목 (제목은 자르지 않는다) */}
             {hover && (
               <div
                 className="absolute z-40 pointer-events-none bg-white border border-outline-variant rounded-lg
-                           shadow-md px-3 py-2 w-60"
+                           shadow-md px-3.5 py-2 w-max max-w-[26rem]"
                 style={{
-                  left: `clamp(0px, ${hover.x - 120}px, calc(100% - 15rem))`,
-                  top: Math.max(0, hover.y - 72),
+                  left: `clamp(0px, ${hover.x - 200}px, calc(100% - 26rem))`,
+                  top: Math.max(0, hover.y - 78),
                 }}
               >
                 <p className="text-[11px] text-on-surface-variant tabular-nums mb-0.5">
                   {hover.date.replaceAll("-", ".")}
                 </p>
-                <p className="text-[12px] leading-snug text-on-surface line-clamp-2">{hover.title}</p>
+                <p className="text-[12px] leading-snug text-on-surface">{hover.title}</p>
               </div>
             )}
           </>
