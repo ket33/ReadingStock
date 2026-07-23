@@ -150,11 +150,19 @@ export interface CompanyNews {
   published_at: string;
 }
 
+/** 타임라인용 리포트 발간 이벤트 (제목은 본문 첫 H1에서 추출) */
+export interface ReportEvent {
+  id: number;
+  title: string | null;
+  created_at: string;
+}
+
 export interface StockPageData {
   company: Company;
   price: PriceRow | null;
   prevPrice: PriceRow | null;
   article: Article | null;
+  reports: ReportEvent[];         // 좌측 타임라인용 리포트 발간 이력 (최신순)
   news: CompanyNews[];            // 뉴스룸 탭 (최신순)
   latestMetrics: MetricsRow & { label: string };
   fyMetrics: MetricsRow[];

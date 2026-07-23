@@ -257,8 +257,9 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
     supabase.from("metrics").select("*").eq("stock_code", stockCode),
     supabase.from("prices").select("date,close,market_cap")
       .eq("stock_code", stockCode).order("date", { ascending: false }).limit(2),
+    // 전체 발간 이력(타임라인용) — 최신 1건은 리포트 탭 본문으로도 쓴다
     supabase.from("articles").select("id,based_on,body,summary,created_at")
-      .eq("stock_code", stockCode).order("created_at", { ascending: false }).limit(1),
+      .eq("stock_code", stockCode).order("created_at", { ascending: false }),
     // 뉴스룸 — 공시 해설 기사 (최신순)
     supabase.from("company_news")
       .select("id,stock_code,rcept_no,report_nm,category,title,body,dart_url,is_fallback,published_at")
@@ -286,7 +287,13 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
   const bsQuarter = (bsQuarterQ.data ?? []) as FinancialRow[];
   const metrics = (metricsQ.data ?? []) as MetricsRow[];
   const prices = (pricesQ.data ?? []) as PriceRow[];
-  const article = ((articleQ.data ?? [])[0] ?? null) as Article | null;
+  const articleRows = (articleQ.data ?? []) as Article[];
+  const article = articleRows[0] ?? null;
+  // 타임라인용 리포트 발간 이력 — 제목은 본문 첫 H1에서 추출
+  const reports = articleRows.map(a => {
+    const m = a.body?.match(/^#\s+(.+)$/m);
+    return { id: a.id, title: m ? m[1].trim() : null, created_at: a.created_at };
+  });
 
   // 산업 그룹 분류 primary 그룹명 (임베드 결과: { industry_groups: { name } })
   const groupRel = (groupQ.data as { industry_groups?: { name?: string } | null } | null)?.industry_groups;
@@ -308,6 +315,7 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
     price: prices[0] ?? null,
     prevPrice: prices[1] ?? null,
     article,
+    reports,
     news: (newsQ.data ?? []) as CompanyNews[],
     latestMetrics,
     fyMetrics: metrics.filter(m => m.period === "FY"),

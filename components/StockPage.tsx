@@ -6,6 +6,7 @@ import type { StockPageData } from "@/lib/types";
 import ArticleTab from "./ArticleTab";
 import FinancialsTab from "./FinancialsTab";
 import NewsTab from "./NewsTab";
+import StockTimeline from "./StockTimeline";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import StockMetrics from "./StockMetrics";
@@ -24,6 +25,14 @@ const TAB_KEYS = TABS.map(t => t.key);
 export default function StockPage({ data }: { data: StockPageData }) {
   const [tab, setTab] = useState<TabKey>("article");
   const { company, price, prevPrice } = data;
+
+  // 타임라인에서 뉴스 클릭 → 뉴스룸 탭을 열고 그 기사를 펼친다
+  // (객체로 감싸 매 클릭마다 참조가 바뀌게 — 같은 기사 재클릭도 동작)
+  const [newsOpenRequest, setNewsOpenRequest] = useState<{ id: number } | null>(null);
+  const openNewsFromTimeline = (id: number) => {
+    setNewsOpenRequest({ id });
+    setTab("news");
+  };
 
   // 이메일·MY News 링크(?tab=news)로 진입하면 뉴스룸 탭을 연다
   // (특정 기사는 NewsTab이 ?news={id}를 읽어 펼친다)
@@ -120,14 +129,14 @@ export default function StockPage({ data }: { data: StockPageData }) {
                 {t.label}
               </button>
             ))}
-            <div className="pt-10 pb-2">
-              <span className="px-4 text-[11px] text-outline font-bold uppercase tracking-widest">
-                업종
-              </span>
-            </div>
-            <div className="flex items-center justify-between px-4 py-2 text-sm text-on-surface-variant">
-              <span>{company.sector ?? "—"}</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-secondary" />
+            {/* 종목 타임라인 — 뉴스룸 기사 + 리포트 발간 (최신순) */}
+            <div className="pt-10 px-4">
+              <StockTimeline
+                news={data.news}
+                reports={data.reports}
+                onOpenNews={openNewsFromTimeline}
+                onOpenReport={() => setTab("article")}
+              />
             </div>
           </nav>
         </aside>
@@ -153,11 +162,22 @@ export default function StockPage({ data }: { data: StockPageData }) {
             <ArticleTab article={data.article} charts={data.charts} sector={company.sector} industryGroup={data.primaryGroup} stockCode={company.stock_code} />
           )}
           {tab === "news" && (
-            <NewsTab news={data.news} companyName={company.name} stockCode={company.stock_code} />
+            <NewsTab news={data.news} companyName={company.name} stockCode={company.stock_code}
+                     openRequest={newsOpenRequest} />
           )}
           {tab === "financials" && (
             <FinancialsTab data={data.statements} latest={data.latestMetrics} />
           )}
+
+          {/* 모바일 타임라인 — 사이드바가 없으므로 콘텐츠 하단에 */}
+          <div className="lg:hidden mt-14 pt-8 border-t border-outline-variant">
+            <StockTimeline
+              news={data.news}
+              reports={data.reports}
+              onOpenNews={openNewsFromTimeline}
+              onOpenReport={() => setTab("article")}
+            />
+          </div>
         </article>
       </main>
 

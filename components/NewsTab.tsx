@@ -18,10 +18,11 @@ function MetaLine({ n }: { n: CompanyNews }) {
   );
 }
 
-export default function NewsTab({ news, companyName, stockCode }: {
+export default function NewsTab({ news, companyName, stockCode, openRequest }: {
   news: CompanyNews[];
   companyName: string;
   stockCode: string;
+  openRequest?: { id: number } | null;  // 타임라인 등 외부에서 특정 기사 열기 요청
 }) {
   const [openId, setOpenId] = useState<number | null>(null);
   const open = news.find(n => n.id === openId) ?? null;
@@ -36,6 +37,14 @@ export default function NewsTab({ news, companyName, stockCode }: {
     const p = new URLSearchParams(window.location.search).get("news");
     if (p && news.some(n => n.id === Number(p))) setOpenId(Number(p));
   }, [news]);
+
+  // 타임라인에서 특정 기사 열기 요청 (요청 객체가 매번 새로 오므로 같은 기사도 재동작)
+  useEffect(() => {
+    if (openRequest && news.some(n => n.id === openRequest.id)) {
+      setOpenId(openRequest.id);
+      window.scrollTo({ top: 0 });
+    }
+  }, [openRequest, news]);
 
   if (news.length === 0) {
     return (
