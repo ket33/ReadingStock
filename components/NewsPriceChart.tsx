@@ -26,8 +26,11 @@ const RANGES = [
 ] as const;
 type RangeKey = (typeof RANGES)[number]["key"];
 
+// x축은 실제 시간(epoch ms) 숫자 축 — 카테고리 축은 별도 데이터(Scatter)를
+// 인덱스 위치에 놓아 마커가 날짜와 어긋나므로 쓰지 않는다.
 interface PricePoint {
-  date: string;
+  t: number;       // epoch ms (x값)
+  date: string;    // 'YYYY-MM-DD'
   close: number;
 }
 
@@ -35,7 +38,7 @@ interface Marker {
   id: number;
   title: string;   // 종목명 접두어 제거본
   date: string;    // 원 발행일 (표시용)
-  snapDate: string; // 마커를 붙인 거래일 (차트 x값)
+  t: number;       // 마커를 붙인 거래일 epoch ms (차트 x값)
   close: number;   // 그 날 종가 (차트 y값)
   stack: number;   // 같은 날 여러 건일 때 위로 쌓는 순번
 }
@@ -59,7 +62,10 @@ async function fetchPrices(stockCode: string, fromDate: string): Promise<PricePo
       .order("date", { ascending: true })
       .range(page * 1000, page * 1000 + 999);
     for (const r of data ?? []) {
-      if (r.close != null) out.push({ date: r.date as string, close: Number(r.close) });
+      if (r.close != null) {
+        const date = r.date as string;
+        out.push({ t: Date.parse(date), date, close: Number(r.close) });
+      }
     }
     if ((data ?? []).length < 1000) break;
   }
@@ -130,14 +136,14 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
       out.push({
         id: n.id,
         title: stripCompanyPrefix(n.title, companyName),
-        date: d, snapDate: dates[i], close: prices[i].close, stack,
+        date: d, t: prices[i].t, close: prices[i].close, stack,
       });
     }
     return out;
   }, [prices, news, companyName]);
 
   const scatterData = useMemo(
-    () => markers.map(m => ({ date: m.snapDate, close: m.close, marker: m })),
+    () => markers.map(m => ({ t: m.t, close: m.close, marker: m })),
     [markers],
   );
 
@@ -150,7 +156,10 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
   }, [prices]);
 
   const shortRange = RANGES.find(r => r.key === range)!.days <= 183;
-  const tickFmt = (d: string) => (shortRange ? d.slice(5) : `${d.slice(2, 4)}.${d.slice(5, 7)}`);
+  const tickFmt = (t: number) => {
+    const d = new Date(t).toISOString().slice(0, 10);
+    return shortRange ? d.slice(5) : `${d.slice(2, 4)}.${d.slice(5, 7)}`;
+  };
 
   // 뉴스 마커 — 정확한 차트 좌표(cx, cy)에 그리는 커스텀 셰이프
   const renderMarker = (props: unknown) => {
@@ -182,7 +191,7 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
   };
 
   return (
-    <section className="bg-white border border-outline-variant rounded-xl p-5 mb-8">
+    <section className="mb-8">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <h2 className="text-sm font-semibold tracking-widest uppercase text-primary">
           주가와 뉴스
@@ -227,14 +236,15 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke={GRID} vertical={false} />
-                <XAxis dataKey="date" tick={AXIS} tickLine={false} axisLine={{ stroke: GRID }}
+                <XAxis dataKey="t" type="number" scale="time" domain={["dataMin", "dataMax"]}
+                       tick={AXIS} tickLine={false} axisLine={{ stroke: GRID }}
                        tickFormatter={tickFmt} minTickGap={56} />
                 <YAxis domain={yDomain} tick={AXIS} tickLine={false} axisLine={false} width={62}
                        tickFormatter={fmtWon} />
                 <Tooltip
                   contentStyle={{ background: "#fff", border: "1px solid #c4c6cd", borderRadius: 4, fontSize: 13 }}
                   formatter={v => [`${fmtWon(Number(v))}원`, "종가"]}
-                  labelFormatter={l => String(l ?? "").replaceAll("-", ".")}
+                  labelFormatter={l => new Date(Number(l)).toISOString().slice(0, 10).replaceAll("-", ".")}
                 />
                 <Area dataKey="close" stroke={NAVY} strokeWidth={2}
                       fill="url(#newsPriceFill)" dot={false} activeDot={{ r: 3, fill: NAVY }}
