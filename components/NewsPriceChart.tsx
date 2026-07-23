@@ -234,7 +234,7 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
                 <Tooltip
                   contentStyle={{ background: "#fff", border: "1px solid #c4c6cd", borderRadius: 4, fontSize: 13 }}
                   formatter={v => [`${fmtWon(Number(v))}원`, "종가"]}
-                  labelFormatter={(d: string) => d.replaceAll("-", ".")}
+                  labelFormatter={l => String(l ?? "").replaceAll("-", ".")}
                 />
                 <Area dataKey="close" stroke={NAVY} strokeWidth={2}
                       fill="url(#newsPriceFill)" dot={false} activeDot={{ r: 3, fill: NAVY }}

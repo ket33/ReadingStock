@@ -5,6 +5,7 @@
 import { useState, useEffect } from "react";
 import type { CompanyNews } from "@/lib/types";
 import { CATEGORY_LABEL, formatNewsDate, stripCompanyPrefix } from "@/lib/news-format";
+import NewsPriceChart from "./NewsPriceChart";
 import ShareButton from "./ShareButton";
 
 function MetaLine({ n }: { n: CompanyNews }) {
@@ -109,11 +110,14 @@ export default function NewsTab({ news, companyName, stockCode, openRequest }: {
   // ── 목록 보기 ──
   return (
     <div className="article-canvas">
-      <div className="mb-8">
+      <div className="mb-6">
         <p className="text-base text-on-surface-variant">
           {companyName}의 실적과 사업에 영향을 주는 뉴스만 쉽게 풀어 전해드려요
         </p>
       </div>
+
+      {/* 주가 차트 + 뉴스 마커 — 마커 클릭 시 해당 기사 전문으로 */}
+      <NewsPriceChart stockCode={stockCode} companyName={companyName} news={news} onOpenNews={show} />
 
       <div className="space-y-4">
         {news.map(n => (
