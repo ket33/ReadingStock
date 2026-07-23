@@ -111,6 +111,9 @@ export default function NewsTab({ news, companyName, stockCode, openRequest }: {
   return (
     <div className="article-canvas">
       <div className="mb-6">
+        <h2 className="font-serif text-2xl md:text-[28px] font-bold tracking-tight text-primary mb-2">
+          Newsroom
+        </h2>
         <p className="text-base text-on-surface-variant">
           {companyName}의 실적과 사업에 영향을 주는 뉴스만 쉽게 풀어 전해드려요
         </p>
