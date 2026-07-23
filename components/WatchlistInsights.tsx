@@ -75,7 +75,7 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
   return (
     <div className="grid md:grid-cols-5 gap-4 mt-6">
       {/* MY News — 넓게(3/5) */}
-      <section className="md:col-span-3 bg-white border border-outline-variant rounded-xl p-5 flex flex-col">
+      <section className="md:col-span-3 bg-white p-5 flex flex-col">
         <h2 className="flex items-baseline gap-2 text-sm font-semibold tracking-widest uppercase text-primary mb-3">
           MY News
           <span className="text-[11px] font-normal tracking-normal normal-case text-outline">
@@ -115,7 +115,7 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
       </section>
 
       {/* 업종 비율 — 좁게(2/5) */}
-      <section className="md:col-span-2 bg-white border border-outline-variant rounded-xl p-5 flex flex-col">
+      <section className="md:col-span-2 bg-white p-5 flex flex-col">
         <h2 className="text-sm font-semibold tracking-widest uppercase text-primary mb-3">업종 비율</h2>
         {sectorData.length === 0 ? (
           <p className="text-sm text-on-surface-variant py-10 text-center">표시할 업종이 없어요.</p>

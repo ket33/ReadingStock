@@ -206,7 +206,7 @@ export default function WatchlistPerformance({ items, listName }: { items: PerfI
   if (items.length === 0) return null;
 
   return (
-    <section className="bg-white border border-outline-variant rounded-xl p-5 mt-6">
+    <section className="bg-white p-5 mt-6">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
         {/* 제목 + 총수익률 */}
         <div className="min-w-0">
