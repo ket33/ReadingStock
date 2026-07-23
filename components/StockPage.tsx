@@ -60,6 +60,12 @@ export default function StockPage({ data }: { data: StockPageData }) {
     window.scrollTo(0, 0);
   }, [company.stock_code]);
 
+  // 탭을 전환하면 항상 그 탭 내용의 맨 위부터 보이게 한다
+  // (스크롤 위치가 유지되면 긴 탭에서 넘어올 때 중간부터 보이는 문제)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [tab]);
+
   return (
     <>
       <SiteHeader />
