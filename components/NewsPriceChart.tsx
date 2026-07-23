@@ -2,10 +2,14 @@
 
 // 뉴스룸 상단 주가 차트 — 주가 흐름 위에 뉴스 마커를 얹는다.
 // 마커에 커서를 올리면 일자·제목 툴팁, 클릭하면 해당 기사 전문으로 이동.
-// 색은 사이트 무드(네이비 선 + 하늘색 면). 등락 색(빨강/파랑)은 기간 수익률 숫자에만 적용.
-import { useEffect, useMemo, useState } from "react";
+//
+// 구현 노트: recharts v3는 차트에 Scatter가 섞이면 축 호버 툴팁이 아이템 모드로
+// 바뀌어 주가 툴팁이 안 뜬다(shared로도 복원 안 됨, 실측). 그래서 차트는 순수
+// Area만 두고(워칭 수익률 차트와 동일 구성 → 툴팁 정상), 뉴스 마커는 축 도메인과
+// 마진을 모두 우리가 지정하므로 같은 공식으로 픽셀 좌표를 계산해 HTML 오버레이로 얹는다.
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ResponsiveContainer, ComposedChart, Area, Scatter, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
 } from "recharts";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import type { CompanyNews } from "@/lib/types";
@@ -15,6 +19,12 @@ const NAVY = "#16243f";
 const SKY = "#4a8eff";
 const GRID = "#e7e8e9";
 const AXIS = { fontSize: 12, fill: "#74777d" };
+
+// 차트 지오메트리 — 오버레이 좌표 계산이 이 값들에 의존하므로 여기 한 곳에서만 관리
+const M_TOP = 46;      // margin.top (마커가 위로 쌓일 공간)
+const M_RIGHT = 8;     // margin.right
+const YAXIS_W = 62;    // YAxis width
+const XAXIS_H = 30;    // XAxis height
 
 const RANGES = [
   { key: "1M", days: 31 },
@@ -26,8 +36,6 @@ const RANGES = [
 ] as const;
 type RangeKey = (typeof RANGES)[number]["key"];
 
-// x축은 실제 시간(epoch ms) 숫자 축 — 카테고리 축은 별도 데이터(Scatter)를
-// 인덱스 위치에 놓아 마커가 날짜와 어긋나므로 쓰지 않는다.
 interface PricePoint {
   t: number;       // epoch ms (x값)
   date: string;    // 'YYYY-MM-DD'
@@ -38,8 +46,8 @@ interface Marker {
   id: number;
   title: string;   // 종목명 접두어 제거본
   date: string;    // 원 발행일 (표시용)
-  t: number;       // 마커를 붙인 거래일 epoch ms (차트 x값)
-  close: number;   // 그 날 종가 (차트 y값)
+  t: number;       // 마커를 붙인 거래일 epoch ms
+  close: number;   // 그 날 종가
   stack: number;   // 같은 날 여러 건일 때 위로 쌓는 순번
 }
 
@@ -85,13 +93,6 @@ function snapIndex(dates: string[], newsDate: string): number {
 
 const fmtWon = (v: number) => `${Math.round(v).toLocaleString()}`;
 
-// Scatter 커스텀 셰이프에 recharts가 넘겨주는 값 중 쓰는 것만
-interface ShapeProps {
-  cx?: number;
-  cy?: number;
-  payload?: { marker: Marker };
-}
-
 export default function NewsPriceChart({ stockCode, companyName, news, onOpenNews }: {
   stockCode: string;
   companyName: string;
@@ -101,6 +102,20 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
   const [range, setRange] = useState<RangeKey>("1Y");
   const [prices, setPrices] = useState<PricePoint[] | null>(null);
   const [hover, setHover] = useState<HoverTip | null>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
+
+  // 오버레이 좌표용 컨테이너 크기 추적
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(entries => {
+      const r = entries[0]?.contentRect;
+      if (r) setSize({ w: r.width, h: r.height });
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -142,11 +157,6 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
     return out;
   }, [prices, news, companyName]);
 
-  const scatterData = useMemo(
-    () => markers.map(m => ({ t: m.t, close: m.close, marker: m })),
-    [markers],
-  );
-
   const yDomain = useMemo<[number, number]>(() => {
     if (!prices || prices.length === 0) return [0, 1];
     const vals = prices.map(p => p.close);
@@ -161,36 +171,21 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
     return shortRange ? d.slice(5) : `${d.slice(2, 4)}.${d.slice(5, 7)}`;
   };
 
-  // 뉴스 마커 — 정확한 차트 좌표(cx, cy)에 그리는 커스텀 셰이프
-  const renderMarker = (props: unknown) => {
-    const { cx, cy, payload } = (props ?? {}) as ShapeProps;
-    const m = payload?.marker;
-    if (cx == null || cy == null || !m) return <g />;
-    const y = cy - 13 - m.stack * 21; // 종가점 위로 띄우고, 같은 날은 위로 쌓기
-    const active = hover?.x === cx && hover?.y === y;
-    return (
-      <g
-        transform={`translate(${cx},${y})`}
-        style={{ cursor: "pointer" }}
-        onClick={() => onOpenNews(m.id)}
-        onMouseEnter={() => setHover({ x: cx, y, date: m.date, title: m.title })}
-        onMouseLeave={() => setHover(null)}
-      >
-        {/* 종가점까지 얇은 연결선 */}
-        <line x1={0} y1={9} x2={0} y2={cy - y} stroke="#c4c6cd" strokeWidth={1} />
-        {/* 작지만 눈에 띄게: 하늘색 채움 + 흰 테두리 (호버 시 네이비) */}
-        <circle r={9} fill={active ? NAVY : SKY} stroke="#ffffff" strokeWidth={1.5} />
-        {/* 작은 신문 아이콘 (흰색) */}
-        <g transform="translate(-5,-5) scale(0.9)">
-          <rect x="1" y="1.5" width="9" height="8" rx="1" fill="none" stroke="#ffffff" strokeWidth="1.1" />
-          <rect x="2.5" y="3.2" width="2.6" height="2.2" fill="#ffffff" />
-          <line x1="6.2" y1="3.6" x2="8.6" y2="3.6" stroke="#ffffff" strokeWidth="1" />
-          <line x1="6.2" y1="5" x2="8.6" y2="5" stroke="#ffffff" strokeWidth="1" />
-          <line x1="2.5" y1="7" x2="8.6" y2="7" stroke="#ffffff" strokeWidth="1" />
-        </g>
-      </g>
-    );
-  };
+  // 마커 픽셀 좌표 — 차트와 동일한 도메인·마진으로 선형 변환
+  const positioned = useMemo(() => {
+    if (!prices || prices.length < 2 || !size) return [];
+    const tMin = prices[0].t, tMax = prices[prices.length - 1].t;
+    const [lo, hi] = yDomain;
+    const plotW = size.w - YAXIS_W - M_RIGHT;
+    const plotH = size.h - M_TOP - XAXIS_H;
+    if (plotW <= 0 || plotH <= 0) return [];
+    return markers.map(m => {
+      const x = YAXIS_W + ((m.t - tMin) / (tMax - tMin || 1)) * plotW;
+      const priceY = M_TOP + (1 - (m.close - lo) / (hi - lo || 1)) * plotH;
+      const y = priceY - 13 - m.stack * 21; // 종가점 위로 띄우고, 같은 날은 위로 쌓기
+      return { m, x, y, priceY };
+    });
+  }, [prices, markers, size, yDomain]);
 
   return (
     <section className="mb-8">
@@ -222,15 +217,16 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
         </div>
       </div>
 
-      <div className="relative h-72 w-full">
+      <div ref={wrapRef} className="relative h-72 w-full">
         {prices == null ? (
           <p className="text-sm text-outline pt-28 text-center">불러오는 중…</p>
         ) : prices.length < 2 ? (
           <p className="text-sm text-outline pt-28 text-center">이 기간의 주가 데이터가 부족해요.</p>
         ) : (
           <>
+            {/* 순수 Area 차트 — Scatter 없음 → 축 호버 툴팁 정상 동작 */}
             <ResponsiveContainer>
-              <ComposedChart data={prices} margin={{ top: 46, right: 8, left: 0, bottom: 0 }}>
+              <AreaChart data={prices} margin={{ top: M_TOP, right: M_RIGHT, left: 0, bottom: 0 }}>
                 <defs>
                   <linearGradient id="newsPriceFill" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor={SKY} stopOpacity={0.22} />
@@ -238,15 +234,12 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke={GRID} vertical={false} />
-                <XAxis dataKey="t" type="number" scale="time" domain={["dataMin", "dataMax"]}
+                <XAxis dataKey="t" type="number" domain={["dataMin", "dataMax"]} height={XAXIS_H}
                        tick={AXIS} tickLine={false} axisLine={{ stroke: GRID }}
                        tickFormatter={tickFmt} minTickGap={56} />
-                <YAxis domain={yDomain} tick={AXIS} tickLine={false} axisLine={false} width={62}
+                <YAxis domain={yDomain} tick={AXIS} tickLine={false} axisLine={false} width={YAXIS_W}
                        tickFormatter={fmtWon} />
-                {/* shared 명시 — Scatter가 섞이면 v3 툴팁이 아이템 호버 모드로 바뀌어
-                    주가 라인 위 어디에 커서를 대도 안 뜨는 문제가 생긴다 */}
                 <Tooltip
-                  shared
                   cursor={{ stroke: "#c4c6cd", strokeDasharray: "3 3" }}
                   contentStyle={{ background: "#fff", border: "1px solid #c4c6cd", borderRadius: 4, fontSize: 13 }}
                   formatter={v => [`${fmtWon(Number(v))}원`, "종가"]}
@@ -255,11 +248,37 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
                 <Area dataKey="close" stroke={NAVY} strokeWidth={2}
                       fill="url(#newsPriceFill)" dot={false} activeDot={{ r: 3, fill: NAVY }}
                       isAnimationActive={false} />
-                {/* 뉴스 마커 — Tooltip 대상에서 제외되도록 tooltipType none */}
-                <Scatter data={scatterData} dataKey="close" shape={renderMarker}
-                         isAnimationActive={false} tooltipType="none" />
-              </ComposedChart>
+              </AreaChart>
             </ResponsiveContainer>
+
+            {/* 뉴스 마커 오버레이 — 종가점까지 연결선 + 하늘색 원형 배지 */}
+            {positioned.map(({ m, x, y, priceY }) => (
+              <div key={m.id}>
+                <span
+                  className="absolute w-px bg-outline-variant pointer-events-none"
+                  style={{ left: x, top: y + 9, height: Math.max(0, priceY - y - 9) }}
+                />
+                <button
+                  onClick={() => onOpenNews(m.id)}
+                  onMouseEnter={() => setHover({ x, y, date: m.date, title: m.title })}
+                  onMouseLeave={() => setHover(null)}
+                  aria-label={`${m.date} ${m.title}`}
+                  className="absolute w-[18px] h-[18px] -translate-x-1/2 -translate-y-1/2 rounded-full
+                             border-[1.5px] border-white shadow-sm flex items-center justify-center
+                             transition-colors z-20 hover:z-30"
+                  style={{ left: x, top: y, backgroundColor: hover?.x === x && hover?.y === y ? NAVY : SKY }}
+                >
+                  {/* 작은 신문 아이콘 (흰색) */}
+                  <svg width="10" height="10" viewBox="0 0 11 11" className="pointer-events-none">
+                    <rect x="1" y="1.5" width="9" height="8" rx="1" fill="none" stroke="#fff" strokeWidth="1.1" />
+                    <rect x="2.5" y="3.2" width="2.6" height="2.2" fill="#fff" />
+                    <line x1="6.2" y1="3.6" x2="8.6" y2="3.6" stroke="#fff" strokeWidth="1" />
+                    <line x1="6.2" y1="5" x2="8.6" y2="5" stroke="#fff" strokeWidth="1" />
+                    <line x1="2.5" y1="7" x2="8.6" y2="7" stroke="#fff" strokeWidth="1" />
+                  </svg>
+                </button>
+              </div>
+            ))}
 
             {/* 마커 호버 툴팁: 일자 + 제목 (제목은 자르지 않는다) */}
             {hover && (
@@ -268,7 +287,7 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
                            shadow-md px-3.5 py-2 w-max max-w-[26rem]"
                 style={{
                   left: `clamp(0px, ${hover.x - 200}px, calc(100% - 26rem))`,
-                  top: Math.max(0, hover.y - 78),
+                  top: Math.max(0, hover.y - 76),
                 }}
               >
                 <p className="text-[11px] text-on-surface-variant tabular-nums mb-0.5">
