@@ -17,6 +17,7 @@ import { stripCompanyPrefix } from "@/lib/news-format";
 
 const NAVY = "#16243f";
 const SKY = "#4a8eff";
+const CORAL = "#e5654b";   // 같은 날 뉴스가 2건 이상인 마커
 const GRID = "#e7e8e9";
 const AXIS = { fontSize: 12, fill: "#74777d" };
 
@@ -42,20 +43,23 @@ interface PricePoint {
   close: number;
 }
 
-interface Marker {
+interface MarkerItem {
   id: number;
   title: string;   // 종목명 접두어 제거본
   date: string;    // 원 발행일 (표시용)
+}
+
+/** 거래일 하나당 마커 1개 — 같은 날 뉴스는 items로 묶는다 (최신이 앞) */
+interface Marker {
   t: number;       // 마커를 붙인 거래일 epoch ms
   close: number;   // 그 날 종가
-  stack: number;   // 같은 날 여러 건일 때 위로 쌓는 순번
+  items: MarkerItem[];
 }
 
 interface HoverTip {
   x: number;
   y: number;
-  date: string;
-  title: string;
+  items: MarkerItem[];
 }
 
 /** 일별 종가 — PostgREST 1,000행 하드캡 대비 2페이지까지 */
@@ -135,26 +139,23 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
     return (prices[prices.length - 1].close / prices[0].close - 1) * 100;
   }, [prices]);
 
-  // 뉴스 → 마커 (기간 내 거래일에 스냅, 같은 날은 위로 쌓기)
+  // 뉴스 → 마커 (기간 내 거래일에 스냅). 같은 날 여러 건은 마커 하나로 묶는다.
   const markers = useMemo<Marker[]>(() => {
     if (!prices || prices.length === 0) return [];
     const dates = prices.map(p => p.date);
-    const byIdx = new Map<number, number>();
-    const out: Marker[] = [];
-    for (const n of [...news].sort((a, b) => a.published_at.localeCompare(b.published_at))) {
+    const byIdx = new Map<number, Marker>();
+    // 최신 기사가 items 앞에 오도록 내림차순으로 돈다
+    for (const n of [...news].sort((a, b) => b.published_at.localeCompare(a.published_at))) {
       const d = n.published_at.slice(0, 10);
       if (d < dates[0]) continue;
       const i = snapIndex(dates, d);
       if (i < 0) continue;
-      const stack = byIdx.get(i) ?? 0;
-      byIdx.set(i, stack + 1);
-      out.push({
-        id: n.id,
-        title: stripCompanyPrefix(n.title, companyName),
-        date: d, t: prices[i].t, close: prices[i].close, stack,
-      });
+      const item: MarkerItem = { id: n.id, title: stripCompanyPrefix(n.title, companyName), date: d };
+      const existing = byIdx.get(i);
+      if (existing) existing.items.push(item);
+      else byIdx.set(i, { t: prices[i].t, close: prices[i].close, items: [item] });
     }
-    return out;
+    return [...byIdx.values()];
   }, [prices, news, companyName]);
 
   const yDomain = useMemo<[number, number]>(() => {
@@ -182,7 +183,7 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
     return markers.map(m => {
       const x = YAXIS_W + ((m.t - tMin) / (tMax - tMin || 1)) * plotW;
       const priceY = M_TOP + (1 - (m.close - lo) / (hi - lo || 1)) * plotH;
-      const y = priceY - 13 - m.stack * 21; // 종가점 위로 띄우고, 같은 날은 위로 쌓기
+      const y = priceY - 13; // 종가점 위로 띄운다 (같은 날 여러 건도 마커 1개)
       return { m, x, y, priceY };
     });
   }, [prices, markers, size, yDomain]);
@@ -251,49 +252,57 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
               </AreaChart>
             </ResponsiveContainer>
 
-            {/* 뉴스 마커 오버레이 — 종가점까지 연결선 + 하늘색 원형 배지 */}
-            {positioned.map(({ m, x, y, priceY }) => (
-              <div key={m.id}>
-                <span
-                  className="absolute w-px bg-outline-variant pointer-events-none"
-                  style={{ left: x, top: y + 9, height: Math.max(0, priceY - y - 9) }}
-                />
-                <button
-                  onClick={() => onOpenNews(m.id)}
-                  onMouseEnter={() => setHover({ x, y, date: m.date, title: m.title })}
-                  onMouseLeave={() => setHover(null)}
-                  aria-label={`${m.date} ${m.title}`}
-                  className="absolute w-[18px] h-[18px] -translate-x-1/2 -translate-y-1/2 rounded-full
-                             border-[1.5px] border-white shadow-sm flex items-center justify-center
-                             transition-colors z-20 hover:z-30"
-                  style={{ left: x, top: y, backgroundColor: hover?.x === x && hover?.y === y ? NAVY : SKY }}
-                >
-                  {/* 작은 신문 아이콘 (흰색) */}
-                  <svg width="10" height="10" viewBox="0 0 11 11" className="pointer-events-none">
-                    <rect x="1" y="1.5" width="9" height="8" rx="1" fill="none" stroke="#fff" strokeWidth="1.1" />
-                    <rect x="2.5" y="3.2" width="2.6" height="2.2" fill="#fff" />
-                    <line x1="6.2" y1="3.6" x2="8.6" y2="3.6" stroke="#fff" strokeWidth="1" />
-                    <line x1="6.2" y1="5" x2="8.6" y2="5" stroke="#fff" strokeWidth="1" />
-                    <line x1="2.5" y1="7" x2="8.6" y2="7" stroke="#fff" strokeWidth="1" />
-                  </svg>
-                </button>
-              </div>
-            ))}
+            {/* 뉴스 마커 오버레이 — 종가점까지 연결선 + 원형 배지 (2건 이상인 날은 코랄색) */}
+            {positioned.map(({ m, x, y, priceY }) => {
+              const multi = m.items.length >= 2;
+              const hovered = hover?.x === x && hover?.y === y;
+              return (
+                <div key={m.t}>
+                  <span
+                    className="absolute w-px bg-outline-variant pointer-events-none"
+                    style={{ left: x, top: y + 9, height: Math.max(0, priceY - y - 9) }}
+                  />
+                  <button
+                    onClick={() => onOpenNews(m.items[0].id)}
+                    onMouseEnter={() => setHover({ x, y, items: m.items })}
+                    onMouseLeave={() => setHover(null)}
+                    aria-label={`${m.items[0].date} 뉴스 ${m.items.length}건`}
+                    className="absolute w-[18px] h-[18px] -translate-x-1/2 -translate-y-1/2 rounded-full
+                               border-[1.5px] border-white shadow-sm flex items-center justify-center
+                               transition-colors z-20 hover:z-30"
+                    style={{ left: x, top: y, backgroundColor: hovered ? NAVY : multi ? CORAL : SKY }}
+                  >
+                    {/* 작은 신문 아이콘 (흰색) */}
+                    <svg width="10" height="10" viewBox="0 0 11 11" className="pointer-events-none">
+                      <rect x="1" y="1.5" width="9" height="8" rx="1" fill="none" stroke="#fff" strokeWidth="1.1" />
+                      <rect x="2.5" y="3.2" width="2.6" height="2.2" fill="#fff" />
+                      <line x1="6.2" y1="3.6" x2="8.6" y2="3.6" stroke="#fff" strokeWidth="1" />
+                      <line x1="6.2" y1="5" x2="8.6" y2="5" stroke="#fff" strokeWidth="1" />
+                      <line x1="2.5" y1="7" x2="8.6" y2="7" stroke="#fff" strokeWidth="1" />
+                    </svg>
+                  </button>
+                </div>
+              );
+            })}
 
-            {/* 마커 호버 툴팁: 일자 + 제목 (제목은 자르지 않는다) */}
+            {/* 마커 호버 툴팁: 그날 뉴스들을 [일자+제목] 블록으로 세로 나열 */}
             {hover && (
               <div
                 className="absolute z-40 pointer-events-none bg-white border border-outline-variant rounded-lg
-                           shadow-md px-3.5 py-2 w-max max-w-[26rem]"
+                           shadow-md px-3.5 py-2 w-max max-w-[26rem] divide-y divide-outline-variant/70"
                 style={{
                   left: `clamp(0px, ${hover.x - 200}px, calc(100% - 26rem))`,
-                  top: Math.max(0, hover.y - 76),
+                  bottom: size ? size.h - hover.y + 12 : 0,
                 }}
               >
-                <p className="text-[11px] text-on-surface-variant tabular-nums mb-0.5">
-                  {hover.date.replaceAll("-", ".")}
-                </p>
-                <p className="text-[12px] leading-snug text-on-surface">{hover.title}</p>
+                {hover.items.map(it => (
+                  <div key={it.id} className="py-1.5 first:pt-0.5 last:pb-0.5">
+                    <p className="text-[11px] text-on-surface-variant tabular-nums mb-0.5">
+                      {it.date.replaceAll("-", ".")}
+                    </p>
+                    <p className="text-[12px] leading-snug text-on-surface">{it.title}</p>
+                  </div>
+                ))}
               </div>
             )}
           </>
