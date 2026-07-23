@@ -415,7 +415,7 @@ export default function WatchlistPage() {
               </div>
             ) : (
               <>
-                <div className="border border-outline-variant rounded-xl bg-white overflow-x-auto">
+                <div className="bg-white overflow-x-auto">
                   <table className="w-full text-sm border-collapse min-w-max">
                     <thead>
                       <tr className="border-b border-outline-variant bg-surface-container-low">
