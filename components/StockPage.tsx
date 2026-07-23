@@ -114,7 +114,7 @@ export default function StockPage({ data }: { data: StockPageData }) {
 
       <main className="flex w-full max-w-[1280px] mx-auto relative flex-grow">
         {/* 좌측 사이드바 (디자인의 SideNavBar) */}
-        <aside className="hidden lg:block w-64 shrink-0 sticky top-16 h-[calc(100vh-64px)] border-r border-outline-variant bg-surface overflow-y-auto">
+        <aside className="hidden lg:block w-80 shrink-0 sticky top-16 h-[calc(100vh-64px)] border-r border-outline-variant bg-surface overflow-y-auto">
           <nav className="p-6 space-y-2">
             {TABS.map(t => (
               <button
@@ -129,8 +129,8 @@ export default function StockPage({ data }: { data: StockPageData }) {
                 {t.label}
               </button>
             ))}
-            {/* 종목 타임라인 — 뉴스룸 기사 + 리포트 발간 (최신순) */}
-            <div className="pt-10 px-4">
+            {/* 종목 타임라인 — 뉴스룸 기사 + 리포트 발간 (최신순), 탭과 희미한 선으로 구분 */}
+            <div className="mt-8 pt-6 px-4 border-t border-outline-variant/60">
               <StockTimeline
                 news={data.news}
                 reports={data.reports}

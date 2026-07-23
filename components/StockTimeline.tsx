@@ -45,7 +45,8 @@ export default function StockTimeline({ news, reports, onOpenNews, onOpenReport 
             />
             <button
               onClick={() => (e.kind === "news" ? onOpenNews(e.id) : onOpenReport())}
-              className="text-left group w-full"
+              className="text-left group w-full rounded-md px-2 py-1.5 -ml-2 border border-transparent
+                         hover:border-outline-variant hover:bg-surface-container-low/60 transition-colors"
             >
               <span className="block text-[10px] leading-tight text-on-surface-variant">
                 {fmtDate(e.date)} · {e.kind === "report" ? "리포트" : "뉴스"}
