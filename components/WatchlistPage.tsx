@@ -441,13 +441,13 @@ export default function WatchlistPage() {
                           <tr key={r.stock_code}
                               onClick={() => { if (!weightEdit) router.push(`/stock/${r.stock_code}`); }}
                               className={`border-b border-outline-variant last:border-b-0 group ${weightEdit ? "" : "cursor-pointer hover:bg-surface-container-low"}`}>
-                            <td className="sticky left-0 z-10 bg-white group-hover:bg-surface-container-low px-4 py-3 transition-colors">
+                            <td className="sticky left-0 z-10 bg-white group-hover:bg-surface-container-low px-4 py-1.5 transition-colors">
                               <div className="font-medium text-[#4a8eff] whitespace-nowrap">
                                 {r.name}<span className="text-[11px] text-on-surface-variant font-normal ml-1.5">{r.stock_code}</span>
                               </div>
                               {(r.groupPrimary ?? r.sector) && <div className="text-[11px] text-outline">{r.groupPrimary ?? r.sector}</div>}
                             </td>
-                            <td className="text-right px-3 py-3 tabular-nums whitespace-nowrap text-on-surface-variant">
+                            <td className="text-right px-3 py-1.5 tabular-nums whitespace-nowrap text-on-surface-variant">
                               {weightEdit ? (
                                 <span className="inline-flex items-center gap-0.5">
                                   <input type="number" min={0} max={100} step={0.5} value={weightDraft[r.stock_code] ?? ""}
@@ -457,12 +457,12 @@ export default function WatchlistPage() {
                                 </span>
                               ) : effectiveWeight(r)}
                             </td>
-                            <td className="text-right px-3 py-3 tabular-nums whitespace-nowrap font-medium text-on-surface">{formatPrice(r.price)}</td>
+                            <td className="text-right px-3 py-1.5 tabular-nums whitespace-nowrap font-medium text-on-surface">{formatPrice(r.price)}</td>
                             {cols.map(def => {
                               const { text, cls } = fmtCell(def, r[def.key] as number | null);
-                              return <td key={def.key as string} className={`text-right px-3 py-3 tabular-nums whitespace-nowrap ${cls}`}>{text}</td>;
+                              return <td key={def.key as string} className={`text-right px-3 py-1.5 tabular-nums whitespace-nowrap ${cls}`}>{text}</td>;
                             })}
-                            <td className="px-2 py-3 text-right">
+                            <td className="px-2 py-1.5 text-right">
                               <button onClick={e => { e.stopPropagation(); setConfirm({ kind: "remove", code: r.stock_code, name: r.name }); }}
                                       title="이 리스트에서 빼기" className="text-[#f2b01e] hover:text-outline text-lg transition-colors">★</button>
                             </td>
