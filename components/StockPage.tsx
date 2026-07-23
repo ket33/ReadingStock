@@ -4,7 +4,6 @@
 import { useState, useEffect } from "react";
 import type { StockPageData } from "@/lib/types";
 import ArticleTab from "./ArticleTab";
-import SummaryTab from "./SummaryTab";
 import FinancialsTab from "./FinancialsTab";
 import NewsTab from "./NewsTab";
 import SiteHeader from "./SiteHeader";
@@ -12,11 +11,10 @@ import SiteFooter from "./SiteFooter";
 import StockMetrics from "./StockMetrics";
 import WatchButton from "./auth/WatchButton";
 
-type TabKey = "article" | "news" | "summary" | "financials";
+type TabKey = "article" | "news" | "financials";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "article", label: "리포트" },
-  { key: "summary", label: "요약" },
   { key: "news", label: "뉴스룸" },
   { key: "financials", label: "재무제표" },
 ];
@@ -157,10 +155,9 @@ export default function StockPage({ data }: { data: StockPageData }) {
           {tab === "news" && (
             <NewsTab news={data.news} companyName={company.name} stockCode={company.stock_code} />
           )}
-          {tab === "summary" && (
-            <SummaryTab latest={data.latestMetrics} fyMetrics={data.fyMetrics} />
+          {tab === "financials" && (
+            <FinancialsTab data={data.statements} latest={data.latestMetrics} />
           )}
-          {tab === "financials" && <FinancialsTab data={data.statements} />}
         </article>
       </main>
 

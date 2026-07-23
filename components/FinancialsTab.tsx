@@ -3,8 +3,9 @@
 // 탭 3: 재무제표 — 표 선택(손익/재무상태/현금흐름) + 연간/분기 토글
 // 컬럼: [TTM | 연도들] 또는 [TTM | 분기들] (최신 좌측), 항목 ▶ 펼침/접기
 import React, { useState } from "react";
-import type { StatementsData, StmtItem, StmtTable } from "@/lib/types";
+import type { StatementsData, StmtItem, StmtTable, MetricsRow } from "@/lib/types";
 import { formatKrw } from "@/lib/format";
+import MetricsSummary from "./MetricsSummary";
 
 function Row({ item, cols, depth, expanded, onToggle }: {
   item: StmtItem;
@@ -103,7 +104,10 @@ function Table({ table, cols }: { table: StmtTable; cols: string[] }) {
 
 const STMT_TITLES = ["손익계산서", "재무상태표", "현금흐름표"];
 
-export default function FinancialsTab({ data }: { data: StatementsData }) {
+export default function FinancialsTab({ data, latest }: {
+  data: StatementsData;
+  latest?: (MetricsRow & { label: string }) | null;
+}) {
   const [stmt, setStmt] = useState(0);          // 0 손익 / 1 재무상태 / 2 현금흐름
   const [freq, setFreq] = useState<"annual" | "quarterly">("annual");
 
@@ -156,6 +160,9 @@ export default function FinancialsTab({ data }: { data: StatementsData }) {
       ) : (
         <p className="text-sm text-on-surface-variant py-10 text-center">데이터가 없습니다.</p>
       )}
+
+      {/* 핵심 지표 요약 — 재무제표 아래 (요약 탭에서 이동) */}
+      <MetricsSummary latest={latest ?? null} />
     </div>
   );
 }

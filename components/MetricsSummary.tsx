@@ -1,7 +1,8 @@
 "use client";
 
-// 탭 2: 요약 — metrics 테이블의 지표 전체(26개)를 6개 그룹으로, ⓘ 용어 풀이 포함
-// (1단계 검증 때 정한 그룹: 밸류에이션·수익성·재무건전성·현금흐름·자본배분·효율성)
+// 핵심 지표 요약 — 재무제표 탭 하단. everyticker 스타일:
+// 카테고리 카드 2열 그리드, 카드 안은 [지표명 ─── 값] 행 목록.
+// (요약 탭에 있던 것을 옮겨온 것 — 그룹·툴팁 정의 동일)
 import type { MetricsRow } from "@/lib/types";
 import { formatMetric } from "@/lib/format";
 
@@ -97,49 +98,48 @@ const GROUPS: { title: string; cards: CardSpec[] }[] = [
   },
 ];
 
-export default function SummaryTab({ latest }: {
-  latest: MetricsRow & { label: string };
-  fyMetrics: MetricsRow[];
+export default function MetricsSummary({ latest }: {
+  latest: (MetricsRow & { label: string }) | null;
 }) {
+  if (!latest) return null;
+
   return (
-    <div className="max-w-[880px] mx-auto">
-      <h1 className="font-serif text-3xl font-semibold text-primary mb-2">핵심 지표 요약</h1>
-      <p className="text-sm text-on-surface-variant mb-10">
-        기준: {latest.label} · ⓘ에 마우스를 올리면 용어 설명이 보입니다
-      </p>
+    <section className="mt-12">
+      <div className="mb-5">
+        <h2 className="font-serif text-xl font-semibold text-primary">핵심 지표 요약</h2>
+        <p className="text-xs text-on-surface-variant mt-1">
+          기준: {latest.label} · ⓘ에 마우스를 올리면 용어 설명이 보입니다
+        </p>
+      </div>
 
-      {GROUPS.map(group => (
-        <section key={group.title} className="mb-10">
-          <h2 className="text-sm font-semibold tracking-widest uppercase text-primary mb-4 border-l-4 border-primary pl-3">
-            {group.title}
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {group.cards.map(card => {
-              const raw = latest[card.key];
-              const v = typeof raw === "number" ? raw : null;
-              return (
-                <div key={card.name}
-                     className="bg-white border border-outline-variant rounded-sm p-5">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <span className="text-[13px] font-medium text-on-surface-variant">{card.name}</span>
-                    <span className="text-outline cursor-help text-[13px] leading-none"
-                          title={card.tooltip}>ⓘ</span>
-                  </div>
-                  <div className="font-serif text-2xl text-primary">
-                    {v != null ? formatMetric(v, card.unit) : (
-                      <span className="text-outline text-base">— 해당 없음</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+      <div className="grid md:grid-cols-2 gap-4">
+        {GROUPS.map(group => (
+          <div key={group.title} className="bg-white border border-outline-variant rounded-xl p-5">
+            <h3 className="text-[15px] font-bold text-on-surface mb-1">{group.title}</h3>
+            <ul className="divide-y divide-outline-variant/70">
+              {group.cards.map(card => {
+                const raw = latest[card.key];
+                const v = typeof raw === "number" ? raw : null;
+                return (
+                  <li key={card.name} className="flex items-center justify-between gap-3 py-2.5">
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-[13px] text-on-surface-variant truncate">{card.name}</span>
+                      <span className="text-outline cursor-help text-[12px] leading-none" title={card.tooltip}>ⓘ</span>
+                    </span>
+                    <span className="text-sm font-semibold tabular-nums text-on-surface shrink-0">
+                      {v != null ? formatMetric(v, card.unit) : <span className="text-outline font-normal">—</span>}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-        </section>
-      ))}
+        ))}
+      </div>
 
-      <p className="text-xs text-outline mt-4">
-        “해당 없음”은 업종 특성상 계산되지 않는 지표입니다 (예: 금융업의 재고회전율).
+      <p className="text-xs text-outline mt-3">
+        &ldquo;—&rdquo;는 업종 특성상 계산되지 않는 지표입니다 (예: 금융업의 재고회전율).
       </p>
-    </div>
+    </section>
   );
 }
