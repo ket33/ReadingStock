@@ -120,7 +120,7 @@ export function ChartRevenueOp({ data, dataQ }: {
           }} />
           <Legend wrapperStyle={{ fontSize: 13 }} />
           <Bar yAxisId="rev" name="매출액 (좌)" dataKey="revenue" fill={GREEN} fillOpacity={0.22} />
-          <Line yAxisId="op" name="영업이익 (우)" dataKey="op" stroke={NAVY} strokeWidth={2.5} dot={{ r: 3 }} />
+          <Line type="monotone" yAxisId="op" name="영업이익 (우)" dataKey="op" stroke={NAVY} strokeWidth={2.5} dot={{ r: 3 }} />
         </ComposedChart>
       </ResponsiveContainer>
     </Card>
@@ -143,9 +143,9 @@ export function ChartMargins({ data, dataQ }: {
           <YAxis tick={AXIS} tickFormatter={pctFmt} tickLine={false} axisLine={false} width={44} />
           <Tooltip {...tooltipStyle()} formatter={(v) => [`${v}%`]} />
           <Legend wrapperStyle={{ fontSize: 13 }} />
-          <Line name="매출총이익률" dataKey="gross" stroke={NAVY} strokeWidth={2} dot={{ r: 2.5 }} connectNulls />
-          <Line name="영업이익률" dataKey="op" stroke={GREEN} strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
-          <Line name="순이익률" dataKey="net" stroke={BLUE} strokeWidth={2} dot={{ r: 2.5 }} connectNulls />
+          <Line type="monotone" name="매출총이익률" dataKey="gross" stroke={NAVY} strokeWidth={2} dot={{ r: 2.5 }} connectNulls />
+          <Line type="monotone" name="영업이익률" dataKey="op" stroke={GREEN} strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
+          <Line type="monotone" name="순이익률" dataKey="net" stroke={BLUE} strokeWidth={2} dot={{ r: 2.5 }} connectNulls />
         </LineChart>
       </ResponsiveContainer>
     </Card>
@@ -169,7 +169,7 @@ export function ChartRoe({ data, dataQ }: {
           <XAxis dataKey={quarterly ? "label" : "year"} tick={AXIS} tickLine={false} axisLine={{ stroke: "#c4c6cd" }} />
           <YAxis tick={AXIS} tickFormatter={pctFmt} tickLine={false} axisLine={false} width={44} />
           <Tooltip {...tooltipStyle()} formatter={(v) => [`${v}%`, "ROE"]} />
-          <Line dataKey="roe" stroke={GREEN} strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
+          <Line type="monotone" dataKey="roe" stroke={GREEN} strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
         </LineChart>
       </ResponsiveContainer>
     </Card>
@@ -196,7 +196,7 @@ export function ChartCashflow({ data, dataQ }: {
           <Tooltip {...tooltipStyle()} formatter={(v) => [`${fmt(Number(v))} 원`]} />
           <Legend wrapperStyle={{ fontSize: 13 }} />
           <Bar name="영업현금흐름" dataKey="ocf" fill={GREEN} fillOpacity={0.22} />
-          <Line name="FCF" dataKey="fcf" stroke={NAVY} strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
+          <Line type="monotone" name="FCF" dataKey="fcf" stroke={NAVY} strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
         </ComposedChart>
       </ResponsiveContainer>
     </Card>
@@ -212,7 +212,7 @@ export function ChartPer({ data }: { data: ChartData["per"] }) {
           <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={{ stroke: "#c4c6cd" }} />
           <YAxis tick={AXIS} tickFormatter={(v: number) => `${v}배`} tickLine={false} axisLine={false} width={48} />
           <Tooltip {...tooltipStyle()} formatter={(v) => [`${v}배`, "PER"]} />
-          <Line dataKey="per" stroke={GREEN} strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
+          <Line type="monotone" dataKey="per" stroke={GREEN} strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
         </LineChart>
       </ResponsiveContainer>
     </Card>
@@ -242,8 +242,8 @@ export function ChartRoeRoa({ data, dataQ }: {
                  tickFormatter={pctFmt} tickLine={false} axisLine={false} width={44} />
           <Tooltip {...tooltipStyle()} formatter={(v) => [`${v}%`]} />
           <Legend wrapperStyle={{ fontSize: 13 }} />
-          <Line yAxisId="roe" name="ROE (좌)" dataKey="roe" stroke={GREEN} strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
-          <Line yAxisId="roa" name="ROA (우)" dataKey="roa" stroke={NAVY} strokeWidth={2} dot={{ r: 2.5 }} connectNulls />
+          <Line type="monotone" yAxisId="roe" name="ROE (좌)" dataKey="roe" stroke={GREEN} strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
+          <Line type="monotone" yAxisId="roa" name="ROA (우)" dataKey="roa" stroke={NAVY} strokeWidth={2} dot={{ r: 2.5 }} connectNulls />
         </LineChart>
       </ResponsiveContainer>
     </Card>
