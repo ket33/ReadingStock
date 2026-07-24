@@ -1,17 +1,19 @@
 "use client";
 
-// 리포트 공유 버튼 — 현재 종목 페이지 URL을 클립보드에 복사한다.
+// 공유 버튼 — 종목 페이지(또는 지정한 경로) URL을 클립보드에 복사한다.
+// path를 주면 그 경로(예: 특정 탭·기사 딥링크)를 복사한다.
 // 링크 아이콘 + '공유하기', 복사되면 잠깐 '링크 복사됨'으로 바뀐다.
 import { useState } from "react";
 
-export default function ShareButton({ stockCode, className = "" }: {
+export default function ShareButton({ stockCode, path, className = "" }: {
   stockCode: string;
+  path?: string;      // 기본: /stock/{stockCode}
   className?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
   const share = async () => {
-    const url = `${window.location.origin}/stock/${stockCode}`;
+    const url = `${window.location.origin}${path ?? `/stock/${stockCode}`}`;
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);

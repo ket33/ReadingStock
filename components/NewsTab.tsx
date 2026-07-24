@@ -96,13 +96,13 @@ export default function NewsTab({ news, companyName, stockCode, openRequest }: {
           </a>
         </div>
 
+        {/* 공유하기 — 이 기사가 펼쳐진 상태로 열리는 딥링크 복사 */}
+        <div className="mt-10 flex justify-center">
+          <ShareButton stockCode={stockCode} path={`/stock/${stockCode}?tab=news&news=${open.id}`} />
+        </div>
+
         {/* 같은 산업그룹 기업의 같은 카테고리 뉴스 (기사가 바뀌면 목록 초기화) */}
         <RelatedNews key={open.id} stockCode={stockCode} category={open.category} />
-
-        {/* 맨 하단: 리포트와 동일한 공유하기 버튼 */}
-        <div className="mt-12 flex justify-center">
-          <ShareButton stockCode={stockCode} />
-        </div>
 
         <p className="mt-8 text-xs text-outline">
           공시 내용을 쉽게 풀어 쓴 글로, 투자 권유가 아니에요. 투자 판단의 책임은 투자자 본인에게 있어요.

@@ -10,6 +10,7 @@ import {
 } from "recharts";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { loadFundamentals, type FundamentalsData, type FyPoint, type Peer } from "@/lib/fundamentals-data";
+import ShareButton from "./ShareButton";
 
 const SELF = "#2f9e63";       // 본인 선(초록, 기존보다 연하게)
 const SELF_FILL = "#8fd0aa";  // 본인 막대(더 연한 초록)
@@ -244,9 +245,13 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
 
   return (
     <div className="article-canvas">
-      <h2 className="font-serif text-2xl md:text-[28px] font-bold tracking-tight text-primary mb-2">
-        Fundamental
-      </h2>
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <h2 className="font-serif text-2xl md:text-[28px] font-bold tracking-tight text-primary">
+          Fundamental
+        </h2>
+        {/* 펀더멘탈 탭이 바로 열리는 딥링크 복사 */}
+        <ShareButton stockCode={stockCode} path={`/stock/${stockCode}?tab=fundamentals`} />
+      </div>
       {writtenAt && <p className="text-xs text-outline mb-5">{writtenAt}에 작성되었습니다.</p>}
 
       <ChapterNav active={active} onJump={jump} />
@@ -299,6 +304,15 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
           <ShareholderBar data={shareholder} />
         </div>
       </Section>
+
+      {/* 하단: 공유하기 + 디스클레이머 */}
+      <div className="mt-12 flex justify-center">
+        <ShareButton stockCode={stockCode} path={`/stock/${stockCode}?tab=fundamentals`} />
+      </div>
+      <p className="mt-8 text-xs text-outline">
+        공시·재무 데이터를 바탕으로 한 참고 자료로, 특정 종목의 매수·매도를 권유하지 않아요.
+        투자 판단의 책임은 투자자 본인에게 있어요.
+      </p>
     </div>
   );
 }
