@@ -1,0 +1,4 @@
+# 뉴스룸 파이프라인(python -m news.run) 실행에 필요한 패키지
+requests>=2.31
+supabase>=2.4
+python-dotenv>=1.0

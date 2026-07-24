@@ -1,0 +1,58 @@
+# 평일 저녁 뉴스룸 파이프라인 — DART 공시 감지 → 해설 기사 생성 → Supabase 저장 → 회원 다이제스트
+#
+# 기사 생성은 헤드리스 Claude Code(`claude -p`)로 하며, 사용자 '구독'으로 인증한다(API 과금 아님).
+#   → 로컬 터미널에서 `claude setup-token`으로 발급한 토큰을
+#     저장소 Settings → Secrets and variables → Actions 에 CLAUDE_CODE_OAUTH_TOKEN 으로 등록해야 한다.
+#
+# 대상 종목: companies 테이블(개별종목페이지 있는 기업) 전체.
+#   대상이 150개를 넘으면 run.py가 자동으로 '전체 시장 1회 폴링'으로 전환 → 2000+ 상장사까지 확장.
+#
+# 크론 시각(UTC)은 '의도'일 뿐 — GitHub Actions 예약은 정시에 1~2시간 밀린다(공식 미보장).
+#   UTC 10:30 = KST 19:30. 다이제스트는 하루 한 통이고 파이프라인은 멱등(중복 스킵)이라 지연돼도 무해.
+name: news
+
+on:
+  schedule:
+    - cron: "30 10 * * 1-5"   # KST 19:30 (평일)
+  workflow_dispatch: {}       # 수동 실행 버튼 (테스트용)
+
+# 앞선 실행이 끝나기 전에 다음 예약이 겹치면 취소(중복 생성 방지)
+concurrency:
+  group: news
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: web/pipeline
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code CLI (구독 기반 헤드리스 실행)
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Install Python deps
+        run: pip install -r requirements.txt
+
+      - name: Run newsroom pipeline
+        env:
+          PYTHONIOENCODING: utf-8
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # 필요 시 생성 모델을 sonnet 등으로 낮춰 처리량·한도 부담을 줄일 수 있다(기본 opus)
+          NEWS_CLAUDE_MODEL: ${{ vars.NEWS_CLAUDE_MODEL || 'opus' }}
+        run: python -m news.run
