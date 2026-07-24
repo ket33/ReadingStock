@@ -86,9 +86,10 @@ export default function StockPage({ data }: { data: StockPageData }) {
                   {company.market}
                 </span>
               )}
-              {company.sector && (
+              {/* 산업그룹 분류(primary)로 통일 — 리포트 탭·워치리스트·유사종목과 동일 기준 */}
+              {(data.primaryGroup ?? company.sector) && (
                 <span className="text-xs bg-tertiary-fixed text-on-tertiary-fixed px-2 py-0.5 rounded-sm">
-                  {company.sector}
+                  {data.primaryGroup ?? company.sector}
                 </span>
               )}
               {price?.close != null && (
