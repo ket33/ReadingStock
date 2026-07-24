@@ -71,11 +71,13 @@ function Card({ title, caption, extra, children }: {
 const pctFmt = (v: number) => `${v}%`;
 
 // 금액 차트 단위 자동 선택: 데이터는 억 단위로 들어온다.
-// 최댓값이 10조(=100,000억) 이상이면 조로, 아니면 억으로 표기 (0.28조 같은 어색한 값 방지).
+// 최댓값이 1조(=10,000억) 이상이면 조로, 아니면 억으로 표기.
+// (1조 미만은 억이라 "0.28조" 같은 값이 안 생기고, 1조~10조 구간의 5자리 억 눈금이
+//  "1.0조~9.9조"로 짧아져 축에서 잘리지 않는다. dec=1이라 정수는 ".0" 없이 "5조"로 표기)
 function pickUnit(values: (number | null | undefined)[]): { div: number; suffix: string; dec: number } {
   const nums = values.filter((v): v is number => v != null).map(v => Math.abs(v));
   const max = nums.length ? Math.max(...nums) : 0;
-  return max >= 100000 ? { div: 10000, suffix: "조", dec: 1 } : { div: 1, suffix: "억", dec: 0 };
+  return max >= 10000 ? { div: 10000, suffix: "조", dec: 1 } : { div: 1, suffix: "억", dec: 0 };
 }
 function amtFmt(u: { div: number; suffix: string; dec: number }) {
   return (v: number) => `${(v / u.div).toLocaleString(undefined, { maximumFractionDigits: u.dec })}${u.suffix}`;
@@ -96,21 +98,26 @@ export function ChartRevenueOp({ data, dataQ }: {
   const { mode, setMode, hasQuarterly } = useMode(dataQ.length > 0);
   const quarterly = mode === "Q";
   const active = quarterly ? dataQ : data;
-  const u = pickUnit(active.flatMap(d => [d.revenue, d.op]));
-  const fmt = amtFmt(u);
+  // 좌우 축은 규모가 크게 달라 각자 단위를 고른다 (매출 조 / 영업이익 억 처럼)
+  const uRev = pickUnit(active.map(d => d.revenue));
+  const uOp = pickUnit(active.map(d => d.op));
+  const fmtRev = amtFmt(uRev), fmtOp = amtFmt(uOp);
   return (
     <Card title="매출 · 영업이익"
-          caption={`${quarterly ? "단일 분기(3개월) 연결 기준" : "연간 연결 기준"}, 단위: ${u.suffix} 원 — 매출은 왼쪽 축, 영업이익은 오른쪽 축 (출처: DART)`}
+          caption={`${quarterly ? "단일 분기(3개월) 연결 기준" : "연간 연결 기준"} — 매출은 왼쪽 축(${uRev.suffix} 원), 영업이익은 오른쪽 축(${uOp.suffix} 원) (출처: DART)`}
           extra={hasQuarterly ? <ModeToggle mode={mode} onChange={setMode} /> : undefined}>
       <ResponsiveContainer>
         <ComposedChart data={active as unknown as ChartPoint[]} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={GRID} vertical={false} />
           <XAxis dataKey={quarterly ? "label" : "year"} tick={AXIS} tickLine={false} axisLine={{ stroke: "#c4c6cd" }} />
           {/* 매출(막대)과 영업이익(선)은 규모 차이가 커서 축을 분리 — 선이 평탄해 보이는 문제 방지 */}
-          <YAxis yAxisId="rev" tick={AXIS} tickFormatter={fmt} tickLine={false} axisLine={false} width={52} />
+          <YAxis yAxisId="rev" tick={AXIS} tickFormatter={fmtRev} tickLine={false} axisLine={false} width={52} />
           <YAxis yAxisId="op" orientation="right" tick={{ ...AXIS, fill: NAVY }}
-                 tickFormatter={fmt} tickLine={false} axisLine={false} width={52} />
-          <Tooltip {...tooltipStyle()} formatter={(v) => [`${fmt(Number(v))} 원`]} />
+                 tickFormatter={fmtOp} tickLine={false} axisLine={false} width={52} />
+          <Tooltip {...tooltipStyle()} formatter={(v, _n, item) => {
+            const f = (item as { dataKey?: string })?.dataKey === "op" ? fmtOp : fmtRev;
+            return [`${f(Number(v))} 원`];
+          }} />
           <Legend wrapperStyle={{ fontSize: 13 }} />
           <Bar yAxisId="rev" name="매출액 (좌)" dataKey="revenue" fill={GREEN} fillOpacity={0.22} />
           <Line yAxisId="op" name="영업이익 (우)" dataKey="op" stroke={NAVY} strokeWidth={2.5} dot={{ r: 3 }} />
