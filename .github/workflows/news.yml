@@ -27,7 +27,7 @@ jobs:
     timeout-minutes: 120
     defaults:
       run:
-        working-directory: web/pipeline
+        working-directory: pipeline
     steps:
       - uses: actions/checkout@v4
 
