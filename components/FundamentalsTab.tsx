@@ -159,25 +159,52 @@ function Paras({ text }: { text: string }) {
   return (
     <div className="space-y-4">
       {text.split(/\n\s*\n/).map((p, i) => (
-        <p key={i} className="text-[15px] leading-[1.8] text-on-surface-variant">{p.trim()}</p>
+        <p key={i} className="text-[14px] leading-[1.8] text-on-surface-variant">{p.trim()}</p>
       ))}
     </div>
   );
 }
 
-function Section({ title, body, children }: { title: string; body?: string; children: React.ReactNode }) {
+const SECTIONS = [
+  { id: "growth", label: "성장 동력" },
+  { id: "profitability", label: "수익성" },
+  { id: "health", label: "재무 건전성" },
+  { id: "shareholder", label: "주주환원" },
+] as const;
+
+function Section({ id, title, body, children }: {
+  id: string; title: string; body?: string; children: React.ReactNode;
+}) {
   return (
-    <section className="mb-14">
-      <h3 className="font-serif text-[22px] font-medium text-primary mb-5">{title}</h3>
+    <section id={id} className="mb-16 scroll-mt-20">
+      <h3 className="font-sans text-[22px] font-extrabold tracking-tight text-primary mb-5">{title}</h3>
       {body ? <Paras text={body} /> : <p className="text-sm text-outline">서술 준비 중이에요.</p>}
       <div className="mt-6">{children}</div>
     </section>
   );
 }
 
+// 챕터 하위탭 — 클릭 시 해당 섹션으로 부드럽게 이동 (스크롤 위치 따라 활성 표시)
+function ChapterNav({ active, onJump }: { active: string; onJump: (id: string) => void }) {
+  return (
+    <nav className="mb-8 flex flex-wrap gap-2 border-b border-outline-variant pb-4">
+      {SECTIONS.map(s => (
+        <button key={s.id} onClick={() => onJump(s.id)}
+                className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                  active === s.id
+                    ? "bg-primary text-on-primary"
+                    : "bg-surface-container-low text-on-surface-variant hover:text-primary"}`}>
+          {s.label}
+        </button>
+      ))}
+    </nav>
+  );
+}
+
 export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
   const [d, setD] = useState<FundamentalsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [active, setActive] = useState<string>("growth");
 
   useEffect(() => {
     let alive = true;
@@ -187,6 +214,23 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [stockCode]);
+
+  // 스크롤 위치에 따라 활성 챕터 추적 (하위탭 하이라이트)
+  useEffect(() => {
+    if (!d) return;
+    const obs = new IntersectionObserver(
+      entries => {
+        const vis = entries.filter(e => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (vis[0]) setActive(vis[0].target.id);
+      },
+      { rootMargin: "-25% 0px -65% 0px" },
+    );
+    SECTIONS.forEach(s => { const el = document.getElementById(s.id); if (el) obs.observe(el); });
+    return () => obs.disconnect();
+  }, [d]);
+
+  const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
   if (loading) return <div className="py-24 text-center text-sm text-outline">불러오는 중…</div>;
   if (!d || Object.keys(d.narratives).length === 0)
@@ -199,11 +243,13 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
     : null;
 
   return (
-    <div className="max-w-3xl">
-      {writtenAt && <p className="text-xs text-outline mb-8">{writtenAt}에 작성되었습니다.</p>}
+    <div className="max-w-3xl mx-auto">
+      {writtenAt && <p className="text-xs text-outline mb-3">{writtenAt}에 작성되었습니다.</p>}
+
+      <ChapterNav active={active} onJump={jump} />
 
       {/* 1. 성장동력 */}
-      <Section title="성장 동력" body={narratives.growth}>
+      <Section id="growth" title="성장 동력" body={narratives.growth}>
         <div className="grid gap-4 md:grid-cols-2">
           <ChartCard title="매출액" caption="연간, 단위: 조 원">
             <PeerLine peers={peers} fy={fy} field="revenue" unit="조" scale={1e12} dec={1} colors={colors} />
@@ -215,7 +261,7 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
       </Section>
 
       {/* 2. 수익성 */}
-      <Section title="수익성" body={narratives.profitability}>
+      <Section id="profitability" title="수익성" body={narratives.profitability}>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <MoatBar peers={peers} ttm={ttm} field="gross_margin" title="매출총이익률" />
           <MoatBar peers={peers} ttm={ttm} field="op_margin" title="영업이익률" />
@@ -227,7 +273,7 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
       </Section>
 
       {/* 3. 재무건전성 */}
-      <Section title="재무 건전성" body={narratives.health}>
+      <Section id="health" title="재무 건전성" body={narratives.health}>
         <div className="grid gap-4 md:grid-cols-3">
           <ChartCard title="부채비율" caption="부채 / 자기자본, 단위: %">
             <PeerLine peers={peers} fy={fy} field="debt_equity" unit="%" colors={colors} />
@@ -242,7 +288,7 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
       </Section>
 
       {/* 4. 주주환원 */}
-      <Section title="주주환원" body={narratives.shareholder}>
+      <Section id="shareholder" title="주주환원" body={narratives.shareholder}>
         <div className="grid gap-4 md:grid-cols-2">
           <ChartCard title="FCF 수익률" caption={`${peers[0]?.name ?? ""} 단독, 시총 대비 FCF, 단위: %`}>
             <PeerLine peers={peers.slice(0, 1)} fy={fy} field="fcf_yield" unit="%" dec={1} colors={colors} />
