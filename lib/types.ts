@@ -67,8 +67,8 @@ export interface Article {
 
 export interface RevenueOpPoint {
   year: number;
-  revenue: number | null; // 조 원
-  op: number | null;      // 조 원
+  revenue: number | null; // 억 원
+  op: number | null;      // 억 원
 }
 
 export interface MarginPoint {
@@ -86,8 +86,8 @@ export interface RoePoint {
 
 export interface CashflowPoint {
   year: number;
-  ocf: number | null;  // 조 원
-  fcf: number | null;  // 조 원
+  ocf: number | null;  // 억 원
+  fcf: number | null;  // 억 원
 }
 
 export interface PerPoint {
@@ -98,7 +98,7 @@ export interface PerPoint {
 // 분기 시리즈 — x축은 '24.1Q' 형태 라벨
 export interface RevenueOpQPoint {
   label: string;
-  revenue: number | null; // 조 원 (단일 분기)
+  revenue: number | null; // 억 원 (단일 분기)
   op: number | null;
 }
 
@@ -117,7 +117,7 @@ export interface RoeQPoint {
 
 export interface CashflowQPoint {
   label: string;
-  ocf: number | null; // 조 원 (단일 분기)
+  ocf: number | null; // 억 원 (단일 분기)
   fcf: number | null;
 }
 

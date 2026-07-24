@@ -68,8 +68,18 @@ function Card({ title, caption, extra, children }: {
   );
 }
 
-const joFmt = (v: number) => `${v}조`;
 const pctFmt = (v: number) => `${v}%`;
+
+// 금액 차트 단위 자동 선택: 데이터는 억 단위로 들어온다.
+// 최댓값이 10조(=100,000억) 이상이면 조로, 아니면 억으로 표기 (0.28조 같은 어색한 값 방지).
+function pickUnit(values: (number | null | undefined)[]): { div: number; suffix: string; dec: number } {
+  const nums = values.filter((v): v is number => v != null).map(v => Math.abs(v));
+  const max = nums.length ? Math.max(...nums) : 0;
+  return max >= 100000 ? { div: 10000, suffix: "조", dec: 1 } : { div: 1, suffix: "억", dec: 0 };
+}
+function amtFmt(u: { div: number; suffix: string; dec: number }) {
+  return (v: number) => `${(v / u.div).toLocaleString(undefined, { maximumFractionDigits: u.dec })}${u.suffix}`;
+}
 
 function tooltipStyle() {
   return {
@@ -85,21 +95,22 @@ export function ChartRevenueOp({ data, dataQ }: {
 }) {
   const { mode, setMode, hasQuarterly } = useMode(dataQ.length > 0);
   const quarterly = mode === "Q";
+  const active = quarterly ? dataQ : data;
+  const u = pickUnit(active.flatMap(d => [d.revenue, d.op]));
+  const fmt = amtFmt(u);
   return (
     <Card title="매출 · 영업이익"
-          caption={quarterly
-            ? "단일 분기(3개월) 연결 기준, 단위: 조 원 — 매출은 왼쪽 축, 영업이익은 오른쪽 축 (출처: DART)"
-            : "연간 연결 기준, 단위: 조 원 — 매출은 왼쪽 축, 영업이익은 오른쪽 축 (출처: DART)"}
+          caption={`${quarterly ? "단일 분기(3개월) 연결 기준" : "연간 연결 기준"}, 단위: ${u.suffix} 원 — 매출은 왼쪽 축, 영업이익은 오른쪽 축 (출처: DART)`}
           extra={hasQuarterly ? <ModeToggle mode={mode} onChange={setMode} /> : undefined}>
       <ResponsiveContainer>
-        <ComposedChart data={(quarterly ? dataQ : data) as unknown as ChartPoint[]} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+        <ComposedChart data={active as unknown as ChartPoint[]} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={GRID} vertical={false} />
           <XAxis dataKey={quarterly ? "label" : "year"} tick={AXIS} tickLine={false} axisLine={{ stroke: "#c4c6cd" }} />
           {/* 매출(막대)과 영업이익(선)은 규모 차이가 커서 축을 분리 — 선이 평탄해 보이는 문제 방지 */}
-          <YAxis yAxisId="rev" tick={AXIS} tickFormatter={joFmt} tickLine={false} axisLine={false} width={48} />
+          <YAxis yAxisId="rev" tick={AXIS} tickFormatter={fmt} tickLine={false} axisLine={false} width={52} />
           <YAxis yAxisId="op" orientation="right" tick={{ ...AXIS, fill: NAVY }}
-                 tickFormatter={joFmt} tickLine={false} axisLine={false} width={48} />
-          <Tooltip {...tooltipStyle()} formatter={(v) => [`${v}조 원`]} />
+                 tickFormatter={fmt} tickLine={false} axisLine={false} width={52} />
+          <Tooltip {...tooltipStyle()} formatter={(v) => [`${fmt(Number(v))} 원`]} />
           <Legend wrapperStyle={{ fontSize: 13 }} />
           <Bar yAxisId="rev" name="매출액 (좌)" dataKey="revenue" fill={GREEN} fillOpacity={0.22} />
           <Line yAxisId="op" name="영업이익 (우)" dataKey="op" stroke={NAVY} strokeWidth={2.5} dot={{ r: 3 }} />
@@ -163,18 +174,19 @@ export function ChartCashflow({ data, dataQ }: {
 }) {
   const { mode, setMode, hasQuarterly } = useMode(dataQ.length > 0);
   const quarterly = mode === "Q";
+  const active = quarterly ? dataQ : data;
+  const u = pickUnit(active.flatMap(d => [d.ocf, d.fcf]));
+  const fmt = amtFmt(u);
   return (
     <Card title="영업현금흐름 · FCF"
-          caption={quarterly
-            ? "단일 분기(3개월) 기준 — FCF = 영업현금흐름 − 설비투자, 단위: 조 원"
-            : "FCF = 영업현금흐름 − 설비투자, 단위: 조 원"}
+          caption={`${quarterly ? "단일 분기(3개월) 기준 — " : ""}FCF = 영업현금흐름 − 설비투자, 단위: ${u.suffix} 원`}
           extra={hasQuarterly ? <ModeToggle mode={mode} onChange={setMode} /> : undefined}>
       <ResponsiveContainer>
-        <ComposedChart data={(quarterly ? dataQ : data) as unknown as ChartPoint[]} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+        <ComposedChart data={active as unknown as ChartPoint[]} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={GRID} vertical={false} />
           <XAxis dataKey={quarterly ? "label" : "year"} tick={AXIS} tickLine={false} axisLine={{ stroke: "#c4c6cd" }} />
-          <YAxis tick={AXIS} tickFormatter={joFmt} tickLine={false} axisLine={false} width={48} />
-          <Tooltip {...tooltipStyle()} formatter={(v) => [`${v}조 원`]} />
+          <YAxis tick={AXIS} tickFormatter={fmt} tickLine={false} axisLine={false} width={52} />
+          <Tooltip {...tooltipStyle()} formatter={(v) => [`${fmt(Number(v))} 원`]} />
           <Legend wrapperStyle={{ fontSize: 13 }} />
           <Bar name="영업현금흐름" dataKey="ocf" fill={GREEN} fillOpacity={0.22} />
           <Line name="FCF" dataKey="fcf" stroke={NAVY} strokeWidth={2.5} dot={{ r: 3 }} connectNulls />

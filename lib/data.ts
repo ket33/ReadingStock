@@ -4,7 +4,7 @@ import type {
   Company, FinancialRow, MetricsRow, PriceRow, Article, CompanyNews,
   ChartData, StockPageData,
 } from "./types";
-import { toJo } from "./format";
+import { toEok } from "./format";
 import { buildStatements } from "./statements";
 import { getScreenerRow } from "./screener-data";
 import type { ScreenerRow } from "./screener-data";
@@ -92,8 +92,8 @@ function buildCharts(fin: FinancialRow[], metrics: MetricsRow[], finQ: Financial
 
   const revenueOp = years.map(y => ({
     year: y,
-    revenue: toJo(pick(idx, y, ["IS", "CIS"], "매출액")),
-    op: toJo(pick(idx, y, ["IS", "CIS"], "영업이익")),
+    revenue: toEok(pick(idx, y, ["IS", "CIS"], "매출액")),
+    op: toEok(pick(idx, y, ["IS", "CIS"], "영업이익")),
   }));
 
   const fyMetrics = metrics
@@ -110,8 +110,8 @@ function buildCharts(fin: FinancialRow[], metrics: MetricsRow[], finQ: Financial
     const cx = capex.get(y) ?? null;
     return {
       year: y,
-      ocf: toJo(ocf),
-      fcf: ocf != null && cx != null ? toJo(ocf - Math.abs(cx)) : null,
+      ocf: toEok(ocf),
+      fcf: ocf != null && cx != null ? toEok(ocf - Math.abs(cx)) : null,
     };
   });
 
@@ -145,8 +145,8 @@ function buildCharts(fin: FinancialRow[], metrics: MetricsRow[], finQ: Financial
 
   const revenueOpQ = quarters.map(({ year, q }) => ({
     label: qLabel(year, q),
-    revenue: toJo(pickQ(idxQ, year, q, ["IS", "CIS"], "매출액")),
-    op: toJo(pickQ(idxQ, year, q, ["IS", "CIS"], "영업이익")),
+    revenue: toEok(pickQ(idxQ, year, q, ["IS", "CIS"], "매출액")),
+    op: toEok(pickQ(idxQ, year, q, ["IS", "CIS"], "영업이익")),
   }));
 
   const cashflowQ = quarters.map(({ year, q }) => {
@@ -154,8 +154,8 @@ function buildCharts(fin: FinancialRow[], metrics: MetricsRow[], finQ: Financial
     const cx = capexQ.get(`${year}|${q}`) ?? null;
     return {
       label: qLabel(year, q),
-      ocf: toJo(ocf),
-      fcf: ocf != null && cx != null ? toJo(ocf - Math.abs(cx)) : null,
+      ocf: toEok(ocf),
+      fcf: ocf != null && cx != null ? toEok(ocf - Math.abs(cx)) : null,
     };
   });
 

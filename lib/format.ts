@@ -16,6 +16,12 @@ export function toJo(value: number | null | undefined): number | null {
   return Math.round((value / 1e12) * 100) / 100;
 }
 
+/** 원 단위 → 억 원 숫자(정수). 차트는 이 값을 보관하고 규모에 따라 조/억을 골라 표기한다. */
+export function toEok(value: number | null | undefined): number | null {
+  if (value == null) return null;
+  return Math.round(value / 1e8);
+}
+
 /** 주가(원) 표기 */
 export function formatPrice(value: number | null | undefined): string {
   if (value == null) return "—";
