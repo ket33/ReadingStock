@@ -11,6 +11,7 @@ import {
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { loadFundamentals, type FundamentalsData, type FyPoint, type Peer } from "@/lib/fundamentals-data";
 import ShareButton from "./ShareButton";
+import WatchButton from "./auth/WatchButton";
 
 const SELF = "#2f9e63";       // 본인 선(초록, 기존보다 연하게)
 const SELF_FILL = "#8fd0aa";  // 본인 막대(더 연한 초록)
@@ -305,8 +306,9 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
         </div>
       </Section>
 
-      {/* 하단: 공유하기 + 디스클레이머 */}
-      <div className="mt-12 flex justify-center">
+      {/* 하단: 워칭 + 공유하기 (리포트 탭 하단과 동일 구성) + 디스클레이머 */}
+      <div className="mt-12 flex justify-center items-center gap-2">
+        <WatchButton stockCode={stockCode} />
         <ShareButton stockCode={stockCode} path={`/stock/${stockCode}?tab=fundamentals`} />
       </div>
       <p className="mt-8 text-xs text-outline">
