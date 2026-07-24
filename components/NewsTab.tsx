@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import type { CompanyNews } from "@/lib/types";
 import { CATEGORY_LABEL, formatNewsDate, stripCompanyPrefix } from "@/lib/news-format";
 import NewsPriceChart from "./NewsPriceChart";
+import RelatedNews from "./RelatedNews";
 import ShareButton from "./ShareButton";
 
 function MetaLine({ n }: { n: CompanyNews }) {
@@ -94,6 +95,9 @@ export default function NewsTab({ news, companyName, stockCode, openRequest }: {
             🔗 공시 원문 보기
           </a>
         </div>
+
+        {/* 같은 산업그룹 기업의 같은 카테고리 뉴스 (기사가 바뀌면 목록 초기화) */}
+        <RelatedNews key={open.id} stockCode={stockCode} category={open.category} />
 
         {/* 맨 하단: 리포트와 동일한 공유하기 버튼 */}
         <div className="mt-12 flex justify-center">

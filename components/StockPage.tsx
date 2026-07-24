@@ -8,6 +8,7 @@ import FundamentalsTab from "./FundamentalsTab";
 import FinancialsTab from "./FinancialsTab";
 import NewsTab from "./NewsTab";
 import StockTimeline from "./StockTimeline";
+import SimilarStocks from "./SimilarStocks";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import StockMetrics from "./StockMetrics";
@@ -145,6 +146,8 @@ export default function StockPage({ data }: { data: StockPageData }) {
                 onOpenNews={openNewsFromTimeline}
                 onOpenReport={() => setTab("article")}
               />
+              {/* 유사종목 — 같은 산업그룹 기업의 리포트 (클릭 시 그 종목 리포트로) */}
+              <SimilarStocks stockCode={company.stock_code} />
             </div>
           </nav>
         </aside>
@@ -188,6 +191,7 @@ export default function StockPage({ data }: { data: StockPageData }) {
               onOpenNews={openNewsFromTimeline}
               onOpenReport={() => setTab("article")}
             />
+            <SimilarStocks stockCode={company.stock_code} />
           </div>
         </article>
       </main>
