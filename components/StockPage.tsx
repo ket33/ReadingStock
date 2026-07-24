@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import type { StockPageData } from "@/lib/types";
 import ArticleTab from "./ArticleTab";
+import FundamentalsTab from "./FundamentalsTab";
 import FinancialsTab from "./FinancialsTab";
 import NewsTab from "./NewsTab";
 import StockTimeline from "./StockTimeline";
@@ -12,10 +13,11 @@ import SiteFooter from "./SiteFooter";
 import StockMetrics from "./StockMetrics";
 import WatchButton from "./auth/WatchButton";
 
-type TabKey = "article" | "news" | "financials";
+type TabKey = "article" | "fundamentals" | "news" | "financials";
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: "article", label: "리포트" },
+  { key: "fundamentals", label: "펀더멘탈" },
   { key: "news", label: "뉴스룸" },
   { key: "financials", label: "재무제표" },
 ];
@@ -166,6 +168,9 @@ export default function StockPage({ data }: { data: StockPageData }) {
         <article className="flex-grow bg-white min-h-screen px-4 md:px-10 py-12 pb-24 lg:pb-12 overflow-hidden">
           {tab === "article" && (
             <ArticleTab article={data.article} charts={data.charts} sector={company.sector} industryGroup={data.primaryGroup} stockCode={company.stock_code} />
+          )}
+          {tab === "fundamentals" && (
+            <FundamentalsTab stockCode={company.stock_code} />
           )}
           {tab === "news" && (
             <NewsTab news={data.news} companyName={company.name} stockCode={company.stock_code}
