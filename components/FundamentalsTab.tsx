@@ -244,7 +244,10 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
 
   return (
     <div className="article-canvas">
-      {writtenAt && <p className="text-xs text-outline mb-3">{writtenAt}에 작성되었습니다.</p>}
+      <h2 className="font-serif text-2xl md:text-[28px] font-bold tracking-tight text-primary mb-2">
+        Fundamental
+      </h2>
+      {writtenAt && <p className="text-xs text-outline mb-5">{writtenAt}에 작성되었습니다.</p>}
 
       <ChapterNav active={active} onJump={jump} />
 
