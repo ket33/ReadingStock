@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { fetchGroupPeers } from "@/lib/groups";
+import { stripCompanyPrefix } from "@/lib/news-format";
 
 const MAX = 5;
 
@@ -60,13 +61,17 @@ export default function SimilarStocks({ stockCode }: { stockCode: string }) {
         cap: (s.market_cap as number | null) ?? 0,
       }]));
       const built: Item[] = codes
-        .map(code => ({
-          code,
-          name: meta.get(code)?.name ?? code,
-          title: latest.get(code)!,
-          matchedGroup: peerByCode.get(code)?.matchedGroup ?? "",
-          viaPrimary: peerByCode.get(code)?.viaPrimary ?? false,
-        }))
+        .map(code => {
+          const name = meta.get(code)?.name ?? code;
+          return {
+            code,
+            name,
+            // 리포트 제목의 "기업명, " 접두어 제거 — 윗줄에 기업명이 이미 있어 중복
+            title: stripCompanyPrefix(latest.get(code)!, name),
+            matchedGroup: peerByCode.get(code)?.matchedGroup ?? "",
+            viaPrimary: peerByCode.get(code)?.viaPrimary ?? false,
+          };
+        })
         .sort((a, b) => {
           // 주력 그룹 겹침 우선, 그 안에서 시총 큰 순
           if (a.viaPrimary !== b.viaPrimary) return a.viaPrimary ? -1 : 1;
@@ -90,8 +95,8 @@ export default function SimilarStocks({ stockCode }: { stockCode: string }) {
           <li key={it.code}>
             <Link
               href={`/stock/${it.code}`}
-              className="block group rounded-md px-2 py-1.5 -ml-2 border border-transparent
-                         hover:border-outline-variant hover:bg-surface-container-low/60 transition-colors"
+              className="block group rounded-md px-2 py-1.5 -ml-2
+                         hover:bg-surface-container-low/60 transition-colors"
             >
               <span className="flex items-center gap-1.5 mb-0.5">
                 <span className="text-[11px] font-semibold text-on-surface-variant group-hover:text-[#4a8eff] transition-colors">
@@ -100,8 +105,8 @@ export default function SimilarStocks({ stockCode }: { stockCode: string }) {
                 {it.matchedGroup && (
                   <span className={`text-[9px] px-1.5 py-px rounded-sm truncate max-w-[9rem] ${
                     it.viaPrimary
-                      ? "bg-[#4a8eff] text-white"                     // 주력 그룹 겹침
-                      : "bg-surface-container-high text-on-surface-variant" // 관련 그룹 겹침
+                      ? "bg-primary-fixed/60 text-on-primary-fixed"       // 주력 그룹 겹침 (연한 하늘)
+                      : "bg-surface-container-low text-on-surface-variant" // 관련 그룹 겹침 (더 연한 회색)
                   }`}>
                     {it.matchedGroup}
                   </span>
