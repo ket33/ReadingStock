@@ -88,6 +88,13 @@ function LatestNews({ news }: { news: HomeNewsItem[] }) {
                 <span className="text-[11px] text-outline">
                   {n.publishedAt.slice(0, 10).replaceAll("-", ".")}
                 </span>
+                {n.ret1d != null && (
+                  <span className={`text-[11px] tabular-nums ${
+                    n.ret1d > 0 ? "text-stock-up" : n.ret1d < 0 ? "text-stock-down" : "text-on-surface-variant"
+                  }`}>
+                    {n.ret1d > 0 ? "▲ " : n.ret1d < 0 ? "▼ " : ""}{Math.abs(n.ret1d).toFixed(2)}%
+                  </span>
+                )}
               </span>
               <p className="text-[13px] leading-[1.5] text-on-surface line-clamp-2">
                 {n.title}

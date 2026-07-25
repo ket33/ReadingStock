@@ -10,6 +10,7 @@ export interface HomeNewsItem {
   companyName: string;
   title: string;        // "종목명, " 접두어 제거본
   publishedAt: string;
+  ret1d: number | null; // 일간 등락률(%)
 }
 
 export interface StockCard {
@@ -96,14 +97,16 @@ function extractSection1(body: string): string | null {
 
 /** 홈 우측 최신 뉴스 — 전 종목 최신순 (10개씩 더보기라 넉넉히 100건) */
 export async function getHomeNews(): Promise<HomeNewsItem[]> {
-  const [newsQ, companiesQ] = await Promise.all([
+  const [newsQ, companiesQ, screenerQ] = await Promise.all([
     supabase.from("company_news")
       .select("id,stock_code,title,published_at")
       .order("published_at", { ascending: false })
       .limit(100),
     supabase.from("companies").select("stock_code,name"),
+    supabase.from("screener").select("stock_code,ret_1d"),
   ]);
   const names = new Map((companiesQ.data ?? []).map(c => [c.stock_code as string, c.name as string]));
+  const rets = new Map((screenerQ.data ?? []).map(s => [s.stock_code as string, (s.ret_1d as number | null) ?? null]));
   return (newsQ.data ?? []).map(n => {
     const companyName = names.get(n.stock_code as string) ?? (n.stock_code as string);
     return {
@@ -112,6 +115,7 @@ export async function getHomeNews(): Promise<HomeNewsItem[]> {
       companyName,
       title: stripCompanyPrefix(n.title as string, companyName),
       publishedAt: n.published_at as string,
+      ret1d: rets.get(n.stock_code as string) ?? null,
     };
   });
 }
