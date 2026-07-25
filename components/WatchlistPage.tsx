@@ -497,9 +497,11 @@ export default function WatchlistPage() {
                 {/* 1행: MY News | 유사 기업 (1:1) — 워치리스트 표와 수익률 사이 */}
                 <WatchlistInsights items={rows.map(r => ({ code: r.stock_code, name: r.name, sector: r.groupPrimary ?? r.sector, weight: r.weight }))} />
 
-                {/* 2행: 수익률 | 업종 비율 */}
-                <div className="grid md:grid-cols-2 gap-4 mt-6 items-stretch">
-                  <WatchlistPerformance items={perfItems} listName={activeList?.name ?? ""} />
+                {/* 2행: 수익률(2/3) | 업종 비율(1/3) */}
+                <div className="grid md:grid-cols-3 gap-4 mt-6 items-stretch">
+                  <div className="md:col-span-2">
+                    <WatchlistPerformance items={perfItems} listName={activeList?.name ?? ""} />
+                  </div>
                   <SectorRatio items={rows.map(r => ({ code: r.stock_code, name: r.name, sector: r.groupPrimary ?? r.sector, weight: r.weight }))} />
                 </div>
               </>
