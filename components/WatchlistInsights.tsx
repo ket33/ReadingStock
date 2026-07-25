@@ -28,6 +28,18 @@ interface PeerReport {
   name: string;       // 유사 기업명
   viaName: string;    // 워치리스트의 어떤 종목과 유사한지
   title: string;      // 유사 기업 최신 리포트 제목 (기업명 접두어 제거)
+  ret1d: number | null; // 일간 등락률(%)
+}
+
+/** 일간 등락 표기 — ▲빨강/▼파랑 (종목 헤더·워칭 표와 동일 문법) */
+function DayChange({ v }: { v: number | null }) {
+  if (v == null) return null;
+  const cls = v > 0 ? "text-stock-up" : v < 0 ? "text-stock-down" : "text-on-surface-variant";
+  return (
+    <span className={`text-[11px] tabular-nums ${cls}`}>
+      {v > 0 ? "▲ " : v < 0 ? "▼ " : ""}{Math.abs(v).toFixed(2)}%
+    </span>
+  );
 }
 
 const SECTOR_COLORS = [
@@ -133,9 +145,10 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
       // 이름·시총 — 시총 큰 순 정렬
       const peerCodes = [...best.keys()];
       const { data: sc } = await sb.from("screener")
-        .select("stock_code,name,market_cap").in("stock_code", peerCodes);
+        .select("stock_code,name,market_cap,ret_1d").in("stock_code", peerCodes);
       const meta = new Map((sc ?? []).map(s => [s.stock_code as string, {
         name: (s.name as string) ?? s.stock_code, cap: (s.market_cap as number | null) ?? 0,
+        ret1d: (s.ret_1d as number | null) ?? null,
       }]));
       const built: PeerReport[] = peerCodes
         .map(code => {
@@ -145,6 +158,7 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
             name,
             viaName: nameByCode.get(best.get(code)!.via) ?? best.get(code)!.via,
             title: stripCompanyPrefix(titleByCode.get(code)!, name),
+            ret1d: meta.get(code)?.ret1d ?? null,
           };
         })
         .sort((a, b) => (meta.get(b.code)?.cap ?? 0) - (meta.get(a.code)?.cap ?? 0));
@@ -217,8 +231,11 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
                 <Link href={`/stock/${p.code}`}
                       className="block py-2.5 px-2 rounded-lg group hover:bg-surface-container-low transition-colors">
                   <span className="flex items-baseline justify-between gap-2 mb-0.5">
-                    <span className="text-[12px] font-semibold text-on-surface-variant group-hover:text-[#4a8eff] transition-colors">
-                      {p.name}
+                    <span className="flex items-baseline gap-1.5 min-w-0">
+                      <span className="text-[12px] font-semibold text-on-surface-variant group-hover:text-[#4a8eff] transition-colors">
+                        {p.name}
+                      </span>
+                      <DayChange v={p.ret1d} />
                     </span>
                     <span className="shrink-0 text-[10px] text-outline">{p.viaName}와 유사</span>
                   </span>

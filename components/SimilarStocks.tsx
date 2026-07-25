@@ -17,6 +17,7 @@ interface Item {
   title: string;        // 최신 리포트 제목 (본문 첫 H1)
   matchedGroup: string; // 겹친 그룹명
   viaPrimary: boolean;  // 주력(primary) 그룹 겹침 여부 — 배지 색으로 구분
+  ret1d: number | null; // 일간 등락률(%)
 }
 
 /** 리포트 본문 첫 H1 제목 */
@@ -55,10 +56,11 @@ export default function SimilarStocks({ stockCode }: { stockCode: string }) {
       // 이름·시총 (스크리너 스냅샷) — 시총 큰 순 MAX개
       const codes = [...latest.keys()];
       const { data: sc } = await sb.from("screener")
-        .select("stock_code,name,market_cap").in("stock_code", codes);
+        .select("stock_code,name,market_cap,ret_1d").in("stock_code", codes);
       const meta = new Map((sc ?? []).map(s => [s.stock_code as string, {
         name: (s.name as string) ?? s.stock_code,
         cap: (s.market_cap as number | null) ?? 0,
+        ret1d: (s.ret_1d as number | null) ?? null,
       }]));
       const built: Item[] = codes
         .map(code => {
@@ -70,6 +72,7 @@ export default function SimilarStocks({ stockCode }: { stockCode: string }) {
             title: stripCompanyPrefix(latest.get(code)!, name),
             matchedGroup: peerByCode.get(code)?.matchedGroup ?? "",
             viaPrimary: peerByCode.get(code)?.viaPrimary ?? false,
+            ret1d: meta.get(code)?.ret1d ?? null,
           };
         })
         .sort((a, b) => {
@@ -109,6 +112,13 @@ export default function SimilarStocks({ stockCode }: { stockCode: string }) {
                       : "bg-surface-container-low text-on-surface-variant" // 관련 그룹 겹침 (더 연한 회색)
                   }`}>
                     {it.matchedGroup}
+                  </span>
+                )}
+                {it.ret1d != null && (
+                  <span className={`text-[10px] tabular-nums ${
+                    it.ret1d > 0 ? "text-stock-up" : it.ret1d < 0 ? "text-stock-down" : "text-on-surface-variant"
+                  }`}>
+                    {it.ret1d > 0 ? "▲ " : it.ret1d < 0 ? "▼ " : ""}{Math.abs(it.ret1d).toFixed(2)}%
                   </span>
                 )}
               </span>
