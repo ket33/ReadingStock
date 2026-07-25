@@ -9,7 +9,7 @@ import { useAuth } from "./auth/AuthProvider";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import WatchlistPerformance from "./WatchlistPerformance";
-import WatchlistInsights from "./WatchlistInsights";
+import WatchlistInsights, { SectorRatio } from "./WatchlistInsights";
 import ConfirmDialog from "./ConfirmDialog";
 import type { ScreenerRow } from "@/lib/screener-data";
 import { fetchGroups } from "@/lib/groups";
@@ -494,10 +494,14 @@ export default function WatchlistPage() {
                   )}
                 </div>
 
-                {/* MY News + 업종 비율 (워치리스트 표와 수익률 사이) */}
+                {/* 1행: MY News | 유사 기업 (1:1) — 워치리스트 표와 수익률 사이 */}
                 <WatchlistInsights items={rows.map(r => ({ code: r.stock_code, name: r.name, sector: r.groupPrimary ?? r.sector, weight: r.weight }))} />
 
-                <WatchlistPerformance items={perfItems} listName={activeList?.name ?? ""} />
+                {/* 2행: 수익률 | 업종 비율 */}
+                <div className="grid md:grid-cols-2 gap-4 mt-6 items-stretch">
+                  <WatchlistPerformance items={perfItems} listName={activeList?.name ?? ""} />
+                  <SectorRatio items={rows.map(r => ({ code: r.stock_code, name: r.name, sector: r.groupPrimary ?? r.sector, weight: r.weight }))} />
+                </div>
               </>
             )}
           </>
