@@ -104,9 +104,10 @@ function Table({ table, cols }: { table: StmtTable; cols: string[] }) {
 
 const STMT_TITLES = ["손익계산서", "재무상태표", "현금흐름표"];
 
-export default function FinancialsTab({ data, latest }: {
+export default function FinancialsTab({ data, latest, isFinancial = false }: {
   data: StatementsData;
   latest?: (MetricsRow & { label: string }) | null;
+  isFinancial?: boolean;
 }) {
   const [stmt, setStmt] = useState(0);          // 0 손익 / 1 재무상태 / 2 현금흐름
   const [freq, setFreq] = useState<"annual" | "quarterly">("annual");
@@ -162,7 +163,7 @@ export default function FinancialsTab({ data, latest }: {
       )}
 
       {/* 핵심 지표 요약 — 재무제표 아래 (요약 탭에서 이동) */}
-      <MetricsSummary latest={latest ?? null} />
+      <MetricsSummary latest={latest ?? null} isFinancial={isFinancial} />
     </div>
   );
 }

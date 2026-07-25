@@ -181,7 +181,7 @@ export default function StockPage({ data }: { data: StockPageData }) {
                      openRequest={newsOpenRequest} />
           )}
           {tab === "financials" && (
-            <FinancialsTab data={data.statements} latest={data.latestMetrics} />
+            <FinancialsTab data={data.statements} latest={data.latestMetrics} isFinancial={data.isFinancial} />
           )}
 
           {/* 모바일 타임라인 — 사이드바가 없으므로 콘텐츠 하단에 */}

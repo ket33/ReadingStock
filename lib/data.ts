@@ -8,6 +8,7 @@ import { toEok } from "./format";
 import { buildStatements } from "./statements";
 import { getScreenerRow } from "./screener-data";
 import type { ScreenerRow } from "./screener-data";
+import { isFinancialSector } from "./sector";
 
 const QORDER = ["1Q", "2Q", "3Q", "4Q", "FY"];
 const SINGLE_Q = ["1Q", "2Q", "3Q", "4Q"]; // 단일(3개월) 분기 — normalize_quarters가 생성
@@ -85,14 +86,17 @@ function capexByQuarter(rows: FinancialRow[]): Map<string, number> {
   return out;
 }
 
-function buildCharts(fin: FinancialRow[], metrics: MetricsRow[], finQ: FinancialRow[]): ChartData {
+function buildCharts(fin: FinancialRow[], metrics: MetricsRow[], finQ: FinancialRow[], isFinancial = false): ChartData {
   const idx = indexFY(fin);
   const years = [...new Set(fin.filter(r => r.period === "FY").map(r => r.fiscal_year))].sort();
   const capex = capexByYear(fin);
 
+  // 금융업은 '매출액'이 없어 '순영업수익'(statement='FIN' 합성행)을 매출 자리로 쓴다.
+  const revStmts = isFinancial ? ["FIN"] : ["IS", "CIS"];
+  const revStd = isFinancial ? "순영업수익" : "매출액";
   const revenueOp = years.map(y => ({
     year: y,
-    revenue: toEok(pick(idx, y, ["IS", "CIS"], "매출액")),
+    revenue: toEok(pick(idx, y, revStmts, revStd)),
     op: toEok(pick(idx, y, ["IS", "CIS"], "영업이익")),
   }));
 
@@ -145,7 +149,7 @@ function buildCharts(fin: FinancialRow[], metrics: MetricsRow[], finQ: Financial
 
   const revenueOpQ = quarters.map(({ year, q }) => ({
     label: qLabel(year, q),
-    revenue: toEok(pickQ(idxQ, year, q, ["IS", "CIS"], "매출액")),
+    revenue: toEok(pickQ(idxQ, year, q, revStmts, revStd)),
     op: toEok(pickQ(idxQ, year, q, ["IS", "CIS"], "영업이익")),
   }));
 
@@ -214,7 +218,7 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
       .select("fiscal_year,period,statement,account_raw,account_std,value")
       .eq("stock_code", stockCode)
       .in("period", ["1Q", "2Q", "3Q", "4Q"])
-      .in("statement", ["IS", "CIS", "CF"])
+      .in("statement", ["IS", "CIS", "CF", "FIN"])   // FIN: 금융업 순영업수익 합성행(분기 차트용)
       .not("account_std", "is", null)
       .limit(1000),
     // 재무제표 탭 분기 뷰·TTM용: 미매핑 흐름 세부 — 분기 20개(5년) 커버.
@@ -272,6 +276,7 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
 
   const company = companyQ.data as Company | null;
   if (!company) return null;
+  const isFinancial = isFinancialSector(company.sector);
 
   // 종목 지표 줄용 스크리너 행 (공개 데이터). 실패해도 페이지는 뜬다.
   const screenerRow: ScreenerRow | null = await getScreenerRow(stockCode).catch(() => null);
@@ -321,7 +326,8 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
     fyMetrics: metrics.filter(m => m.period === "FY"),
     screener: screenerRow,
     primaryGroup,
-    charts: buildCharts(fin, metrics, finQuarter),
+    isFinancial,
+    charts: buildCharts(fin, metrics, finQuarter, isFinancial),
     statements: buildStatements(
       [...fin, ...finDetail],
       [...finQuarter, ...finQuarterDetail, ...bsQuarter],

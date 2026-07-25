@@ -7,6 +7,7 @@ import RequestArticleButton from "./RequestArticleButton";
 import ShareButton from "./ShareButton";
 import WatchButton from "./auth/WatchButton";
 import { parseSummary } from "@/lib/summary";
+import { isFinancialSector } from "@/lib/sector";
 import type { Article, ChartData } from "@/lib/types";
 
 // 〔차트 ①: …〕 / [차트 1: …] — 원문자·숫자 표기 모두 인식
@@ -125,7 +126,7 @@ export default function ArticleTab({ article, charts, sector, industryGroup, sto
   industryGroup: string | null;   // 산업 그룹 분류의 primary 그룹명 (카테고리 태그용)
   stockCode: string;
 }) {
-  const isFinancial = sector === "금융";
+  const isFinancial = isFinancialSector(sector);
   // 리포트 탭 카테고리 태그: 분류한 산업 그룹 우선, 없으면 기존 업종 라벨
   const categoryLabel = industryGroup ?? sector;
   if (!article) {

@@ -92,19 +92,21 @@ function tooltipStyle() {
   };
 }
 
-export function ChartRevenueOp({ data, dataQ }: {
-  data: ChartData["revenueOp"]; dataQ: ChartData["revenueOpQ"];
+export function ChartRevenueOp({ data, dataQ, isFinancial = false }: {
+  data: ChartData["revenueOp"]; dataQ: ChartData["revenueOpQ"]; isFinancial?: boolean;
 }) {
   const { mode, setMode, hasQuarterly } = useMode(dataQ.length > 0);
   const quarterly = mode === "Q";
   const active = quarterly ? dataQ : data;
+  // 금융업은 매출액이 없어 '순영업수익'(순이자+순수수료+보험+트레이딩)을 매출 자리로 쓴다.
+  const revLabel = isFinancial ? "순영업수익" : "매출";
   // 좌우 축은 규모가 크게 달라 각자 단위를 고른다 (매출 조 / 영업이익 억 처럼)
   const uRev = pickUnit(active.map(d => d.revenue));
   const uOp = pickUnit(active.map(d => d.op));
   const fmtRev = amtFmt(uRev), fmtOp = amtFmt(uOp);
   return (
-    <Card title="매출 · 영업이익"
-          caption={`${quarterly ? "단일 분기(3개월) 연결 기준" : "연간 연결 기준"} — 매출은 왼쪽 축(${uRev.suffix} 원), 영업이익은 오른쪽 축(${uOp.suffix} 원) (출처: DART)`}
+    <Card title={`${revLabel} · 영업이익`}
+          caption={`${quarterly ? "단일 분기(3개월) 연결 기준" : "연간 연결 기준"} — ${revLabel}은 왼쪽 축(${uRev.suffix} 원), 영업이익은 오른쪽 축(${uOp.suffix} 원) (출처: DART${isFinancial ? " · 순영업수익=순이자+순수수료+보험손익+트레이딩" : ""})`}
           extra={hasQuarterly ? <ModeToggle mode={mode} onChange={setMode} /> : undefined}>
       <ResponsiveContainer>
         <ComposedChart data={active as unknown as ChartPoint[]} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
@@ -119,7 +121,7 @@ export function ChartRevenueOp({ data, dataQ }: {
             return [`${f(Number(v))} 원`];
           }} />
           <Legend wrapperStyle={{ fontSize: 13 }} />
-          <Bar yAxisId="rev" name="매출액 (좌)" dataKey="revenue" fill={GREEN} fillOpacity={0.22} />
+          <Bar yAxisId="rev" name={`${revLabel} (좌)`} dataKey="revenue" fill={GREEN} fillOpacity={0.22} />
           <Line type="monotone" yAxisId="op" name="영업이익 (우)" dataKey="op" stroke={NAVY} strokeWidth={2.5} dot={{ r: 3 }} />
         </ComposedChart>
       </ResponsiveContainer>
@@ -257,7 +259,7 @@ export function ChartByNumber({ n, charts, isFinancial = false }: {
 }) {
   if (isFinancial) {
     switch (n) {
-      case 1: return <ChartRevenueOp data={charts.revenueOp} dataQ={charts.revenueOpQ} />;
+      case 1: return <ChartRevenueOp data={charts.revenueOp} dataQ={charts.revenueOpQ} isFinancial />;
       case 2: return <ChartRoeRoa data={charts.roe} dataQ={charts.roeQ} />;
       case 3: return null; // ②에 통합됨 (옛 글의 ③ 마커는 조용히 무시)
       case 5: return <ChartPer data={charts.per} />;

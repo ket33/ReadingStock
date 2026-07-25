@@ -98,10 +98,46 @@ const GROUPS: { title: string; cards: CardSpec[] }[] = [
   },
 ];
 
-export default function MetricsSummary({ latest }: {
+// 금융업(은행·보험·증권)은 매출·원가·재고·설비·부채비율 개념이 달라 제조업용 지표 대부분이
+// 무의미하다. 계산·해석이 유효한 것만 추린 세트로 대체한다. (매출·영업이익 추이는 리포트 탭 차트)
+const FIN_GROUPS: { title: string; cards: CardSpec[] }[] = [
+  {
+    title: "밸류에이션",
+    cards: [
+      { key: "per", name: "PER", unit: "배",
+        tooltip: "지금 주가로 회사를 통째로 샀을 때, 현재 이익 속도로 원금을 뽑는 데 걸리는 햇수" },
+      { key: "pbr", name: "PBR", unit: "배",
+        tooltip: "순자산(자본) 대비 주가가 몇 배인지. 은행·증권은 자산이 곧 장부가라 PBR이 밸류의 핵심" },
+      { key: "div_yield", name: "배당수익률", unit: "%",
+        tooltip: "지금 주가로 사면 1년 배당으로 몇 %를 돌려받는지. 금융주는 대개 고배당" },
+    ],
+  },
+  {
+    title: "수익성",
+    cards: [
+      { key: "roe", name: "ROE", unit: "%",
+        tooltip: "주주 돈 100으로 1년에 몇을 벌었는지. 은행·보험·증권의 최핵심 수익성 지표" },
+      { key: "roa", name: "ROA", unit: "%",
+        tooltip: "전체 자산 100으로 몇을 벌었는지. 은행은 자산 규모가 커 보통 1% 안팎이 정상" },
+    ],
+  },
+  {
+    title: "주주환원",
+    cards: [
+      { key: "payout", name: "배당성향", unit: "%",
+        tooltip: "번 이익 중 배당으로 주주에게 돌려주는 비율" },
+      { key: "retention", name: "유보율", unit: "%",
+        tooltip: "번 이익 중 회사에 남겨 재투자하는 비율 (100% − 배당성향)" },
+    ],
+  },
+];
+
+export default function MetricsSummary({ latest, isFinancial = false }: {
   latest: (MetricsRow & { label: string }) | null;
+  isFinancial?: boolean;
 }) {
   if (!latest) return null;
+  const groups = isFinancial ? FIN_GROUPS : GROUPS;
 
   return (
     <section className="mt-12">
@@ -109,11 +145,12 @@ export default function MetricsSummary({ latest }: {
         <h2 className="font-serif text-xl font-semibold text-primary">핵심 지표 요약</h2>
         <p className="text-xs text-on-surface-variant mt-1">
           기준: {latest.label} · ⓘ에 마우스를 올리면 용어 설명이 보입니다
+          {isFinancial && " · 금융업은 재무구조가 달라 유효한 지표만 표시합니다"}
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        {GROUPS.map(group => (
+        {groups.map(group => (
           <div key={group.title} className="bg-white border border-outline-variant rounded-xl p-5">
             <h3 className="text-[15px] font-bold text-on-surface mb-1">{group.title}</h3>
             <ul className="divide-y divide-outline-variant/70">
@@ -137,9 +174,11 @@ export default function MetricsSummary({ latest }: {
         ))}
       </div>
 
-      <p className="text-xs text-outline mt-3">
-        &ldquo;—&rdquo;는 업종 특성상 계산되지 않는 지표입니다 (예: 금융업의 재고회전율).
-      </p>
+      {!isFinancial && (
+        <p className="text-xs text-outline mt-3">
+          &ldquo;—&rdquo;는 업종 특성상 계산되지 않는 지표입니다 (예: 금융업의 재고회전율).
+        </p>
+      )}
     </section>
   );
 }
