@@ -421,6 +421,7 @@ export default function WatchlistPage() {
                       <tr className="border-b border-outline-variant bg-surface-container-low">
                         <th className="sticky left-0 z-10 bg-surface-container-low text-left px-4 py-2.5 text-xs font-medium text-on-surface-variant">종목</th>
                         <th className="text-right px-3 py-2.5 text-xs font-medium text-on-surface-variant whitespace-nowrap">비중</th>
+                        <th className="text-right px-3 py-2.5 text-xs font-medium text-on-surface-variant whitespace-nowrap">등락(1D)</th>
                         <th className="text-right px-3 py-2.5 text-xs font-medium text-on-surface-variant whitespace-nowrap">현재가</th>
                         {cols.map(def => {
                           const sorted = sort?.key === (def.key as string);
@@ -456,6 +457,13 @@ export default function WatchlistPage() {
                                          className="w-14 px-1.5 py-1 rounded border border-outline-variant text-right text-sm focus:outline-none focus:border-primary" />%
                                 </span>
                               ) : effectiveWeight(r)}
+                            </td>
+                            <td className={`text-right px-3 py-1.5 tabular-nums whitespace-nowrap ${
+                              r.ret_1d == null ? "text-outline"
+                                : r.ret_1d > 0 ? "text-stock-up"
+                                : r.ret_1d < 0 ? "text-stock-down" : "text-on-surface-variant"
+                            }`}>
+                              {r.ret_1d != null ? `${r.ret_1d > 0 ? "+" : ""}${r.ret_1d.toFixed(2)}%` : "—"}
                             </td>
                             <td className="text-right px-3 py-1.5 tabular-nums whitespace-nowrap font-medium text-on-surface">{formatPrice(r.price)}</td>
                             {cols.map(def => {
