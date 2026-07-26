@@ -160,8 +160,12 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
             title: stripCompanyPrefix(titleByCode.get(code)!, name),
             ret1d: meta.get(code)?.ret1d ?? null,
           };
-        })
-        .sort((a, b) => (meta.get(b.code)?.cap ?? 0) - (meta.get(a.code)?.cap ?? 0));
+        });
+      // 순서는 방문할 때마다 랜덤 (피셔-예이츠) — 특정 기업이 늘 위에 오지 않게
+      for (let i = built.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [built[i], built[j]] = [built[j], built[i]];
+      }
       if (alive) setPeers(built);
     })();
     return () => { alive = false; };
