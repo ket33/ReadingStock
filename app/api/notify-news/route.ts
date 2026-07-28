@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { SITE_URL, SITE_NAME } from "@/lib/seo";
+import { fetchAll, fetchByCodes } from "@/lib/supabase-page";
 
 // 뉴스룸 다이제스트 발송 — 아직 발송 안 된 새 기사들을 모아,
 // 회원별로 '자기 워치리스트 종목의 기사만' 묶어 하루 한 통으로 보낸다.
@@ -34,27 +35,31 @@ export async function POST(request: Request) {
   });
 
   // 미발송 새 기사 (48시간 창 — 오래된 백필이 섞여 들어오지 않게)
+  // 2,500종목 확장 후에는 하루 기사가 1,000건(PostgREST 캡)을 넘을 수 있어 페이징
   const since = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
-  const { data: articlesQ, error: aErr } = await admin
-    .from("company_news")
-    .select("id,stock_code,title,published_at")
-    .is("notified_at", null)
-    .gte("created_at", since)
-    .order("published_at", { ascending: false });
-  if (aErr) return NextResponse.json({ error: aErr.message }, { status: 500 });
-  const articles = (articlesQ ?? []) as NewsRow[];
+  const articles = await fetchAll<NewsRow>((from, to) =>
+    admin.from("company_news")
+      .select("id,stock_code,title,published_at")
+      .is("notified_at", null)
+      .gte("created_at", since)
+      .order("published_at", { ascending: false })
+      .range(from, to));
   if (articles.length === 0) {
     return NextResponse.json({ articles: 0, users: 0, sent: 0, errors: [] });
   }
 
+  // 종목코드가 수백 개면 in() 쿼리스트링이 URL 한도를 넘는다 → 청크 조회
   const codes = [...new Set(articles.map(a => a.stock_code))];
-  const { data: comps } = await admin
-    .from("companies").select("stock_code,name").in("stock_code", codes);
-  const nameBy = new Map((comps ?? []).map(c => [c.stock_code as string, c.name as string]));
+  const comps = await fetchByCodes<{ stock_code: string; name: string }>(codes, slice =>
+    admin.from("companies").select("stock_code,name").in("stock_code", slice));
+  const nameBy = new Map(comps.map(c => [c.stock_code, c.name]));
 
   // 종목별 워처 → 회원별 해당 기사 묶음
-  const { data: watchers } = await admin
-    .from("watchlist").select("user_id,stock_code").in("stock_code", codes);
+  // 워치리스트 행은 회원 수에 비례해 1,000행(PostgREST 캡)을 쉽게 넘는다 → 페이징 필수
+  // (캡에 잘리면 일부 회원이 다이제스트를 조용히 못 받는다)
+  const watchers = await fetchAll<{ user_id: string; stock_code: string }>((from, to) =>
+    admin.from("watchlist").select("user_id,stock_code")
+      .in("stock_code", codes).order("user_id").range(from, to));
   const codesByUser = new Map<string, Set<string>>();
   for (const w of watchers ?? []) {
     const uid = w.user_id as string;
@@ -95,9 +100,14 @@ export async function POST(request: Request) {
   }
 
   // 이번 다이제스트에 포함된 기사는 전부 처리 완료로 표시 (워처가 없던 기사 포함)
-  await admin.from("company_news")
-    .update({ notified_at: new Date().toISOString() })
-    .in("id", articles.map(a => a.id));
+  // id가 수백 개면 URL 한도를 넘으므로 청크로 나눠 업데이트
+  const ids = articles.map(a => a.id);
+  const stamp = new Date().toISOString();
+  for (let i = 0; i < ids.length; i += 300) {
+    await admin.from("company_news")
+      .update({ notified_at: stamp })
+      .in("id", ids.slice(i, i + 300));
+  }
 
   return NextResponse.json({ articles: articles.length, users: codesByUser.size, sent, errors });
 }

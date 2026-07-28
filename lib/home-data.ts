@@ -1,7 +1,18 @@
-// 홈 화면 데이터 로더 — 종목 카드에 필요한 값을 서버에서 조립
+// 홈 화면 데이터 로더 — screener 표(종목당 한 줄 스냅샷) 하나만 읽는다.
+//
+// 이전 구조는 companies + screener + financials(1만행) + articles(본문 전량)
+// + prices(종목당 1회 = N+1)를 서버에서 조립했는데, 2,500종목이면
+//   - financials 조회가 PostgREST 1,000행 캡에 잘려 CAGR이 대부분 비고
+//   - prices N+1이 2,500쿼리가 되어 렌더가 불가능해진다.
+// 지금은 일일 배치(update_screener_daily.py)가 카드에 필요한 모든 값
+// (시총·PER·배당·성장률·발췌문·산업그룹·발간시각·셔플 난수)을 screener에 채워 두고,
+// 홈은 그걸 정렬·페이징해서 읽기만 한다. 종목 수와 무관하게 요청당 한 페이지 분량 고정.
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
 import { stripCompanyPrefix } from "./news-format";
-import { fetchGroups } from "./groups";
+
+/** 홈 종목 카드 페이지 크기 — 서버 첫 렌더와 클라이언트 '더보기'가 같은 값을 쓴다 */
+export const HOME_PAGE_SIZE = 8;
 
 // 홈 우측 '최신 뉴스' 한 줄 (종목명 + 뉴스 제목만)
 export interface HomeNewsItem {
@@ -17,193 +28,130 @@ export interface StockCard {
   stockCode: string;
   name: string;
   sector: string | null;
-  industryGroup: string | null;    // 산업 그룹 분류 primary 그룹명 (배지 표시용, 없으면 sector 폴백)
+  industryGroup: string | null;    // 산업 그룹 분류 primary 그룹명 (배지용, 없으면 sector 폴백)
   marketCap: number | null;        // 원
-  per: number | null;              // 최신(TTM 우선)
+  per: number | null;              // 최신(TTM 우선, 현재가 환산)
   divYield: number | null;         // %
-  revCagr3y: number | null;        // % (최근 3년 연평균)
-  niCagr3y: number | null;         // %
-  excerpt: string | null;          // 분석글 섹션1 첫 문단
-  latestArticleAt: string | null;  // 정렬(Latest)용
+  revCagr3y: number | null;        // % — screener.revenue_growth_3y (배치 계산)
+  niCagr3y: number | null;         // % — screener.earnings_growth_3y
+  excerpt: string | null;          // 분석글 섹션1 첫 문단 (배치가 발췌)
+  latestArticleAt: string | null;  // 정렬(최신순)용
 }
 
-const QIDX = ["1Q", "2Q", "3Q", "4Q"];
+export type HomeSort = "random" | "marketCap" | "latest";
 
-/** (endYear, endQ)에서 뒤로 4개 단일분기 합 = TTM. 하나라도 없으면 null.
- *  단일분기 합은 중간 누적분기 값과 무관하게 FY로 텔레스코핑되므로 견고하다. */
-function ttmSum(q: Map<string, number>, endYear: number, endQ: string): number | null {
-  let i = QIDX.indexOf(endQ);
-  if (i < 0) return null;
-  let y = endYear, total = 0;
-  for (let k = 0; k < 4; k++) {
-    const v = q.get(`${y}-${QIDX[i]}`);
-    if (v == null) return null;
-    total += v;
-    if (--i < 0) { i = 3; y--; }
-  }
-  return total;
+/** 홈 목록 한 페이지 + 전체 종목 수 */
+export interface HomePageChunk {
+  stocks: StockCard[];
+  total: number;
 }
 
-/** 가장 최근 단일분기 (year, q). 없으면 null */
-function latestQuarter(q: Map<string, number>): [number, string] | null {
-  let by = -1, bi = -1, best: [number, string] | null = null;
-  for (const key of q.keys()) {
-    const [ys, qs] = key.split("-");
-    const y = +ys, i = QIDX.indexOf(qs);
-    if (i < 0) continue;
-    if (y > by || (y === by && i > bi)) { by = y; bi = i; best = [y, qs]; }
-  }
-  return best;
+// screener에서 카드로 쓰는 컬럼만 — 60여 컬럼 전체(*)를 받지 않는다
+const CARD_COLS =
+  "stock_code,name,sector,industry_group,market_cap,per,div_yield," +
+  "revenue_growth_3y,earnings_growth_3y,excerpt,latest_article_at";
+
+interface CardRow {
+  stock_code: string;
+  name: string;
+  sector: string | null;
+  industry_group: string | null;
+  market_cap: number | null;
+  per: number | null;
+  div_yield: number | null;
+  revenue_growth_3y: number | null;
+  earnings_growth_3y: number | null;
+  excerpt: string | null;
+  latest_article_at: string | null;
 }
 
-/** 3년 CAGR(%): 끝점을 TTM(최근 4개 단일분기)으로, 기준점은 3년 전 같은 분기 종료 TTM으로.
- *  양끝 모두 '12개월 통째'라 계절성이 제거된다. 분기 이력이 부족하면 FY 양끝으로 폴백.
- *  이력 부족·음수/0 기반이면 null. */
-function cagr3y(fy: Map<number, number>, q: Map<string, number>): number | null {
-  let last: number | null = null, base: number | null = null;
-  const lq = latestQuarter(q);
-  if (lq) {
-    last = ttmSum(q, lq[0], lq[1]);
-    base = ttmSum(q, lq[0] - 3, lq[1]);
-  }
-  if (last == null || base == null) {          // TTM 불가 → FY 양끝으로 폴백
-    if (fy.size === 0) return null;
-    const years = [...fy.keys()].sort((a, b) => b - a);
-    last = fy.get(years[0]) ?? null;
-    base = fy.get(years[0] - 3) ?? null;
-  }
-  if (base == null || last == null || base <= 0 || last <= 0) return null;
-  return Math.round((Math.pow(last / base, 1 / 3) - 1) * 1000) / 10;
+function toCard(r: CardRow): StockCard {
+  return {
+    stockCode: r.stock_code,
+    name: r.name,
+    sector: r.sector,
+    industryGroup: r.industry_group,
+    marketCap: r.market_cap,
+    per: r.per,
+    divYield: r.div_yield,
+    revCagr3y: r.revenue_growth_3y,
+    niCagr3y: r.earnings_growth_3y,
+    excerpt: r.excerpt,
+    latestArticleAt: r.latest_article_at,
+  };
 }
 
-/** 분석글에서 섹션 1의 첫 문단을 순수 텍스트로 발췌 */
-function extractSection1(body: string): string | null {
-  // "## 1. …" 또는 "**1. …**" 헤딩 뒤부터
-  const m = body.match(/(?:^|\n)(?:#{1,3}\s*|\*\*)\s*1\.\s[^\n]*\n+/);
-  if (!m) return null;
-  const start = m.index! + m[0].length;
-  // 다음 빈 줄(문단 끝)까지
-  const rest = body.slice(start);
-  const para = rest.split(/\n\s*\n/)[0] ?? "";
-  const text = para
-    .replace(/[〔\[]\s*차트[^〕\]]*[〕\]]/g, "")  // 차트 마커 제거
-    .replace(/\*\*([^*]+)\*\*/g, "$1")            // 볼드 기호 제거
-    .replace(/\*([^*]+)\*/g, "$1")                // 이탤릭 기호 제거
-    .replace(/^#+\s*/gm, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return text || null;
+/**
+ * 홈 종목 카드 한 페이지.
+ *
+ * 정렬별 order 컬럼 (전부 sql/scale_2500.sql의 인덱스를 탄다):
+ *   random    → shuffle (배치가 매일 새로 뿌리는 난수 — 페이징 가능한 '랜덤')
+ *   marketCap → market_cap desc nulls last
+ *   latest    → latest_article_at desc nulls last (발간글 없는 종목은 뒤로)
+ */
+export async function fetchHomeStocks(
+  sb: SupabaseClient,
+  sort: HomeSort,
+  offset: number,
+  limit: number,
+  withCount = false,   // count 쿼리는 공짜가 아니라 필요할 때(첫 로드)만
+): Promise<HomePageChunk> {
+  let q = sb.from("screener")
+    .select(CARD_COLS, withCount ? { count: "exact" } : undefined);
+  if (sort === "latest") {
+    q = q.order("latest_article_at", { ascending: false, nullsFirst: false });
+  } else if (sort === "marketCap") {
+    q = q.order("market_cap", { ascending: false, nullsFirst: false });
+  } else {
+    // shuffle 난수가 아직 없는(배치 전) 행은 뒤로 — 시총순으로 2차 정렬해 순서 안정화
+    q = q.order("shuffle", { ascending: true, nullsFirst: false })
+         .order("market_cap", { ascending: false, nullsFirst: false });
+  }
+  const { data, count } = await q.range(offset, offset + limit - 1);
+  return {
+    stocks: ((data ?? []) as unknown as CardRow[]).map(toCard),
+    total: count ?? 0,
+  };
+}
+
+/** 서버(ISR) 편의 래퍼 — 홈 첫 페이지 렌더용. 전체 종목 수도 함께 돌려준다. */
+export function getHomeStocks(
+  sort: HomeSort,
+  offset: number,
+  limit: number,
+): Promise<HomePageChunk> {
+  return fetchHomeStocks(supabase, sort, offset, limit, true);
 }
 
 /** 홈 우측 최신 뉴스 — 전 종목 최신순 (10개씩 더보기라 넉넉히 100건) */
 export async function getHomeNews(): Promise<HomeNewsItem[]> {
-  const [newsQ, companiesQ, screenerQ] = await Promise.all([
-    supabase.from("company_news")
-      .select("id,stock_code,title,published_at")
-      .order("published_at", { ascending: false })
-      .limit(100),
-    supabase.from("companies").select("stock_code,name"),
-    supabase.from("screener").select("stock_code,ret_1d"),
-  ]);
-  const names = new Map((companiesQ.data ?? []).map(c => [c.stock_code as string, c.name as string]));
-  const rets = new Map((screenerQ.data ?? []).map(s => [s.stock_code as string, (s.ret_1d as number | null) ?? null]));
-  return (newsQ.data ?? []).map(n => {
-    const companyName = names.get(n.stock_code as string) ?? (n.stock_code as string);
+  const { data } = await supabase.from("company_news")
+    .select("id,stock_code,title,published_at")
+    .order("published_at", { ascending: false })
+    .limit(100);
+  const news = data ?? [];
+  if (news.length === 0) return [];
+
+  // 이름·등락률은 뉴스에 등장한 종목만 조회 (전 종목 스캔 금지 — 2,500행 캡·전송량 방지)
+  const codes = [...new Set(news.map(n => n.stock_code as string))];
+  const { data: scr } = await supabase.from("screener")
+    .select("stock_code,name,ret_1d")
+    .in("stock_code", codes);
+  const meta = new Map((scr ?? []).map(s => [
+    s.stock_code as string,
+    { name: s.name as string, ret1d: (s.ret_1d as number | null) ?? null },
+  ]));
+
+  return news.map(n => {
+    const m = meta.get(n.stock_code as string);
+    const companyName = m?.name ?? (n.stock_code as string);
     return {
       id: n.id as number,
       stockCode: n.stock_code as string,
       companyName,
       title: stripCompanyPrefix(n.title as string, companyName),
       publishedAt: n.published_at as string,
-      ret1d: rets.get(n.stock_code as string) ?? null,
-    };
-  });
-}
-
-export async function getHomeData(): Promise<StockCard[]> {
-  // 종목 수가 늘어도 동작하도록 전부 서버 조회 (5~수십 종목 규모 가정)
-  const [companiesQ, screenerQ, finQ, articlesQ] = await Promise.all([
-    supabase.from("companies").select("stock_code,name,sector"),
-    // PER·배당수익률은 종목 페이지 상단과 동일하게 screener 스냅샷(오늘 주가 기준)에서 가져온다
-    supabase.from("screener").select("stock_code,per,div_yield"),
-    supabase.from("financials")
-      .select("stock_code,fiscal_year,period,statement,account_std,value")
-      .in("period", ["FY", "1Q", "2Q", "3Q", "4Q"])  // 누적분기(_cum) 제외 — 단일분기만
-      .in("account_std", ["매출액", "당기순이익"])
-      .in("statement", ["IS", "CIS"])
-      .limit(10000),
-    supabase.from("articles").select("stock_code,body,created_at")
-      .order("created_at", { ascending: false }),
-  ]);
-
-  const companies = companiesQ.data ?? [];
-
-  // 최신 시가총액: 종목별 최신 1행 (prices는 크니 종목별로 조회)
-  const capEntries = await Promise.all(
-    companies.map(async c => {
-      const { data } = await supabase.from("prices")
-        .select("market_cap")
-        .eq("stock_code", c.stock_code)
-        .order("date", { ascending: false })
-        .limit(1);
-      return [c.stock_code, data?.[0]?.market_cap ?? null] as const;
-    })
-  );
-  const capMap = new Map(capEntries);
-
-  // PER·배당수익률: screener 스냅샷(오늘 주가 기준) — 카드의 시가총액(현재가)·종목 페이지 상단과 정합
-  const valuation = new Map<string, { per: number | null; div_yield: number | null }>();
-  for (const s of screenerQ.data ?? []) {
-    valuation.set(s.stock_code, { per: s.per, div_yield: s.div_yield });
-  }
-
-  // CAGR용: 연간(FY)과 단일분기를 분리 적재 (같은 키 중복이면 첫 값 유지)
-  //  종목별로 매출은 한 statement에만 존재(SK=CIS, 삼성=IS)라 IS/CIS 혼선 없음.
-  const revFY = new Map<string, Map<number, number>>();
-  const niFY = new Map<string, Map<number, number>>();
-  const revQ = new Map<string, Map<string, number>>();
-  const niQ = new Map<string, Map<string, number>>();
-  for (const r of finQ.data ?? []) {
-    if (r.value == null) continue;
-    const isRev = r.account_std === "매출액";
-    if (r.period === "FY") {
-      const t = isRev ? revFY : niFY;
-      let m = t.get(r.stock_code);
-      if (!m) { m = new Map(); t.set(r.stock_code, m); }
-      if (!m.has(r.fiscal_year)) m.set(r.fiscal_year, r.value);
-    } else {
-      const t = isRev ? revQ : niQ;
-      let m = t.get(r.stock_code);
-      if (!m) { m = new Map(); t.set(r.stock_code, m); }
-      const key = `${r.fiscal_year}-${r.period}`;
-      if (!m.has(key)) m.set(key, r.value);
-    }
-  }
-
-  // 종목별 최신 분석글
-  const latestArticle = new Map<string, { body: string; created_at: string }>();
-  for (const a of articlesQ.data ?? []) {
-    if (!latestArticle.has(a.stock_code)) latestArticle.set(a.stock_code, a);
-  }
-
-  // 산업 그룹 분류 primary 그룹명 (배지용)
-  const gmap = await fetchGroups(supabase, companies.map(c => c.stock_code));
-
-  return companies.map(c => {
-    const val = valuation.get(c.stock_code);
-    const art = latestArticle.get(c.stock_code);
-    return {
-      stockCode: c.stock_code,
-      name: c.name,
-      sector: c.sector,
-      industryGroup: gmap.get(c.stock_code)?.primary ?? null,
-      marketCap: capMap.get(c.stock_code) ?? null,
-      per: val?.per ?? null,
-      divYield: val?.div_yield ?? null,
-      revCagr3y: cagr3y(revFY.get(c.stock_code) ?? new Map(), revQ.get(c.stock_code) ?? new Map()),
-      niCagr3y: cagr3y(niFY.get(c.stock_code) ?? new Map(), niQ.get(c.stock_code) ?? new Map()),
-      excerpt: art ? extractSection1(art.body) : null,
-      latestArticleAt: art?.created_at ?? null,
+      ret1d: m?.ret1d ?? null,
     };
   });
 }

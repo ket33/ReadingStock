@@ -1,13 +1,19 @@
-// 스크리너 데이터 로더 — screener 표(종목당 한 줄 스냅샷)를 통째로 가져온다.
-// 필터·정렬은 전부 클라이언트에서 수행 (종목 수가 수백 이하인 동안은 이게 가장 단순·빠름)
+// 스크리너 데이터 로더 — screener 표(종목당 한 줄 스냅샷).
+//
+// 2,500종목 대응: 서버는 '기본 표시 컬럼'만 전량 보낸다 (~60컬럼 전체를 보내면
+// 페이로드 665KB — 기본 컬럼만이면 ~80KB). 사용자가 컬럼 프리셋·필터·정렬로
+// 다른 지표를 쓰는 순간, 브라우저가 그 컬럼만 전 종목분 받아 행에 합친다
+// (fetchScreenerCols). 필터·정렬 자체는 여전히 클라이언트 — 조작감 유지.
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "./supabase";
-import { fetchGroups } from "./groups";
+import { fetchAll } from "./supabase-page";
 
 export interface ScreenerRow {
   stock_code: string;
   name: string;
   market: string | null;
   sector: string | null;
+  industry_group?: string | null; // 산업 그룹 primary (배치가 채움 — scale_2500.sql)
   groupPrimary?: string | null;   // 산업 그룹 분류 primary 그룹명 (표시용)
   groups?: string[];              // 소속 그룹 전체 = primary+secondary (업종 필터용)
   price: number | null;
@@ -78,21 +84,63 @@ export interface ScreenerRow {
   updated_at: string | null;
 }
 
+/** 서버가 처음부터 보내는 기본 컬럼 — 표의 고정 열(종목명 등) + '기본' 프리셋(시가총액) */
+export const SCREENER_BASE_COLS = [
+  "stock_code", "name", "market", "sector", "industry_group",
+  "price", "price_date", "market_cap",
+] as const;
+
+type Rel = { name: string } | { name: string }[] | null;
+
 export async function getScreenerData(): Promise<ScreenerRow[]> {
-  const { data } = await supabase
-    .from("screener")
-    .select("*")
-    .order("market_cap", { ascending: false })
-    .limit(1000); // PostgREST 요청당 1,000행 하드캡 — 종목이 늘면 페이징 필요
-  const rows = (data ?? []) as ScreenerRow[];
-  // 산업 그룹(primary+secondary) 붙이기 — 업종 필터·표시용
-  const gmap = await fetchGroups(supabase, rows.map(r => r.stock_code));
+  // 전 종목 기본 컬럼 (1,000행 캡 페이징)
+  const rows = await fetchAll<ScreenerRow>((from, to) =>
+    supabase.from("screener")
+      .select(SCREENER_BASE_COLS.join(","))
+      .order("market_cap", { ascending: false, nullsFirst: false })
+      .range(from, to)) ;
+
+  // 산업 그룹(primary+secondary) 붙이기 — 업종 필터·표시용.
+  // 종목코드 in() 청크 대신 매핑 테이블 전체를 페이징으로 받는 게 요청 수가 적다.
+  const gRows = await fetchAll<{ company_id: string; is_primary: boolean; industry_groups: Rel }>(
+    (from, to) => supabase.from("company_groups")
+      .select("company_id,is_primary,industry_groups(name)")
+      .order("company_id")
+      .range(from, to));
+  const gmap = new Map<string, { primary: string | null; groups: string[] }>();
+  for (const g of gRows) {
+    const rel = g.industry_groups;
+    const name = Array.isArray(rel) ? rel[0]?.name : rel?.name;
+    if (!name) continue;
+    let info = gmap.get(g.company_id);
+    if (!info) { info = { primary: null, groups: [] }; gmap.set(g.company_id, info); }
+    if (!info.groups.includes(name)) info.groups.push(name);
+    if (g.is_primary) info.primary = name;
+  }
   for (const r of rows) {
     const g = gmap.get(r.stock_code);
-    r.groupPrimary = g?.primary ?? null;
+    r.groupPrimary = g?.primary ?? r.industry_group ?? null;
     r.groups = g?.groups ?? [];
   }
   return rows;
+}
+
+/**
+ * 지정 컬럼만 전 종목분 조회 — 스크리너에서 컬럼 프리셋·필터·정렬이
+ * 아직 안 받은 지표를 요구할 때 브라우저가 호출해 행에 합친다.
+ * 반환: stock_code → 부분 행.
+ */
+export async function fetchScreenerCols(
+  sb: SupabaseClient,
+  cols: string[],
+): Promise<Map<string, Partial<ScreenerRow>>> {
+  if (cols.length === 0) return new Map();
+  const rows = await fetchAll<{ stock_code: string } & Partial<ScreenerRow>>((from, to) =>
+    sb.from("screener")
+      .select(["stock_code", ...cols].join(","))
+      .order("stock_code")
+      .range(from, to));
+  return new Map(rows.map(r => [r.stock_code, r]));
 }
 
 /** 종목 한 개의 스크리너 지표 행 (종목 페이지 지표 줄용) */

@@ -2,6 +2,7 @@
 // 종목별 primary 그룹명과 소속 그룹 전체(primary+secondary)를 돌려준다.
 // 홈·스크리너(서버)와 워치리스트(브라우저)가 각자 클라이언트를 넘겨 함께 쓴다.
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchAll } from "./supabase-page";
 
 export interface GroupInfo {
   primary: string | null;   // primary 그룹명 (표시용)
@@ -32,14 +33,17 @@ export async function fetchGroupPeers(
   const myIds = myGroups.map(g => g.group_id);
   const primaryId = myGroups.find(g => g.is_primary)?.group_id ?? null;
 
-  const [namesQ, rowsQ] = await Promise.all([
+  const [namesQ, rows] = await Promise.all([
     sb.from("industry_groups").select("id,name").in("id", myIds),
-    sb.from("company_groups").select("company_id,group_id").in("group_id", myIds).limit(2000),
+    // 2,500종목 규모에선 큰 그룹 하나가 1,000행(PostgREST 캡)을 넘을 수 있어 페이징
+    fetchAll<{ company_id: string; group_id: number }>((from, to) =>
+      sb.from("company_groups").select("company_id,group_id")
+        .in("group_id", myIds).order("company_id").range(from, to)),
   ]);
   const nameById = new Map((namesQ.data ?? []).map(r => [r.id as number, r.name as string]));
 
   const best = new Map<string, GroupPeer>();
-  for (const r of (rowsQ.data ?? []) as { company_id: string; group_id: number }[]) {
+  for (const r of rows) {
     if (r.company_id === stockCode) continue;
     const viaPrimary = primaryId != null && r.group_id === primaryId;
     const cur = best.get(r.company_id);

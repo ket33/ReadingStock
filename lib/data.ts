@@ -5,7 +5,6 @@ import type {
   ChartData, StockPageData,
 } from "./types";
 import { toEok } from "./format";
-import { buildStatements } from "./statements";
 import { getScreenerRow } from "./screener-data";
 import type { ScreenerRow } from "./screener-data";
 import { isFinancialSector } from "./sector";
@@ -195,23 +194,16 @@ function buildCharts(fin: FinancialRow[], metrics: MetricsRow[], finQ: Financial
 // 재무제표 탭 빌더는 lib/statements.ts로 분리 (계정 매핑 정의 포함)
 
 export async function getStockPageData(stockCode: string): Promise<StockPageData | null> {
-  const [companyQ, finQ, finDetailQ, finQuarterQ, finQuarterDetailQ, finQuarterDetail2Q, bsQuarterQ, rndQ, metricsQ, pricesQ, articleQ, newsQ, groupQ] = await Promise.all([
+  // 재무제표 탭용 세부 계정(미매핑 원본·BS 분기말·R&D)은 여기서 받지 않는다.
+  // 탭을 열 때 /api/statements/[code] → lib/statements-data.ts가 조회 (egress ~70% 절감).
+  const [companyQ, finQ, finQuarterQ, metricsQ, pricesQ, articleQ, newsQ, groupQ] = await Promise.all([
     supabase.from("companies").select("*").eq("stock_code", stockCode).maybeSingle(),
-    // PostgREST가 요청당 1,000행으로 하드캡(실측: limit(5000)도 1,000에서 잘림)이라
-    // '매핑된 행'과 '미매핑 세부 행'을 나눠 각각 1,000행 아래로 가져온다.
+    // 연간 차트용: 매핑된 FY 행 (PostgREST가 요청당 1,000행 하드캡 — 매핑 행은 그 아래)
     supabase.from("financials")
       .select("fiscal_year,period,statement,account_raw,account_std,value")
       .eq("stock_code", stockCode)
       .eq("period", "FY")
       .not("account_std", "is", null)
-      .limit(1000),
-    // 재무제표 탭 세부항목용: 미매핑 원본 계정 (IS/CIS/CF만 — BS 세부는 안 씀)
-    supabase.from("financials")
-      .select("fiscal_year,period,statement,account_raw,account_std,value")
-      .eq("stock_code", stockCode)
-      .eq("period", "FY")
-      .is("account_std", null)
-      .in("statement", ["IS", "CIS", "CF"])
       .limit(1000),
     // 분기 차트용: 단일(3개월) 분기 행 — 흐름(IS/CIS/CF)만
     supabase.from("financials")
@@ -221,43 +213,6 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
       .in("statement", ["IS", "CIS", "CF", "FIN"])   // FIN: 금융업 순영업수익 합성행(분기 차트용)
       .not("account_std", "is", null)
       .limit(1000),
-    // 재무제표 탭 분기 뷰·TTM용: 미매핑 흐름 세부 — 분기 20개(5년) 커버.
-    // 요청당 1,000행 하드캡이라 정렬 고정 후 2페이지로 나눠 받는다 (아래 2번째 쿼리와 합침)
-    supabase.from("financials")
-      .select("fiscal_year,period,statement,account_raw,account_std,value")
-      .eq("stock_code", stockCode)
-      .in("period", ["1Q", "2Q", "3Q", "4Q"])
-      .in("statement", ["IS", "CIS", "CF"])
-      .is("account_std", null)
-      .gte("fiscal_year", new Date().getFullYear() - 6)
-      .order("fiscal_year", { ascending: false })
-      .order("account_raw")
-      .range(0, 999),
-    supabase.from("financials")
-      .select("fiscal_year,period,statement,account_raw,account_std,value")
-      .eq("stock_code", stockCode)
-      .in("period", ["1Q", "2Q", "3Q", "4Q"])
-      .in("statement", ["IS", "CIS", "CF"])
-      .is("account_std", null)
-      .gte("fiscal_year", new Date().getFullYear() - 6)
-      .order("fiscal_year", { ascending: false })
-      .order("account_raw")
-      .range(1000, 1999),
-    // 재무제표 탭 분기 뷰용: BS 분기말 잔액 (시점 잔액 — 1Q/2Q_cum/3Q_cum/FY)
-    supabase.from("financials")
-      .select("fiscal_year,period,statement,account_raw,account_std,value")
-      .eq("stock_code", stockCode)
-      .eq("statement", "BS")
-      .in("period", ["1Q", "2Q_cum", "3Q_cum", "FY"])
-      .not("account_std", "is", null)
-      .gte("fiscal_year", new Date().getFullYear() - 6)
-      .limit(1000),
-    // R&D 금액 (보고서 파싱분 — load_rnd.py가 적재)
-    supabase.from("financials")
-      .select("fiscal_year,period,statement,account_raw,account_std,value")
-      .eq("stock_code", stockCode)
-      .eq("statement", "RND")
-      .limit(50),
     supabase.from("metrics").select("*").eq("stock_code", stockCode),
     supabase.from("prices").select("date,close,market_cap")
       .eq("stock_code", stockCode).order("date", { ascending: false }).limit(2),
@@ -282,14 +237,7 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
   const screenerRow: ScreenerRow | null = await getScreenerRow(stockCode).catch(() => null);
 
   const fin = (finQ.data ?? []) as FinancialRow[];
-  const finDetail = (finDetailQ.data ?? []) as FinancialRow[];
-  const rndRows = (rndQ.data ?? []) as FinancialRow[];
   const finQuarter = (finQuarterQ.data ?? []) as FinancialRow[];
-  const finQuarterDetail = [
-    ...(finQuarterDetailQ.data ?? []),
-    ...(finQuarterDetail2Q.data ?? []),
-  ] as FinancialRow[];
-  const bsQuarter = (bsQuarterQ.data ?? []) as FinancialRow[];
   const metrics = (metricsQ.data ?? []) as MetricsRow[];
   const prices = (pricesQ.data ?? []) as PriceRow[];
   const articleRows = (articleQ.data ?? []) as Article[];
@@ -328,11 +276,5 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
     primaryGroup,
     isFinancial,
     charts: buildCharts(fin, metrics, finQuarter, isFinancial),
-    statements: buildStatements(
-      [...fin, ...finDetail],
-      [...finQuarter, ...finQuarterDetail, ...bsQuarter],
-      rndRows,
-      company.sector,
-    ),
   };
 }

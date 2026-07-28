@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import type { StockPageData } from "@/lib/types";
 import ArticleTab from "./ArticleTab";
 import FundamentalsTab from "./FundamentalsTab";
-import FinancialsTab from "./FinancialsTab";
+import FinancialsTabLoader from "./FinancialsTabLoader";
 import NewsTab from "./NewsTab";
 import StockTimeline from "./StockTimeline";
 import SimilarStocks from "./SimilarStocks";
@@ -181,7 +181,11 @@ export default function StockPage({ data }: { data: StockPageData }) {
                      openRequest={newsOpenRequest} />
           )}
           {tab === "financials" && (
-            <FinancialsTab data={data.statements} latest={data.latestMetrics} isFinancial={data.isFinancial} />
+            <FinancialsTabLoader
+              stockCode={company.stock_code}
+              latest={data.latestMetrics}
+              isFinancial={data.isFinancial}
+            />
           )}
 
           {/* 모바일 타임라인 — 사이드바가 없으므로 콘텐츠 하단에 */}

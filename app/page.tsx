@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getHomeData, getHomeNews } from "@/lib/home-data";
+import { getHomeStocks, getHomeNews, HOME_PAGE_SIZE } from "@/lib/home-data";
 import HomePage from "@/components/HomePage";
 
 // 5분마다 재검증 (새 글·주가 반영)
@@ -16,7 +16,11 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const [stocks, news] = await Promise.all([getHomeData(), getHomeNews()]);
+  // 첫 페이지(8종목)만 서버 렌더 — 나머지는 클라이언트가 '더보기'로 이어 받는다
+  const [{ stocks, total }, news] = await Promise.all([
+    getHomeStocks("random", 0, HOME_PAGE_SIZE),
+    getHomeNews(),
+  ]);
 
   return (
     <>
@@ -26,7 +30,7 @@ export default async function Home() {
         precedence="default"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=block"
       />
-      <HomePage stocks={stocks} news={news} />
+      <HomePage initialStocks={stocks} total={total} news={news} />
     </>
   );
 }

@@ -1,9 +1,14 @@
 "use client";
 
 // 홈 — 히어로(검색) + Browse Stocks (디자인: Stitch 홈 HTML의 겉모습 유지, 데이터는 DB)
-import { useEffect, useMemo, useState } from "react";
+//
+// 종목 목록은 서버 페이징: 첫 8개는 ISR HTML에 담겨 오고, '더보기'·정렬 변경 때만
+// 브라우저가 screener에서 다음 8개를 직접 받아온다 (2,500종목 전체 전송 금지).
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { fetchHomeStocks, HOME_PAGE_SIZE } from "@/lib/home-data";
 import type { StockCard, HomeNewsItem } from "@/lib/home-data";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 import { formatKrw, formatMetric } from "@/lib/format";
 import SearchBox from "./SearchBox";
 import Logo from "./Logo";
@@ -61,7 +66,7 @@ function fmtCagr(v: number | null): string {
   return `${v > 0 ? "+" : ""}${v}%`;
 }
 
-const PAGE_SIZE = 8;       // 종목 카드 기본 표시 개수 — '더보기'마다 이만큼 추가
+const PAGE_SIZE = HOME_PAGE_SIZE; // 종목 카드 페이지 크기 — '더보기'마다 이만큼 서버에서 추가
 const NEWS_PAGE_SIZE = 5; // 우측 최신 뉴스 기본 표시 개수 — '더보기'마다 이만큼 추가
 
 /** 홈 우측 '최신 뉴스' — 종목명 + 뉴스 제목만, 10개씩 더보기 */
@@ -122,32 +127,72 @@ function LatestNews({ news }: { news: HomeNewsItem[] }) {
   );
 }
 
-export default function HomePage({ stocks, news }: { stocks: StockCard[]; news: HomeNewsItem[] }) {
+export default function HomePage({
+  initialStocks, total, news,
+}: { initialStocks: StockCard[]; total: number; news: HomeNewsItem[] }) {
   const [sort, setSort] = useState<SortKey>("random"); // 기본: 랜덤
-  const [visible, setVisible] = useState(PAGE_SIZE);
+  const [stocks, setStocks] = useState<StockCard[]>(initialStocks);
+  const [loading, setLoading] = useState(false);
+  // '방문마다 다른 랜덤': screener.shuffle(일일 배치가 뿌린 난수) 정렬 위에서
+  // 시작 위치만 방문마다 무작위로 골라, 거기서부터 한 바퀴 도는 원형 페이징.
+  const randomStart = useRef(0);
 
-  // 랜덤 순서는 마운트 후 생성 (서버 렌더 HTML과의 불일치 방지 —
-  // 첫 페인트는 시가총액순, 직후 셔플 적용)
-  const [shuffleOrder, setShuffleOrder] = useState<Map<string, number> | null>(null);
-  useEffect(() => {
-    const codes = stocks.map(s => s.stockCode);
-    for (let i = codes.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [codes[i], codes[j]] = [codes[j], codes[i]];
+  /** 랜덤 정렬 한 페이지 — 시작점 이후를 읽고, 끝을 넘으면 앞에서 이어 받는다 */
+  async function fetchRandomChunk(already: number): Promise<StockCard[]> {
+    const need = Math.min(PAGE_SIZE, total - already);
+    if (need <= 0) return [];
+    const sb = supabaseBrowser();
+    const from = (randomStart.current + already) % total;
+    const first = await fetchHomeStocks(sb, "random", from, Math.min(need, total - from));
+    let rows = first.stocks;
+    if (rows.length < need && from + need > total) {
+      const rest = await fetchHomeStocks(sb, "random", 0, need - rows.length);
+      rows = [...rows, ...rest.stocks];
     }
-    setShuffleOrder(new Map(codes.map((c, i) => [c, i])));
-  }, [stocks]);
+    return rows;
+  }
 
-  const sorted = useMemo(() => {
-    const s = [...stocks];
-    if (sort === "random" && shuffleOrder)
-      s.sort((a, b) => (shuffleOrder.get(a.stockCode) ?? 0) - (shuffleOrder.get(b.stockCode) ?? 0));
-    else if (sort === "latest")
-      s.sort((a, b) => (b.latestArticleAt ?? "").localeCompare(a.latestArticleAt ?? ""));
-    else // marketCap + 랜덤 셔플 생성 전(첫 페인트) 폴백
-      s.sort((a, b) => (b.marketCap ?? 0) - (a.marketCap ?? 0));
-    return s;
-  }, [stocks, sort, shuffleOrder]);
+  // 마운트 직후 첫 페이지를 무작위 시작점으로 교체 (서버 HTML은 셔플 0번째부터라
+  // 첫 페인트는 모두 같지만, 하이드레이션 직후 방문자마다 다른 종목으로 바뀐다)
+  useEffect(() => {
+    if (total <= PAGE_SIZE) return;
+    randomStart.current = Math.floor(Math.random() * total);
+    fetchRandomChunk(0).then(rows => { if (rows.length) setStocks(rows); });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** 정렬 전환 — 목록을 비우고 해당 정렬의 첫 페이지를 서버에서 받는다 */
+  async function changeSort(key: SortKey) {
+    if (key === sort || loading) return;
+    setSort(key);
+    setLoading(true);
+    try {
+      const rows = key === "random"
+        ? await fetchRandomChunk(0)
+        : (await fetchHomeStocks(supabaseBrowser(), key, 0, PAGE_SIZE)).stocks;
+      setStocks(rows);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /** 더보기 — 현재 정렬의 다음 페이지를 이어 붙인다 */
+  async function loadMore() {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const rows = sort === "random"
+        ? await fetchRandomChunk(stocks.length)
+        : (await fetchHomeStocks(supabaseBrowser(), sort, stocks.length, PAGE_SIZE)).stocks;
+      // 중복 방어 — 배치가 도는 사이 순서가 밀릴 수 있어 이미 있는 종목은 버린다
+      const seen = new Set(stocks.map(s => s.stockCode));
+      setStocks([...stocks, ...rows.filter(r => !seen.has(r.stockCode))]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const sorted = stocks; // 정렬은 서버(order+인덱스)가 담당 — 받은 순서 그대로 표시
 
   return (
     <>
@@ -222,7 +267,7 @@ export default function HomePage({ stocks, news }: { stocks: StockCard[]; news: 
               {SORTS.map(s => (
                 <button
                   key={s.key}
-                  onClick={() => setSort(s.key)}
+                  onClick={() => changeSort(s.key)}
                   className={`text-xs font-medium px-2.5 py-1 rounded transition-colors ${
                     sort === s.key
                       ? "bg-primary-fixed text-on-primary-fixed"
@@ -240,7 +285,7 @@ export default function HomePage({ stocks, news }: { stocks: StockCard[]; news: 
           </p>
 
           <div>
-            {sorted.slice(0, visible).map(stock => {
+            {sorted.map(stock => {
               const metrics = getMetrics(stock);
               return (
                 <Link
@@ -285,17 +330,18 @@ export default function HomePage({ stocks, news }: { stocks: StockCard[]; news: 
             })}
           </div>
 
-          {/* 더보기: 남은 종목이 있을 때만 */}
-          {visible < sorted.length && (
+          {/* 더보기: 남은 종목이 있을 때만 (다음 페이지는 서버에서 받아온다) */}
+          {stocks.length < total && (
             <div className="mt-8 text-center">
               <button
-                onClick={() => setVisible(v => v + PAGE_SIZE)}
-                className="inline-flex items-center gap-1.5 px-8 py-2.5 border border-outline-variant rounded-full text-sm font-medium text-on-surface-variant bg-white hover:text-primary hover:border-primary transition-colors"
+                onClick={loadMore}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 px-8 py-2.5 border border-outline-variant rounded-full text-sm font-medium text-on-surface-variant bg-white hover:text-primary hover:border-primary transition-colors disabled:opacity-50"
               >
-                더보기
+                {loading ? "불러오는 중…" : "더보기"}
                 <span className="material-symbols-outlined text-[16px]">expand_more</span>
                 <span className="text-xs text-outline">
-                  ({Math.min(PAGE_SIZE, sorted.length - visible)}개 더)
+                  ({Math.min(PAGE_SIZE, total - stocks.length)}개 더)
                 </span>
               </button>
             </div>

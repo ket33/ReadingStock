@@ -9,18 +9,28 @@
 //  - 패널은 카테고리 한 줄 + 세부 지표 5열 그리드.
 //  - 숫자 지표는 최소~최대 입력 + 흔히 쓰는 구간 프리셋 칩(가이드).
 //  - 시장·업종은 선택하면 서브리스트(칩)가 행으로 나타나 세부를 고른다.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { fetchScreenerCols, SCREENER_BASE_COLS } from "@/lib/screener-data";
 import type { ScreenerRow } from "@/lib/screener-data";
+import { supabaseBrowser } from "@/lib/supabase-browser";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 
 import { type MetricDef, CATS, METRICS, BY_KEY, fmtCell } from "@/lib/metrics-catalog";
 import { type MetricFilter, COL_PRESETS, passes, presetActive } from "@/lib/screener-filter";
 
+const ROW_STEP = 200;   // 표에 한 번에 그리는 행 수 — 2,500행 전부 그리면 모바일이 버벅인다
+
 // ── 본체 ──────────────────────────────────────────────────────
-export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
+export default function ScreenerPage({ rows: initialRows }: { rows: ScreenerRow[] }) {
   const router = useRouter();
+
+  // 서버는 기본 컬럼만 보낸다 — 프리셋·필터·정렬이 다른 지표를 쓰면 그 컬럼만 추가로 받아 합친다
+  const [rows, setRows] = useState<ScreenerRow[]>(initialRows);
+  const loadedCols = useRef<Set<string>>(new Set(SCREENER_BASE_COLS));
+  const [colsLoading, setColsLoading] = useState(false);
+  const [rowLimit, setRowLimit] = useState(ROW_STEP);
 
   const [filters, setFilters] = useState<MetricFilter[]>([]);
   // 시장·업종 필터: null = 추가 안 됨, Set = 추가됨(빈 Set은 전체 통과)
@@ -69,6 +79,25 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
     for (const f of filters) if (!withFilters.includes(f.key)) withFilters.push(f.key);
     return withFilters.map(k => BY_KEY.get(k)!).filter(Boolean);
   }, [colPreset, filters]);
+
+  // 프리셋·필터·정렬이 요구하는 지표 중 아직 안 받은 컬럼을 전 종목분 받아 행에 합친다
+  useEffect(() => {
+    const need = new Set<string>();
+    for (const c of cols) need.add(c.key as string);
+    for (const f of filters) need.add(f.key);
+    if (sort.key) need.add(sort.key);
+    const missing = [...need].filter(k => !loadedCols.current.has(k));
+    if (missing.length === 0) return;
+    missing.forEach(k => loadedCols.current.add(k));   // 중복 요청 방지 (실패 시 되돌림)
+    setColsLoading(true);
+    fetchScreenerCols(supabaseBrowser(), missing)
+      .then(map => setRows(rs => rs.map(r => ({ ...r, ...map.get(r.stock_code) }))))
+      .catch(() => missing.forEach(k => loadedCols.current.delete(k)))
+      .finally(() => setColsLoading(false));
+  }, [cols, filters, sort]);
+
+  // 필터가 바뀌면 표시 행 수 리셋 (정렬만 바뀔 땐 유지)
+  useEffect(() => { setRowLimit(ROW_STEP); }, [filters, marketSel, sectorSel]);
 
   const filtered = useMemo(() => {
     let out = rows;
@@ -493,7 +522,7 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(r => (
+                {filtered.slice(0, rowLimit).map(r => (
                   <tr
                     key={r.stock_code}
                     onClick={() => router.push(`/stock/${r.stock_code}`)}
@@ -525,13 +554,31 @@ export default function ScreenerPage({ rows }: { rows: ScreenerRow[] }) {
                 {filtered.length === 0 && (
                   <tr>
                     <td colSpan={cols.length + 1} className="px-4 py-12 text-center text-sm text-on-surface-variant">
-                      조건에 맞는 종목이 없습니다. 필터를 완화해 보세요.
+                      {colsLoading
+                        ? "지표를 불러오는 중입니다…"
+                        : "조건에 맞는 종목이 없습니다. 필터를 완화해 보세요."}
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
+
+          {/* 표 행 더 그리기 — 데이터는 이미 브라우저에 있고 DOM만 나눠 그린다 */}
+          {filtered.length > rowLimit && (
+            <div className="mt-3 text-center">
+              <button
+                onClick={() => setRowLimit(n => n + ROW_STEP)}
+                className="inline-flex items-center gap-1.5 px-6 py-2 border border-outline-variant rounded-full
+                           text-xs font-medium text-on-surface-variant bg-white hover:text-primary hover:border-primary transition-colors"
+              >
+                더 표시
+                <span className="text-outline">
+                  ({Math.min(ROW_STEP, filtered.length - rowLimit)}개 더 · 남은 {filtered.length - rowLimit}종목)
+                </span>
+              </button>
+            </div>
+          )}
 
           {/* 기준 설명 — 문장마다 한 줄 */}
           <div className="mt-3 text-[11px] text-outline leading-relaxed space-y-0.5">

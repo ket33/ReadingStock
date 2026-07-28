@@ -1,17 +1,17 @@
 """
 update_screener_daily.py — 스크리너 스냅샷 일일 갱신 (GitHub Actions 크론용)
 =====================================================
-루트 파이프라인의 load_screener.py를 Actions에서 돌 수 있게 자립형으로 포팅한 것.
-(다른 점: 대상을 config.TARGETS가 아니라 companies 테이블에서 읽음 — 온보딩 자동 포함)
+계산은 전부 DB 안의 refresh_screener()가 한다 (sql/scale_2500.sql).
+  - 최신 metrics 행 복사 + 현재가 환산 + 수익률 + 홈 카드 컬럼(산업그룹·발췌문·셔플)
+  - 이 스크립트는 rpc 한 번만 호출 — 데이터가 앱을 오가지 않아 종목 수와 무관하게 초 단위.
 
-주가 갱신(update_prices_daily.py) 뒤에 실행해, 종목당 한 줄인 screener 표를 다시 채운다:
-  1) 최신 지표  — metrics에서 기간말이 가장 최근인 행(보통 최신 분기 TTM)을 복사.
-  2) 현재가 환산 — metrics의 밸류에이션은 '기간말 시점' 주가 기준이므로
-     scale = 현재 종가 / 기간말 종가 로 오늘 주가 기준으로 환산.
-       × scale : PER, PBR, P/S, P/OCF, Price/FCF   (가격이 분자)
-       ÷ scale : 배당수익률, FCF수익률              (가격이 분모)
-  3) 수익률    — prices.close(수정주가) 시계열로 1D/5D(거래일),
-     1M/3M/6M/1Y/5Y/10Y(달력), YTD. 이력이 짧으면 None.
+(이전 버전은 종목마다 전체 주가 이력을 다시 받아왔다: 94종목 = 22만 행.
+ 2,500종목이면 600만 행 ≈ 900MB·100분이라 Actions 10분 타임아웃에 죽는 구조였다.)
+
+이 스크립트가 직접 하는 일은 하나뿐:
+  articles.excerpt 백필 — 분석글 섹션1 첫 문단 발췌 (홈 카드 미리보기용).
+  마크다운 처리라 파이썬에 두고, excerpt가 비어 있는 글만 골라 채운다(멱등).
+  refresh_screener()가 이 값을 screener.excerpt로 복사하므로 rpc보다 먼저 실행한다.
 
 metrics 자체(TTM 지표)는 분기 공시가 떠야 바뀌므로 여기서 재계산하지 않는다
 — 새 분기 반영은 루트 파이프라인(run_all.py) 소관.
@@ -19,28 +19,11 @@ metrics 자체(TTM 지표)는 분기 공시가 떠야 바뀌므로 여기서 재
 필요 환경변수: SUPABASE_URL, SUPABASE_SERVICE_KEY
 로컬 실행:  python scripts/update_screener_daily.py
 """
-import datetime as dt
 import os
+import re
 import sys
-from bisect import bisect_right
 
 from supabase import create_client
-
-# 기간 라벨 → 기간말 (월, 일)
-QUARTER_END = {"1Q": (3, 31), "2Q": (6, 30), "3Q": (9, 30), "4Q": (12, 31), "FY": (12, 31)}
-
-# metrics → screener로 복사하지 않는 컬럼
-EXCLUDE_COLS = {"id", "stock_code", "fiscal_year", "period", "calculated_at"}
-
-# 현재가 환산 대상
-SCALE_MULT = ("per", "pbr", "price_sales", "price_ocf", "price_fcf")  # × scale
-SCALE_DIV = ("div_yield", "fcf_yield")                                # ÷ scale
-
-# 달력 기준 수익률: 컬럼 → 며칠 전
-CAL_LOOKBACK = {
-    "ret_1m": 30, "ret_3m": 91, "ret_6m": 182,
-    "ret_1y": 365, "ret_5y": 1826, "ret_10y": 3652,
-}
 
 
 def get_client():
@@ -54,127 +37,51 @@ def get_client():
     return create_client(url, key)
 
 
-def _pct_change(base, cur):
-    if base is None or cur is None or base <= 0:
+def extract_section1(body: str):
+    """분석글에서 섹션 1의 첫 문단을 순수 텍스트로 발췌 (web/lib 기존 로직 포팅)."""
+    if not body:
         return None
-    return round((cur / base - 1) * 100, 2)
+    # "## 1. …" 또는 "**1. …**" 헤딩 뒤부터
+    m = re.search(r"(?:^|\n)(?:#{1,3}\s*|\*\*)\s*1\.\s[^\n]*\n+", body)
+    if not m:
+        return None
+    rest = body[m.end():]
+    para = re.split(r"\n\s*\n", rest)[0] or ""
+    text = re.sub(r"[〔\[]\s*차트[^〕\]]*[〕\]]", "", para)   # 차트 마커 제거
+    text = re.sub(r"\*\*([^*]+)\*\*", r"\1", text)             # 볼드 기호 제거
+    text = re.sub(r"\*([^*]+)\*", r"\1", text)                 # 이탤릭 기호 제거
+    text = re.sub(r"^#+\s*", "", text, flags=re.M)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text or None
 
 
-def _load_prices(client, stock_code):
-    """(정렬된 date 리스트, close 리스트, market_cap 리스트)."""
-    rows, start, page = [], 0, 1000
+def backfill_excerpts(client) -> int:
+    """excerpt가 비어 있는 분석글만 발췌해 채운다. 반환: 채운 글 수."""
+    filled = 0
     while True:
-        res = (
-            client.table("prices")
-            .select("date,close,market_cap")
-            .eq("stock_code", stock_code)
-            .order("date")
-            .range(start, start + page - 1)
-            .execute()
-        )
-        rows.extend(res.data)
-        if len(res.data) < page:
+        # 채운 행은 is null 조건에서 빠지므로 같은 조건을 반복 조회하면 전량 커버
+        # (PostgREST 요청당 1,000행 캡과 무관하게 동작)
+        rows = (client.table("articles").select("id,body")
+                .is_("excerpt", "null").limit(200).execute().data)
+        if not rows:
             break
-        start += page
-    return ([r["date"] for r in rows],
-            [r["close"] for r in rows],
-            [r["market_cap"] for r in rows])
-
-
-def _close_asof(dates, closes, asof_date):
-    """asof_date(YYYY-MM-DD) 이하의 가장 최근 종가. 없으면 None."""
-    i = bisect_right(dates, asof_date) - 1
-    return closes[i] if i >= 0 else None
-
-
-def _calc_returns(dates, closes):
-    """수익률 dict. 1D/5D=거래일 offset, 1M~10Y=달력 lookback, YTD=전년 말 대비."""
-    r = {"ret_1d": None, "ret_5d": None, "ret_ytd": None}
-    r.update({k: None for k in CAL_LOOKBACK})
-    if not dates:
-        return r
-    last = closes[-1]
-    if len(closes) >= 2:
-        r["ret_1d"] = _pct_change(closes[-2], last)
-    if len(closes) >= 6:
-        r["ret_5d"] = _pct_change(closes[-6], last)
-
-    d0 = dt.date.fromisoformat(dates[-1])
-    for col, days in CAL_LOOKBACK.items():
-        base = _close_asof(dates, closes, (d0 - dt.timedelta(days=days)).isoformat())
-        r[col] = _pct_change(base, last)
-    base = _close_asof(dates, closes, dt.date(d0.year - 1, 12, 31).isoformat())
-    r["ret_ytd"] = _pct_change(base, last)
-    return r
-
-
-def _latest_metrics(client, stock_code):
-    """기간말 날짜가 가장 최근인 metrics 행. (동일 기간말이면 FY 우선)"""
-    rows = client.table("metrics").select("*").eq("stock_code", stock_code).execute().data
-    if not rows:
-        return None
-
-    def sort_key(r):
-        m, d = QUARTER_END[r["period"]]
-        return (r["fiscal_year"], m, d, 1 if r["period"] == "FY" else 0)
-
-    return max(rows, key=sort_key)
+        for r in rows:
+            text = extract_section1(r.get("body") or "")
+            # 발췌 실패 글은 빈 문자열로 표시해 매번 재시도하지 않게 한다 (null과 구분)
+            client.table("articles").update({"excerpt": text or ""}).eq("id", r["id"]).execute()
+            filled += 1
+    return filled
 
 
 def main():
     client = get_client()
-    companies = client.table("companies").select("stock_code,name,market,sector").execute().data
 
-    saved, failed = 0, []
-    for c in companies:
-        code, name = c["stock_code"], c["name"]
-        try:
-            dates, closes, caps = _load_prices(client, code)
-            m = _latest_metrics(client, code)
-            if not dates or m is None:
-                failed.append(f"{name}({code}): 주가 또는 지표 없음")
-                continue
+    n_excerpt = backfill_excerpts(client)
+    if n_excerpt:
+        print(f"articles.excerpt 백필: {n_excerpt}건")
 
-            last_close, last_date, last_cap = closes[-1], dates[-1], caps[-1]
-            rec = {
-                "stock_code": code, "name": name,
-                "market": c["market"], "sector": c["sector"],
-                "price": last_close, "price_date": last_date, "market_cap": last_cap,
-                "updated_at": dt.datetime.now(dt.timezone.utc).isoformat(),
-            }
-            for col, val in m.items():
-                if col not in EXCLUDE_COLS:
-                    rec[col] = val
-
-            # 밸류에이션 현재가 환산
-            y, p = m["fiscal_year"], m["period"]
-            end = dt.date(y, *QUARTER_END[p]).isoformat()
-            asof_close = _close_asof(dates, closes, end)
-            scale = (last_close / asof_close) if (last_close and asof_close) else None
-            if scale:
-                for col in SCALE_MULT:
-                    if rec.get(col) is not None:
-                        rec[col] = round(rec[col] * scale, 2)
-                for col in SCALE_DIV:
-                    if rec.get(col) is not None:
-                        rec[col] = round(rec[col] / scale, 2)
-            rec["based_on"] = (
-                f"{y} {p}{' TTM' if p != 'FY' else ''} × {last_date} 주가"
-                + ("" if scale else " (환산 불가: 기간말 종가 없음)")
-            )
-
-            rec.update(_calc_returns(dates, closes))
-            client.table("screener").upsert(rec, on_conflict="stock_code").execute()
-            saved += 1
-            print(f"  ✓ {name}({code}): {rec['based_on']}  1D {rec['ret_1d']}%  YTD {rec['ret_ytd']}%")
-        except Exception as e:
-            failed.append(f"{name}({code}): {e}")
-
-    print(f"\n완료: screener {saved}종목 갱신, 실패 {len(failed)}종목")
-    for f in failed:
-        print("  ✗", f)
-    if failed:
-        sys.exit(1)  # Actions 실패 표시 → 알림
+    res = client.rpc("refresh_screener").execute()
+    print(f"완료: screener {res.data}종목 갱신 (DB 내 일괄 계산)")
 
 
 if __name__ == "__main__":

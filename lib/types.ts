@@ -167,7 +167,8 @@ export interface StockPageData {
   latestMetrics: MetricsRow & { label: string };
   fyMetrics: MetricsRow[];
   charts: ChartData;
-  statements: StatementsData;
+  // 재무제표(statements)는 여기 없음 — 탭을 열 때 /api/statements/[code]에서 받는다
+  // (세부 계정 3,000행을 모든 방문에 미리 싣지 않기 위해 분리)
   screener: ScreenerRow | null;   // 종목 헤더 지표 줄용 (스크리너 스냅샷 1행)
   primaryGroup: string | null;    // 산업 그룹 분류의 primary 그룹명 (리포트 탭 카테고리 태그용)
   isFinancial: boolean;           // 금융업(은행·보험·증권) — 지표·차트를 다르게 표시
