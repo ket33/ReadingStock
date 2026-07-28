@@ -27,7 +27,6 @@ const SORTS: { key: SortKey; label: string }[] = [
 const CHIPS: { icon: string; label: string; href?: string }[] = [
   { icon: "filter_list", label: "Picking", href: "/screener" },
   { icon: "star", label: "Watching", href: "/watchlist" },
-  { icon: "business", label: "산업별" },
 ];
 
 function Pill({ label, value, color }: { label: string; value: string; color?: string }) {
