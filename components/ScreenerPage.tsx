@@ -20,7 +20,7 @@ import SiteFooter from "./SiteFooter";
 import { type MetricDef, CATS, METRICS, BY_KEY, fmtCell } from "@/lib/metrics-catalog";
 import { type MetricFilter, COL_PRESETS, passes, presetActive } from "@/lib/screener-filter";
 
-const ROW_STEP = 200;   // 표에 한 번에 그리는 행 수 — 2,500행 전부 그리면 모바일이 버벅인다
+const ROW_STEP = 30;    // 표에 한 번에 보여주는 행 수 — '더보기'마다 이만큼 추가 (기본 정렬: 시가총액순)
 
 // ── 본체 ──────────────────────────────────────────────────────
 export default function ScreenerPage({ rows: initialRows }: { rows: ScreenerRow[] }) {
@@ -572,7 +572,7 @@ export default function ScreenerPage({ rows: initialRows }: { rows: ScreenerRow[
                 className="inline-flex items-center gap-1.5 px-6 py-2 border border-outline-variant rounded-full
                            text-xs font-medium text-on-surface-variant bg-white hover:text-primary hover:border-primary transition-colors"
               >
-                더 표시
+                더보기
                 <span className="text-outline">
                   ({Math.min(ROW_STEP, filtered.length - rowLimit)}개 더 · 남은 {filtered.length - rowLimit}종목)
                 </span>
