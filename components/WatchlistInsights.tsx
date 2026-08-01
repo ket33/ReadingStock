@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PieChart, Pie, Cell, Tooltip } from "recharts";
 import { supabaseBrowser } from "@/lib/supabase-browser";
+import { fetchAll, fetchByCodes } from "@/lib/supabase-page";
 import { stripCompanyPrefix } from "@/lib/news-format";
 
 export interface InsightItem {
@@ -50,6 +51,10 @@ const SECTOR_COLORS = [
 
 // 두 리스트 공통 세로 길이 — 기존 21rem에서 1/3 더 길게
 const LIST_MAX_H = "max-h-[28rem]";
+
+// 유사 기업은 후보 전부를 뿌리지 않고 매번 무작위로 이만큼만 보여준다.
+// (후보가 이보다 많을 때 새로고침마다 목록이 바뀌는 효과)
+const PEER_MAX = 24;
 
 function fmtDate(iso: string): string {
   const d = new Date(iso);
@@ -111,27 +116,15 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
         }
       }
 
-      // 리포트 있는 종목(소수)을 먼저 구해 후보와 교집합 — 전체 그룹 멤버를 다 안 가져와도 됨
-      const { data: arts } = await sb.from("articles")
-        .select("stock_code,body,created_at")
-        .order("created_at", { ascending: false })
-        .limit(100);
-      const titleByCode = new Map<string, string>();
-      for (const a of arts ?? []) {
-        const code = a.stock_code as string;
-        if (inList.has(code) || titleByCode.has(code)) continue;
-        const t = extractTitle(a.body as string);
-        if (t) titleByCode.set(code, t);
-      }
-      if (titleByCode.size === 0) { if (alive) setPeers([]); return; }
-
-      // 리포트 보유 기업들의 그룹 소속 → 담은 종목 그룹과 겹치는 것만
-      const { data: cand } = await sb.from("company_groups")
-        .select("company_id,group_id,is_primary")
-        .in("company_id", [...titleByCode.keys()])
-        .in("group_id", groupIds);
+      // 그룹 멤버 전체가 유사 기업 후보. 큰 그룹은 1,000행 캡을 넘으므로 페이징한다.
+      //   (예전엔 '최신 리포트 100건'에서 거꾸로 후보를 찾았는데, 리포트가 쌓일수록
+      //    그 100건이 최근 며칠치만 덮어 대부분의 워치리스트에서 결과가 0건이 됐다)
+      const memberRows = await fetchAll<{ company_id: string; group_id: number; is_primary: boolean }>(
+        (from, to) => sb.from("company_groups").select("company_id,group_id,is_primary")
+          .in("group_id", groupIds).order("company_id").range(from, to));
       const best = new Map<string, { via: string; viaPrimary: boolean }>();
-      for (const r of (cand ?? []) as { company_id: string; group_id: number; is_primary: boolean }[]) {
+      for (const r of memberRows) {
+        if (inList.has(r.company_id)) continue;      // 이미 담은 종목은 제외
         const owner = ownerByGroup.get(r.group_id);
         if (!owner) continue;
         const viaPrimary = r.is_primary && owner.isPrimary; // 양쪽 다 주력 그룹일 때 우선
@@ -142,15 +135,61 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
       }
       if (best.size === 0) { if (alive) setPeers([]); return; }
 
-      // 이름·시총 — 시총 큰 순 정렬
-      const peerCodes = [...best.keys()];
-      const { data: sc } = await sb.from("screener")
-        .select("stock_code,name,market_cap,ret_1d").in("stock_code", peerCodes);
+      // 후보 중 '리포트가 있는' 종목만 추린다. 본문은 아직 안 받는다 —
+      // 리포트 한 편이 평균 6KB라 후보 전량의 본문을 받으면 수백 KB가 된다.
+      const artRows = await fetchByCodes<{ stock_code: string }>(
+        [...best.keys()],
+        slice => sb.from("articles").select("stock_code").in("stock_code", slice));
+      const withReport = [...new Set(artRows.map(a => a.stock_code))];
+      if (withReport.length === 0) { if (alive) setPeers([]); return; }
+
+      // 담은 종목별로 버킷을 나눠 번갈아 뽑는다.
+      // 그냥 전체에서 무작위로 뽑으면 멤버가 많은 그룹(예: MLCC 16종목)이 목록을 덮어
+      // 다른 보유 종목(완성차·반도체)의 유사 기업이 묻힌다.
+      const byVia = new Map<string, string[]>();
+      for (const code of withReport) {
+        const via = best.get(code)!.via;
+        const bucket = byVia.get(via);
+        if (bucket) bucket.push(code); else byVia.set(via, [code]);
+      }
+      // 버킷 안에서도, 버킷을 도는 순서도 방문마다 랜덤 (피셔-예이츠)
+      const shuffle = <T,>(a: T[]) => {
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      };
+      const buckets = shuffle([...byVia.values()].map(shuffle));
+      const picked: string[] = [];
+      for (let round = 0; picked.length < PEER_MAX; round++) {
+        const before = picked.length;
+        for (const b of buckets) {
+          if (round < b.length && picked.length < PEER_MAX) picked.push(b[round]);
+        }
+        if (picked.length === before) break;   // 모든 버킷 소진
+      }
+
+      // 뽑힌 종목의 최신 리포트 본문(제목 추출용) + 이름·등락률
+      const [{ data: arts }, { data: sc }] = await Promise.all([
+        sb.from("articles").select("stock_code,body,created_at")
+          .in("stock_code", picked).order("created_at", { ascending: false }),
+        sb.from("screener").select("stock_code,name,ret_1d").in("stock_code", picked),
+      ]);
+      const titleByCode = new Map<string, string>();
+      for (const a of arts ?? []) {
+        const code = a.stock_code as string;
+        if (titleByCode.has(code)) continue;   // 최신순이라 첫 행이 최신 리포트
+        const t = extractTitle(a.body as string);
+        if (t) titleByCode.set(code, t);
+      }
       const meta = new Map((sc ?? []).map(s => [s.stock_code as string, {
-        name: (s.name as string) ?? s.stock_code, cap: (s.market_cap as number | null) ?? 0,
+        name: (s.name as string) ?? s.stock_code,
         ret1d: (s.ret_1d as number | null) ?? null,
       }]));
-      const built: PeerReport[] = peerCodes
+      // picked 순서(=담은 종목 번갈아, 방문마다 랜덤)를 그대로 유지한다.
+      const built: PeerReport[] = picked
+        .filter(code => titleByCode.has(code))
         .map(code => {
           const name = meta.get(code)?.name ?? code;
           return {
@@ -161,11 +200,6 @@ export default function WatchlistInsights({ items }: { items: InsightItem[] }) {
             ret1d: meta.get(code)?.ret1d ?? null,
           };
         });
-      // 순서는 방문할 때마다 랜덤 (피셔-예이츠) — 특정 기업이 늘 위에 오지 않게
-      for (let i = built.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [built[i], built[j]] = [built[j], built[i]];
-      }
       if (alive) setPeers(built);
     })();
     return () => { alive = false; };
