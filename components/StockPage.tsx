@@ -13,6 +13,7 @@ import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 import StockMetrics from "./StockMetrics";
 import WatchButton from "./auth/WatchButton";
+import { trackEvent } from "@/lib/analytics";
 
 type TabKey = "article" | "fundamentals" | "news" | "financials";
 
@@ -34,12 +35,21 @@ export default function StockPage({ data }: { data: StockPageData }) {
   const [tab, setTab] = useState<TabKey>("article");
   const { company, price, prevPrice } = data;
 
+  // 탭 이동은 전부 이 함수를 거친다 — 어느 경로로 들어왔는지(source)를 남겨야
+  // '모바일 상단 탭 vs 데스크톱 사이드바 vs 본문 끝 더보기 카드' 중 뭐가 먹히는지 비교할 수 있다.
+  // TabSource: mobile_tab=모바일 상단 sticky 탭 | sidebar=데스크톱 좌측 | more_card=본문 끝 카드
+  //            | timeline=타임라인 항목
+  const selectTab = (next: TabKey, source: string) => {
+    trackEvent("tab_click", { tab: next, source, code: company.stock_code });
+    setTab(next);
+  };
+
   // 타임라인에서 뉴스 클릭 → 뉴스룸 탭을 열고 그 기사를 펼친다
   // (객체로 감싸 매 클릭마다 참조가 바뀌게 — 같은 기사 재클릭도 동작)
   const [newsOpenRequest, setNewsOpenRequest] = useState<{ id: number } | null>(null);
   const openNewsFromTimeline = (id: number) => {
     setNewsOpenRequest({ id });
-    setTab("news");
+    selectTab("news", "timeline");
   };
 
   // 이메일·MY News 링크(?tab=news)로 진입하면 뉴스룸 탭을 연다
@@ -142,7 +152,7 @@ export default function StockPage({ data }: { data: StockPageData }) {
           {TABS.map(t => (
             <button
               key={t.key}
-              onClick={() => setTab(t.key)}
+              onClick={() => selectTab(t.key, "mobile_tab")}
               aria-current={tab === t.key ? "page" : undefined}
               className={`flex-1 min-h-12 py-3 text-sm transition-colors border-b-2 ${
                 tab === t.key
@@ -163,7 +173,7 @@ export default function StockPage({ data }: { data: StockPageData }) {
             {TABS.map(t => (
               <button
                 key={t.key}
-                onClick={() => setTab(t.key)}
+                onClick={() => selectTab(t.key, "sidebar")}
                 className={`w-full px-4 py-3 rounded-sm text-sm font-medium transition-colors text-left ${
                   tab === t.key
                     ? "bg-surface-container-high text-primary"
@@ -179,7 +189,7 @@ export default function StockPage({ data }: { data: StockPageData }) {
                 news={data.news}
                 reports={data.reports}
                 onOpenNews={openNewsFromTimeline}
-                onOpenReport={() => setTab("article")}
+                onOpenReport={() => selectTab("article", "timeline")}
               />
               {/* 유사종목 — 같은 산업그룹 기업의 리포트 (클릭 시 그 종목 리포트로) */}
               <SimilarStocks stockCode={company.stock_code} />
@@ -217,7 +227,7 @@ export default function StockPage({ data }: { data: StockPageData }) {
               {TABS.filter(t => t.key !== tab).map(t => (
                 <button
                   key={t.key}
-                  onClick={() => setTab(t.key)}
+                  onClick={() => selectTab(t.key, "more_card")}
                   className="flex items-center gap-2 w-full px-4 py-2.5 rounded-lg border border-outline-variant
                              bg-surface-container-low text-left hover:bg-surface-container-high transition-colors"
                 >
@@ -238,7 +248,7 @@ export default function StockPage({ data }: { data: StockPageData }) {
               news={data.news}
               reports={data.reports}
               onOpenNews={openNewsFromTimeline}
-              onOpenReport={() => setTab("article")}
+              onOpenReport={() => selectTab("article", "timeline")}
             />
             <SimilarStocks stockCode={company.stock_code} />
           </div>
