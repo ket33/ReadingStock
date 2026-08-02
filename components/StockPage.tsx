@@ -16,12 +16,13 @@ import WatchButton from "./auth/WatchButton";
 
 type TabKey = "article" | "fundamentals" | "news" | "financials";
 
-// desc = 본문 끝 '이 회사 더 보기' 카드에서 쓰는 한 줄 설명 (탭 이름만으론 안이 안 보이므로)
+// desc = 본문 끝 '○○ 더 보기' 카드에서 탭 이름 옆에 한 줄로 붙는 설명.
+// 탭 이름과 같은 줄에 들어가므로 390px 화면에서 잘리지 않을 길이로 짧게 유지한다.
 const TABS: { key: TabKey; label: string; desc: string }[] = [
-  { key: "article", label: "리포트", desc: "회사가 뭘로 돈을 버는지 처음부터 끝까지" },
-  { key: "fundamentals", label: "펀더멘탈", desc: "성장·수익성·재무건전성·주주환원 네 축" },
-  { key: "news", label: "뉴스룸", desc: "공시를 쉬운 말로 풀어 쓴 소식" },
-  { key: "financials", label: "재무제표", desc: "10년치 재무제표와 핵심 지표" },
+  { key: "article", label: "리포트", desc: "뭘로 돈을 버는지" },
+  { key: "fundamentals", label: "펀더멘탈", desc: "성장·수익성·건전성·주주환원" },
+  { key: "news", label: "뉴스룸", desc: "공시를 쉬운 말로" },
+  { key: "financials", label: "재무제표", desc: "10년치 재무제표와 지표" },
 ];
 
 const TAB_KEYS = TABS.map(t => t.key);
@@ -209,22 +210,21 @@ export default function StockPage({ data }: { data: StockPageData }) {
           {/* 다음 탭 유도 — 긴 본문(리포트는 1만 픽셀이 넘는다) 끝까지 온 독자에게
               다음 행선지를 준다. 모바일 전용: 데스크톱은 사이드바 탭이 항상 보인다. */}
           <nav className="lg:hidden mt-14 pt-8 border-t border-outline-variant">
-            <h2 className="text-sm font-semibold tracking-widest uppercase text-primary mb-3">
-              이 회사 더 보기
+            <h2 className="text-sm font-semibold tracking-widest text-primary mb-3">
+              {company.name} 더 보기
             </h2>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {TABS.filter(t => t.key !== tab).map(t => (
                 <button
                   key={t.key}
                   onClick={() => setTab(t.key)}
-                  className="flex items-center gap-3 w-full px-4 py-3.5 rounded-xl border border-outline-variant
+                  className="flex items-center gap-2 w-full px-4 py-2.5 rounded-lg border border-outline-variant
                              bg-surface-container-low text-left hover:bg-surface-container-high transition-colors"
                 >
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-[14px] font-semibold text-on-surface">{t.label}</span>
-                    <span className="block text-[12px] text-on-surface-variant">{t.desc}</span>
-                  </span>
-                  <span className="material-symbols-outlined text-[20px] text-primary shrink-0">
+                  {/* 탭 이름 + 설명을 한 줄로. 좁은 화면에선 설명만 말줄임 */}
+                  <span className="text-[14px] font-semibold text-on-surface shrink-0">{t.label}</span>
+                  <span className="text-[12px] text-on-surface-variant truncate min-w-0">{t.desc}</span>
+                  <span className="material-symbols-outlined text-[20px] text-primary shrink-0 ml-auto">
                     chevron_right
                   </span>
                 </button>
