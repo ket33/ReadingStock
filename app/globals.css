@@ -77,6 +77,19 @@ body {
 ::-webkit-scrollbar-thumb { background: #d9dadb; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #c4c6cd; }
 
+/* 가로 스크롤 줄(종목 헤더 지표 등) — 스크롤바를 숨겨 세로 공간을 아낀다 */
+.rs-noscrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.rs-noscrollbar::-webkit-scrollbar { display: none; }
+
+/* 오른쪽 끝을 흐리게 — "옆으로 더 있다"는 신호. 스크롤바를 숨겼기에 이 힌트가 필요하다.
+   데스크톱(lg~)은 줄바꿈으로 다 보이므로 적용하지 않는다. */
+@media (max-width: 1023px) {
+  .rs-fade-right {
+    -webkit-mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+    mask-image: linear-gradient(to right, #000 88%, transparent 100%);
+  }
+}
+
 /* Material Symbols (사이드바 아이콘) */
 .material-symbols-outlined {
   font-family: "Material Symbols Outlined";

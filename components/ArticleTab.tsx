@@ -153,10 +153,11 @@ export default function ArticleTab({ article, charts, sector, industryGroup, sto
 
   return (
     <div className="article-canvas">
-      {/* 카테고리 태그(디자인의 Category Tag) + 공유하기 */}
+      {/* 카테고리 태그(디자인의 Category Tag) + 공유하기.
+          모바일에선 종목 헤더에 같은 그룹 칩이 이미 있어 숨긴다(첫 화면 세로 공간 절약). */}
       <div className="flex items-center gap-3 mb-6">
         {categoryLabel && (
-          <span className="inline-block bg-tertiary-fixed text-on-tertiary-fixed px-3 py-1 text-xs font-medium rounded-sm tracking-widest uppercase">
+          <span className="hidden lg:inline-block bg-tertiary-fixed text-on-tertiary-fixed px-3 py-1 text-xs font-medium rounded-sm tracking-widest uppercase">
             {categoryLabel}
           </span>
         )}

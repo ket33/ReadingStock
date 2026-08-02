@@ -1,7 +1,7 @@
 "use client";
 
-// 종목 페이지 본체 — 상단 종목 헤더(공통) + 좌측 사이드바 3탭 + 콘텐츠
-import { useState, useEffect } from "react";
+// 종목 페이지 본체 — 상단 종목 헤더(공통) + 좌측 사이드바 4탭(모바일은 헤더 아래 sticky 탭) + 콘텐츠
+import { useState, useEffect, useRef } from "react";
 import type { StockPageData } from "@/lib/types";
 import ArticleTab from "./ArticleTab";
 import FundamentalsTab from "./FundamentalsTab";
@@ -16,14 +16,18 @@ import WatchButton from "./auth/WatchButton";
 
 type TabKey = "article" | "fundamentals" | "news" | "financials";
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: "article", label: "리포트" },
-  { key: "fundamentals", label: "펀더멘탈" },
-  { key: "news", label: "뉴스룸" },
-  { key: "financials", label: "재무제표" },
+// desc = 본문 끝 '이 회사 더 보기' 카드에서 쓰는 한 줄 설명 (탭 이름만으론 안이 안 보이므로)
+const TABS: { key: TabKey; label: string; desc: string }[] = [
+  { key: "article", label: "리포트", desc: "회사가 뭘로 돈을 버는지 처음부터 끝까지" },
+  { key: "fundamentals", label: "펀더멘탈", desc: "성장·수익성·재무건전성·주주환원 네 축" },
+  { key: "news", label: "뉴스룸", desc: "공시를 쉬운 말로 풀어 쓴 소식" },
+  { key: "financials", label: "재무제표", desc: "10년치 재무제표와 핵심 지표" },
 ];
 
 const TAB_KEYS = TABS.map(t => t.key);
+
+// 모바일 탭 바가 붙는 높이 = SiteHeader(h-16) 바로 아래
+const STICKY_TOP = 64;
 
 export default function StockPage({ data }: { data: StockPageData }) {
   const [tab, setTab] = useState<TabKey>("article");
@@ -65,8 +69,14 @@ export default function StockPage({ data }: { data: StockPageData }) {
 
   // 탭을 전환하면 항상 그 탭 내용의 맨 위부터 보이게 한다
   // (스크롤 위치가 유지되면 긴 탭에서 넘어올 때 중간부터 보이는 문제)
+  // 모바일은 탭 바가 헤더 아래 sticky라, 이미 탭 바까지 스크롤한 상태였다면
+  // 최상단이 아니라 '탭 바가 붙는 지점'으로 보낸다 — 탭이 눈앞에 그대로 남는다.
+  const tabBarRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    window.scrollTo(0, 0);
+    const anchor = tabBarRef.current
+      ? tabBarRef.current.offsetTop - STICKY_TOP
+      : 0;
+    window.scrollTo(0, window.scrollY > anchor ? Math.max(anchor, 0) : 0);
   }, [tab]);
 
   return (
@@ -75,8 +85,9 @@ export default function StockPage({ data }: { data: StockPageData }) {
 
       {/* 종목 헤더 (모든 탭 공통) */}
       <div className="bg-white border-b border-outline-variant">
-        <div className="max-w-[1280px] mx-auto px-4 md:px-10 py-6 flex flex-wrap items-end gap-x-8 gap-y-3">
-          <div>
+        <div className="max-w-[1280px] mx-auto px-4 md:px-10 py-4 md:py-6 flex flex-wrap items-end gap-x-8 gap-y-3">
+          {/* flex-1 + shrink-0(워칭) — 모바일에서 워칭 버튼이 아래 줄로 밀리지 않게 */}
+          <div className="flex-1 min-w-0">
             {/* 모바일에서 주가가 화면 밖으로 밀리지 않게 줄바꿈 허용 */}
             <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <h1 className="font-serif text-3xl font-semibold text-primary">{company.name}</h1>
@@ -93,32 +104,54 @@ export default function StockPage({ data }: { data: StockPageData }) {
                 </span>
               )}
               {price?.close != null && (
-                <span className="flex items-baseline gap-2 ml-1">
-                  <span className="text-xl font-semibold text-on-surface tabular-nums">
+                /* 좁은 화면에서 등락률만 따로 떨어져 나가지 않게, 각 조각은 nowrap으로 묶고
+                   자리가 모자라면 조각 단위로 줄을 바꾼다 */
+                <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <span className="text-xl font-semibold text-on-surface tabular-nums whitespace-nowrap">
                     {Math.round(price.close).toLocaleString()}원
                   </span>
                   {change && (
-                    <span className={`text-sm font-medium tabular-nums ${change.color}`}>
+                    <span className={`text-sm font-medium tabular-nums whitespace-nowrap ${change.color}`}>
                       {change.arrow} {Math.abs(Math.round(change.diff)).toLocaleString()}
                       {" "}({change.pct > 0 ? "+" : ""}{change.pct.toFixed(2)}%)
                     </span>
                   )}
-                  <span className="text-xs text-outline">종가</span>
+                  <span className="text-xs text-outline whitespace-nowrap">종가</span>
                 </span>
               )}
             </div>
           </div>
-          <span className="ml-auto">
+          <span className="shrink-0 ml-auto">
             <WatchButton stockCode={company.stock_code} />
           </span>
 
-          {/* 지표 줄 (종목명·주가 아래 한 줄) — 회원은 편집 가능 */}
-          <div className="w-full mt-1">
-            <StockMetrics screener={data.screener} />
-            {price?.date && (
-              <span className="block mt-1.5 text-xs text-outline">{price.date} 기준</span>
-            )}
+          {/* 지표 줄 (종목명·주가 아래 한 줄) — 회원은 편집 가능.
+              기준일은 이 줄 끝에 붙어 별도 줄을 차지하지 않는다. */}
+          <div className="w-full">
+            <StockMetrics screener={data.screener} asOf={price?.date ?? null} />
           </div>
+        </div>
+      </div>
+
+      {/* 모바일 탭 — 종목 헤더 바로 아래 sticky.
+          하단 고정바는 iOS 사파리 주소창과 겹쳐 브라우저 UI로 오인돼 클릭률이 낮았다. */}
+      <div ref={tabBarRef}
+           className="lg:hidden sticky top-16 z-40 bg-white border-b border-outline-variant">
+        <div className="flex px-2">
+          {TABS.map(t => (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              aria-current={tab === t.key ? "page" : undefined}
+              className={`flex-1 min-h-12 py-3 text-sm transition-colors border-b-2 ${
+                tab === t.key
+                  ? "text-primary font-semibold border-primary"
+                  : "text-on-surface-variant font-medium border-transparent"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -153,23 +186,8 @@ export default function StockPage({ data }: { data: StockPageData }) {
           </nav>
         </aside>
 
-        {/* 모바일 탭 바 */}
-        <div className="lg:hidden fixed bottom-0 inset-x-0 z-50 bg-white border-t border-outline-variant flex">
-          {TABS.map(t => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`flex-1 py-3 text-sm font-medium ${
-                tab === t.key ? "text-primary border-t-2 border-primary" : "text-on-surface-variant"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
         {/* 콘텐츠 캔버스 */}
-        <article className="flex-grow bg-white min-h-screen px-4 md:px-10 py-12 pb-24 lg:pb-12 overflow-hidden">
+        <article className="flex-grow bg-white min-h-screen px-4 md:px-10 py-12 overflow-hidden">
           {tab === "article" && (
             <ArticleTab article={data.article} charts={data.charts} sector={company.sector} industryGroup={data.primaryGroup} stockCode={company.stock_code} />
           )}
@@ -187,6 +205,32 @@ export default function StockPage({ data }: { data: StockPageData }) {
               isFinancial={data.isFinancial}
             />
           )}
+
+          {/* 다음 탭 유도 — 긴 본문(리포트는 1만 픽셀이 넘는다) 끝까지 온 독자에게
+              다음 행선지를 준다. 모바일 전용: 데스크톱은 사이드바 탭이 항상 보인다. */}
+          <nav className="lg:hidden mt-14 pt-8 border-t border-outline-variant">
+            <h2 className="text-sm font-semibold tracking-widest uppercase text-primary mb-3">
+              이 회사 더 보기
+            </h2>
+            <div className="space-y-2">
+              {TABS.filter(t => t.key !== tab).map(t => (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className="flex items-center gap-3 w-full px-4 py-3.5 rounded-xl border border-outline-variant
+                             bg-surface-container-low text-left hover:bg-surface-container-high transition-colors"
+                >
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[14px] font-semibold text-on-surface">{t.label}</span>
+                    <span className="block text-[12px] text-on-surface-variant">{t.desc}</span>
+                  </span>
+                  <span className="material-symbols-outlined text-[20px] text-primary shrink-0">
+                    chevron_right
+                  </span>
+                </button>
+              ))}
+            </div>
+          </nav>
 
           {/* 모바일 타임라인 — 사이드바가 없으므로 콘텐츠 하단에 */}
           <div className="lg:hidden mt-14 pt-8 border-t border-outline-variant">

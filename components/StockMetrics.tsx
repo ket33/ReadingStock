@@ -29,14 +29,18 @@ function Chip({ metricKey, screener, first }: {
   const def = BY_KEY.get(metricKey)!;
   const cell = fmtCell(def, (screener![def.key] as number | null));
   return (
-    <div className={`flex flex-col leading-tight pr-4 ${first ? "" : "pl-4 border-l border-outline-variant"}`}>
+    <div className={`flex flex-col leading-tight pr-4 shrink-0 ${first ? "" : "pl-4 border-l border-outline-variant"}`}>
       <span className="text-[10px] font-medium text-on-surface-variant tracking-wide">{def.label}</span>
       <span className={`text-[13px] font-semibold tabular-nums ${cell.cls}`}>{cell.text}</span>
     </div>
   );
 }
 
-export default function StockMetrics({ screener }: { screener: ScreenerRow | null }) {
+export default function StockMetrics({ screener, asOf = null }: {
+  screener: ScreenerRow | null;
+  /** 기준일 — 지표 줄 끝에 붙인다(별도 줄을 차지하지 않게) */
+  asOf?: string | null;
+}) {
   const { user, openSignIn } = useAuth();
   const [keys, setKeys] = useState<string[]>(DEFAULT_KEYS);
   const [editing, setEditing] = useState(false);
@@ -58,21 +62,30 @@ export default function StockMetrics({ screener }: { screener: ScreenerRow | nul
   const visible = keys.filter(k => showable(k, screener));
 
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
-      <div className="flex flex-wrap items-center">
+    <div className="flex items-center gap-x-2">
+      {/* 모바일은 줄바꿈 대신 가로 스크롤 한 줄 — 지표가 2줄로 접히며 헤더가 길어지는 걸 막는다 */}
+      <div className="flex flex-nowrap items-center overflow-x-auto rs-noscrollbar rs-fade-right
+                      lg:flex-wrap lg:overflow-visible">
         {visible.map((k, i) => (
           <Chip key={k} metricKey={k} screener={screener} first={i === 0} />
         ))}
+        {asOf && (
+          <span className="shrink-0 pl-4 border-l border-outline-variant text-[11px] text-outline whitespace-nowrap">
+            {asOf} 기준
+          </span>
+        )}
       </div>
 
       <button
         onClick={() => (user ? setEditing(true) : openSignIn())}
         title={user ? "지표 편집" : "로그인하고 지표 편집"}
-        className="inline-flex items-center gap-0.5 pl-2 pr-1 py-1 text-[11px] text-outline
+        aria-label="지표 편집"
+        className="shrink-0 inline-flex items-center gap-0.5 pl-2 pr-1 py-1 text-[11px] text-outline
                    hover:text-primary transition-colors"
       >
         <span className="material-symbols-outlined text-[13px]">add</span>
-        필터 추가
+        {/* 모바일에선 아이콘만 — 첫 화면의 세로 공간을 아낀다 */}
+        <span className="hidden sm:inline">필터 추가</span>
       </button>
 
       {editing && user && (
