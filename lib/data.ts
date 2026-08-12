@@ -258,10 +258,25 @@ export async function getStockPageData(stockCode: string): Promise<StockPageData
       ? b.fiscal_year - a.fiscal_year
       : QORDER.indexOf(b.period) - QORDER.indexOf(a.period));
   const latestRaw = sorted[0];
-  const latestMetrics = latestRaw
-    ? { ...latestRaw, label: `${latestRaw.fiscal_year} ${latestRaw.period}${latestRaw.period === "FY" ? "" : " (TTM)"}` }
-    : null;
-  if (!latestMetrics) return null;
+  if (!latestRaw) return null;
+
+  // 밸류에이션 지표는 metrics에 '기간말 주가' 기준으로 굳어 있다(load_metrics_ttm은 분기말 종가로 계산).
+  // 분기 공시 후 몇 달이 지나면 실제 시총과 어긋나므로, 매일 현재가로 환산되는 screener 값으로
+  // 가격이 분자·분모인 지표만 덮어쓴다 — 헤더 지표 줄·스크리너와 같은 기준이 된다.
+  // 기준 라벨도 직접 조립하지 않고 screener.based_on("… × YYYY-MM-DD 주가")을 그대로 쓴다.
+  // 값과 설명이 같은 행에서 나오므로 둘이 어긋날 수 없다. 스크리너 행이 없으면 기존 라벨로 폴백.
+  const pick = (v: number | null | undefined, fallback: number | null) =>
+    typeof v === "number" ? v : fallback;
+  const latestMetrics = {
+    ...latestRaw,
+    per: pick(screenerRow?.per, latestRaw.per),
+    pbr: pick(screenerRow?.pbr, latestRaw.pbr),
+    price_fcf: pick(screenerRow?.price_fcf, latestRaw.price_fcf),
+    div_yield: pick(screenerRow?.div_yield, latestRaw.div_yield),
+    fcf_yield: pick(screenerRow?.fcf_yield, latestRaw.fcf_yield),
+    label: screenerRow?.based_on
+      ?? `${latestRaw.fiscal_year} ${latestRaw.period}${latestRaw.period === "FY" ? "" : " (TTM)"}`,
+  };
 
   return {
     company,

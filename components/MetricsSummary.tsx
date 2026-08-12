@@ -138,6 +138,9 @@ export default function MetricsSummary({ latest, isFinancial = false }: {
 }) {
   if (!latest) return null;
   const groups = isFinancial ? FIN_GROUPS : GROUPS;
+  // label은 screener.based_on("2026 1Q TTM × 2026-08-11 주가") — 밸류에이션만 최신 종가 기준이고
+  // 나머지 지표는 주가와 무관하다. 스크리너 행이 없어 폴백 라벨("2026 1Q (TTM)")이면 안내도 생략.
+  const pricedBasis = latest.label.includes("주가");
 
   return (
     <section className="mt-12">
@@ -147,6 +150,12 @@ export default function MetricsSummary({ latest, isFinancial = false }: {
           기준: {latest.label} · ⓘ에 마우스를 올리면 용어 설명이 보입니다
           {isFinancial && " · 금융업은 재무구조가 달라 유효한 지표만 표시합니다"}
         </p>
+        {pricedBasis && (
+          <p className="text-xs text-outline mt-1">
+            밸류에이션(PER·PBR{!isFinancial && "·P/FCF"}·배당수익률{!isFinancial && "·FCF수익률"})은 최신 종가 기준,
+            나머지는 해당 분기 기준입니다.
+          </p>
+        )}
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">

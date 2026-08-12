@@ -205,9 +205,11 @@ export function ChartCashflow({ data, dataQ }: {
   );
 }
 
+// 각 점은 '그 시점의 주가'로 계산한 PER이다 — 아래 요약 카드의 PER은 최신 종가 기준이라
+// 마지막 점과 값이 다를 수 있다(과거 점을 오늘 주가로 환산하면 추이 자체가 무의미해진다).
 export function ChartPer({ data }: { data: ChartData["per"] }) {
   return (
-    <Card title="PER 추이 (최근 3년)" caption="분기 시점은 TTM(최근 4개 분기 합) 기준, 단위: 배">
+    <Card title="PER 추이 (최근 3년)" caption="각 시점의 당시 주가 기준 · 분기는 TTM(최근 4개 분기 합), 단위: 배">
       <ResponsiveContainer>
         <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={GRID} vertical={false} />
