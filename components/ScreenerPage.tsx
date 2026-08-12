@@ -222,7 +222,7 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
       <button
         onClick={onRemove}
         aria-label={`${label} 필터 제거`}
-        className="material-symbols-outlined text-[16px] text-outline hover:text-error transition-colors ml-auto sm:ml-0"
+        className="material-symbols-outlined text-[11px] text-outline hover:text-error transition-colors ml-auto sm:ml-0"
       >
         close
       </button>
