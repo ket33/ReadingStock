@@ -39,10 +39,12 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
   const [filters, setFilters] = useState<MetricFilter[]>([]);
   // 시장 필터: null = 추가 안 됨, Set = 추가됨(빈 Set은 전체 통과)
   const [marketSel, setMarketSel] = useState<Set<string> | null>(null);
-  // 산업 필터: 1차 = 대분류(catSel), 2차 = 그 안의 산업 그룹(groupSel).
-  // catSel null = 필터 추가 안 됨. 2차를 안 고른 대분류는 소속 그룹 전체가 통과.
-  const [catSel, setCatSel] = useState<Set<string> | null>(null);
-  const [groupSel, setGroupSel] = useState<Set<string>>(new Set());
+  // 산업 필터: null = 추가 안 됨. cats = 2차에서 '전체'로 고른 대분류, groups = 개별로 고른 그룹.
+  // 1차(대분류)만으로는 필터가 걸리지 않는다 — 2차에서 '전체' 또는 그룹을 골라야 확정되고,
+  // 확정된 항목은 아래 칩으로 쌓이며 셀렉트 박스는 다음 선택을 위해 초기화된다.
+  const [indSel, setIndSel] = useState<{ cats: Set<string>; groups: Set<string> } | null>(null);
+  // 지금 고르는 중인 1차 대분류 (2차에서 항목을 고르면 초기화)
+  const [catPick, setCatPick] = useState<string | null>(null);
   // 1차·2차 드롭다운 열림 상태 (셀렉트 박스를 누르면 아래로 목록이 펼쳐진다)
   const [catOpen, setCatOpen] = useState(false);
   const [grpOpen, setGrpOpen] = useState(false);
@@ -87,7 +89,7 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
     const need = new Set<string>();
     for (const c of cols) need.add(c.key as string);
     for (const f of filters) need.add(f.key);
-    if (sort.key) need.add(sort.key);
+    if (sort.key && BY_KEY.has(sort.key)) need.add(sort.key);  // '산업' 등 비지표 열은 제외
     const missing = [...need].filter(k => !loadedCols.current.has(k));
     if (missing.length === 0) return;
     missing.forEach(k => loadedCols.current.add(k));   // 중복 요청 방지 (실패 시 되돌림)
@@ -99,38 +101,49 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
   }, [cols, filters, sort]);
 
   // 필터가 바뀌면 표시 행 수 리셋 (정렬만 바뀔 땐 유지)
-  useEffect(() => { setRowLimit(ROW_STEP); }, [filters, marketSel, catSel, groupSel]);
+  useEffect(() => { setRowLimit(ROW_STEP); }, [filters, marketSel, indSel]);
 
   const filtered = useMemo(() => {
     let out = rows;
     if (marketSel && marketSel.size > 0)
       out = out.filter(r => r.market != null && marketSel.has(r.market));
-    // 산업 필터: 2차(그룹)를 고른 대분류는 그 그룹만, 안 고른 대분류는 소속 그룹 전체 (대분류 간 OR).
+    // 산업 필터: '전체'로 고른 대분류는 소속 그룹 전부, 개별 그룹은 그 그룹만 — 합집합(OR).
     // 종목은 소속 그룹(primary+secondary) 중 하나라도 걸리면 통과.
-    if (catSel && catSel.size > 0) {
-      const allowed = new Set<string>();
+    if (indSel && (indSel.cats.size > 0 || indSel.groups.size > 0)) {
+      const allowed = new Set<string>(indSel.groups);
       for (const c of categories) {
-        if (!catSel.has(c.name)) continue;
-        const chosen = c.groups.filter(g => groupSel.has(g.name));
-        for (const g of chosen.length ? chosen : c.groups) allowed.add(g.name);
+        if (!indSel.cats.has(c.name)) continue;
+        for (const g of c.groups) allowed.add(g.name);
       }
       out = out.filter(r => (r.groups ?? []).some(g => allowed.has(g)));
     }
     for (const f of filters) out = out.filter(r => passes(r, f));
 
-    const def = BY_KEY.get(sort.key);
-    if (def) {
+    if (sort.key === "industry") {
+      // 산업 열: primary 그룹명 가나다 정렬 (없는 종목은 아래로)
       out = [...out].sort((a, b) => {
-        const av = a[def.key] as number | null;
-        const bv = b[def.key] as number | null;
+        const av = a.groupPrimary ?? null;
+        const bv = b.groupPrimary ?? null;
         if (av == null && bv == null) return 0;
-        if (av == null) return 1;   // null은 항상 아래로
+        if (av == null) return 1;
         if (bv == null) return -1;
-        return sort.dir === "desc" ? bv - av : av - bv;
+        return sort.dir === "desc" ? bv.localeCompare(av, "ko") : av.localeCompare(bv, "ko");
       });
+    } else {
+      const def = BY_KEY.get(sort.key);
+      if (def) {
+        out = [...out].sort((a, b) => {
+          const av = a[def.key] as number | null;
+          const bv = b[def.key] as number | null;
+          if (av == null && bv == null) return 0;
+          if (av == null) return 1;   // null은 항상 아래로
+          if (bv == null) return -1;
+          return sort.dir === "desc" ? bv - av : av - bv;
+        });
+      }
     }
     return out;
-  }, [rows, marketSel, catSel, groupSel, categories, filters, sort]);
+  }, [rows, marketSel, indSel, categories, filters, sort]);
 
   const toggleSort = (key: string) =>
     setSort(s => (s.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" }));
@@ -152,26 +165,40 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
     return next;
   };
 
-  // 대분류 토글 — 해제하면 그 밑에서 고른 2차 그룹도 함께 정리
-  const toggleCat = (name: string) => {
-    if (catSel == null) return;
-    const next = toggleIn(catSel, name);
-    if (!next.has(name)) {
-      const gs = categories.find(c => c.name === name)?.groups ?? [];
-      setGroupSel(prev => {
-        const n = new Set(prev);
-        for (const g of gs) n.delete(g.name);
-        return n;
-      });
-      if (next.size === 0) setGrpOpen(false);
-    }
-    setCatSel(next);
+  // 2차에서 항목 확정 — '전체'면 대분류로, 아니면 그룹으로 칩에 쌓고 셀렉트 박스는 초기화
+  const addIndustry = (kind: "cat" | "group", name: string) => {
+    setIndSel(prev => {
+      const cats = new Set(prev?.cats);
+      const groups = new Set(prev?.groups);
+      if (kind === "cat") {
+        cats.add(name);
+        // 대분류 전체를 골랐으면 그 밑에서 따로 골라뒀던 그룹 칩은 중복이라 정리
+        for (const g of categories.find(c => c.name === name)?.groups ?? []) groups.delete(g.name);
+      } else {
+        groups.add(name);
+      }
+      return { cats, groups };
+    });
+    setCatPick(null); setCatOpen(false); setGrpOpen(false);
   };
 
-  const hasAnyFilter = filters.length > 0 || marketSel != null || catSel != null;
+  const removeIndustry = (kind: "cat" | "group", name: string) =>
+    setIndSel(prev => {
+      if (!prev) return prev;
+      const cats = new Set(prev.cats);
+      const groups = new Set(prev.groups);
+      (kind === "cat" ? cats : groups).delete(name);
+      return { cats, groups };
+    });
+
+  const clearIndustry = () => {
+    setIndSel(null); setCatPick(null); setCatOpen(false); setGrpOpen(false);
+  };
+
+  const hasAnyFilter = filters.length > 0 || marketSel != null || indSel != null;
 
   const resetAll = () => {
-    setFilters([]); setMarketSel(null); setCatSel(null); setGroupSel(new Set()); setPickerOpen(false);
+    setFilters([]); setMarketSel(null); clearIndustry(); setPickerOpen(false);
   };
 
   const priceDate = rows[0]?.price_date ?? null;
@@ -222,7 +249,7 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
           {/* ── 필터 패널 ── */}
           <div className="border border-outline-variant rounded-xl bg-surface p-4 md:p-5 mb-6">
             {/* 활성 필터 행 목록 */}
-            {(marketSel != null || catSel != null || filters.length > 0) && (
+            {(marketSel != null || indSel != null || filters.length > 0) && (
               <div className="mb-4">
                 {marketSel != null && (
                   <FilterRow label="시장" cat="기본" onRemove={() => setMarketSel(null)}>
@@ -248,26 +275,25 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                   </FilterRow>
                 )}
 
-                {catSel != null && (
-                  <FilterRow label="산업" cat="기본"
-                             onRemove={() => { setCatSel(null); setGroupSel(new Set()); setCatOpen(false); setGrpOpen(false); }}>
+                {indSel != null && (
+                  <FilterRow label="산업" cat="기본" onRemove={clearIndustry}>
                     {/* everyticker식 2단 셀렉트: [대분류 ▾] → [세부 산업 ▾] 한 줄.
-                        박스를 누르면 아래로 스크롤 목록이 펼쳐지고, 항목엔 개별종목페이지 보유 기업 수를 붙인다.
-                        2차를 안 고르면 그 대분류 전체가 통과. */}
+                        2차 목록 맨 위의 '전체'를 고르면 대분류째, 그룹을 고르면 그 그룹만 확정 —
+                        확정된 항목은 아래 칩으로 쌓이고 셀렉트 박스는 다음 선택을 위해 비워진다. */}
                     <div className="flex-1 min-w-[260px]">
                       {/* 열린 동안 바깥 클릭을 받는 투명 배경 — 셀렉트 박스들은 z-50으로 그 위에 남긴다 */}
                       {(catOpen || grpOpen) && (
                         <div className="fixed inset-0 z-40" onClick={() => { setCatOpen(false); setGrpOpen(false); }} />
                       )}
                       <div className="flex items-center gap-1.5">
-                        {/* 1차: 대분류 */}
+                        {/* 1차: 대분류 (하나 고르면 2차 목록이 열린다) */}
                         <div className={`relative flex-1 min-w-0 ${catOpen || grpOpen ? "z-50" : ""}`}>
                           <button
                             onClick={() => { setCatOpen(o => !o); setGrpOpen(false); }}
                             className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-md border border-outline-variant bg-white text-xs text-left hover:border-primary transition-colors"
                           >
-                            <span className={`truncate ${catSel.size ? "text-on-surface" : "text-outline"}`}>
-                              {catSel.size ? [...catSel].join(", ") : "대분류 선택"}
+                            <span className={`truncate ${catPick ? "text-on-surface" : "text-outline"}`}>
+                              {catPick ?? "대분류 선택"}
                             </span>
                             <span className="material-symbols-outlined text-[16px] text-outline shrink-0">
                               {catOpen ? "expand_less" : "expand_more"}
@@ -276,11 +302,11 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                           {catOpen && (
                             <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border border-outline-variant bg-white shadow-lg">
                               {categories.map(c => {
-                                const on = catSel.has(c.name);
+                                const on = catPick === c.name;
                                 return (
                                   <button
                                     key={c.name}
-                                    onClick={() => toggleCat(c.name)}
+                                    onClick={() => { setCatPick(c.name); setCatOpen(false); setGrpOpen(true); }}
                                     className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-surface-container-low ${
                                       on ? "text-primary font-medium" : "text-on-surface"
                                     }`}
@@ -298,63 +324,80 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
 
                         <span className="material-symbols-outlined text-[16px] text-outline shrink-0">chevron_right</span>
 
-                        {/* 2차: 선택한 대분류의 산업 그룹 */}
+                        {/* 2차: '전체' + 선택한 대분류의 산업 그룹 — 고르는 순간 칩으로 확정 */}
                         <div className={`relative flex-1 min-w-0 ${catOpen || grpOpen ? "z-50" : ""}`}>
                           <button
-                            onClick={() => { if (catSel.size) { setGrpOpen(o => !o); setCatOpen(false); } }}
-                            disabled={catSel.size === 0}
+                            onClick={() => { if (catPick) { setGrpOpen(o => !o); setCatOpen(false); } }}
+                            disabled={!catPick}
                             className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-md border text-xs text-left transition-colors ${
-                              catSel.size === 0
+                              !catPick
                                 ? "border-outline-variant/60 bg-surface-container-low text-outline cursor-not-allowed"
                                 : "border-outline-variant bg-white hover:border-primary"
                             }`}
                           >
-                            <span className={`truncate ${groupSel.size ? "text-on-surface" : "text-outline"}`}>
-                              {groupSel.size
-                                ? [...groupSel].join(", ")
-                                : catSel.size ? "세부 산업 선택 (없으면 전체)" : "대분류 먼저 선택"}
+                            <span className="truncate text-outline">
+                              {catPick ? "전체 또는 세부 산업 선택" : "대분류 먼저 선택"}
                             </span>
                             <span className="material-symbols-outlined text-[16px] text-outline shrink-0">
                               {grpOpen ? "expand_less" : "expand_more"}
                             </span>
                           </button>
-                          {grpOpen && catSel.size > 0 && (
-                            <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border border-outline-variant bg-white shadow-lg">
-                              {categories.filter(c => catSel.has(c.name)).map(c => (
-                                <div key={c.name}>
-                                  {catSel.size > 1 && (
-                                    <div className="sticky top-0 bg-white px-3 pt-2 pb-1 text-[10px] font-semibold text-outline">
-                                      {c.name}
-                                    </div>
-                                  )}
-                                  {c.groups.map(g => {
-                                    const on = groupSel.has(g.name);
-                                    return (
-                                      <button
-                                        key={g.name}
-                                        onClick={() => setGroupSel(prev => toggleIn(prev, g.name))}
-                                        className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-surface-container-low ${
-                                          on ? "text-primary font-medium" : "text-on-surface"
-                                        }`}
-                                      >
-                                        <span className="truncate">
-                                          {g.name} <span className="text-outline font-normal">({g.count}개 기업)</span>
-                                        </span>
-                                        {on && <span className="material-symbols-outlined text-[15px] shrink-0">check</span>}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                          {grpOpen && catPick && (() => {
+                            const c = categories.find(x => x.name === catPick);
+                            if (!c) return null;
+                            return (
+                              <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border border-outline-variant bg-white shadow-lg">
+                                <button
+                                  onClick={() => addIndustry("cat", c.name)}
+                                  className="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-xs font-medium text-primary transition-colors hover:bg-surface-container-low border-b border-outline-variant/60"
+                                >
+                                  <span className="truncate">
+                                    전체 <span className="text-outline font-normal">({c.count}개 기업)</span>
+                                  </span>
+                                </button>
+                                {c.groups.map(g => (
+                                  <button
+                                    key={g.name}
+                                    onClick={() => addIndustry("group", g.name)}
+                                    className="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-xs text-on-surface transition-colors hover:bg-surface-container-low"
+                                  >
+                                    <span className="truncate">
+                                      {g.name} <span className="text-outline font-normal">({g.count}개 기업)</span>
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
-                      <span className="block mt-1 text-[11px] text-outline">
-                        {catSel.size === 0
-                          ? "선택 없음 = 전체"
-                          : "세부 산업을 고르지 않으면 그 대분류 전체가 나옵니다"}
-                      </span>
+
+                      {/* 확정된 선택 칩 — '전체'는 대분류명, 그룹은 그룹명 */}
+                      {(indSel.cats.size > 0 || indSel.groups.size > 0) ? (
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                          <span className="text-[11px] text-outline">선택:</span>
+                          {[...indSel.cats].map(c => (
+                            <span key={`c:${c}`}
+                                  className="inline-flex items-center gap-0.5 pl-2 pr-1 py-0.5 rounded-full text-[11px] bg-primary-fixed text-on-primary-fixed font-medium">
+                              {c}
+                              <button onClick={() => removeIndustry("cat", c)} aria-label={`${c} 제거`}
+                                      className="material-symbols-outlined text-[13px] leading-none hover:opacity-70">close</button>
+                            </span>
+                          ))}
+                          {[...indSel.groups].map(g => (
+                            <span key={`g:${g}`}
+                                  className="inline-flex items-center gap-0.5 pl-2 pr-1 py-0.5 rounded-full text-[11px] bg-primary-fixed text-on-primary-fixed font-medium">
+                              {g}
+                              <button onClick={() => removeIndustry("group", g)} aria-label={`${g} 제거`}
+                                      className="material-symbols-outlined text-[13px] leading-none hover:opacity-70">close</button>
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="block mt-1 text-[11px] text-outline">
+                          대분류를 고른 뒤 &lsquo;전체&rsquo; 또는 세부 산업을 골라야 적용됩니다 · 선택 없음 = 전체
+                        </span>
+                      )}
                     </div>
                   </FilterRow>
                 )}
@@ -500,10 +543,10 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                         <label className="flex items-center gap-2 py-1 text-xs text-on-surface cursor-pointer hover:text-primary">
                           <input
                             type="checkbox"
-                            checked={catSel != null}
+                            checked={indSel != null}
                             onChange={() => {
-                              setCatSel(s => (s == null ? new Set() : null));
-                              setGroupSel(new Set()); setCatOpen(false); setGrpOpen(false);
+                              if (indSel != null) clearIndustry();
+                              else setIndSel({ cats: new Set(), groups: new Set() });
                             }}
                             className="w-3.5 h-3.5 accent-primary shrink-0"
                           />
@@ -541,7 +584,7 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                   {/* 푸터 */}
                   <div className="flex items-center justify-between px-5 md:px-6 py-3 border-t border-outline-variant">
                     <span className="text-xs text-on-surface-variant tabular-nums">
-                      선택 {filters.length + (marketSel != null ? 1 : 0) + (catSel != null ? 1 : 0)}개
+                      선택 {filters.length + (marketSel != null ? 1 : 0) + (indSel != null ? 1 : 0)}개
                     </span>
                     <button
                       onClick={() => setPickerOpen(false)}
@@ -604,6 +647,21 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                       </th>
                     );
                   })}
+                  {/* 산업 열 — primary 산업 그룹 (everyticker의 Industry 열처럼 항상 표시) */}
+                  <th
+                    onClick={() => toggleSort("industry")}
+                    className={`text-right px-3 py-2.5 text-xs font-medium whitespace-nowrap cursor-pointer
+                                select-none transition-colors hover:text-primary ${
+                                  sort.key === "industry" ? "text-primary" : "text-on-surface-variant"
+                                }`}
+                  >
+                    산업
+                    {sort.key === "industry" && (
+                      <span className="material-symbols-outlined text-[13px] align-[-2px] ml-0.5">
+                        {sort.dir === "desc" ? "arrow_downward" : "arrow_upward"}
+                      </span>
+                    )}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -634,11 +692,14 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                         </td>
                       );
                     })}
+                    <td className="text-right px-3 py-3 text-xs text-on-surface-variant whitespace-nowrap">
+                      {r.groupPrimary ?? "—"}
+                    </td>
                   </tr>
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={cols.length + 1} className="px-4 py-12 text-center text-sm text-on-surface-variant">
+                    <td colSpan={cols.length + 2} className="px-4 py-12 text-center text-sm text-on-surface-variant">
                       {colsLoading
                         ? "지표를 불러오는 중입니다…"
                         : "조건에 맞는 종목이 없습니다. 필터를 완화해 보세요."}
