@@ -293,7 +293,7 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                             className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-md border border-outline-variant bg-white text-xs text-left hover:border-primary transition-colors"
                           >
                             <span className={`truncate ${catPick ? "text-on-surface" : "text-outline"}`}>
-                              {catPick ?? "대분류 선택"}
+                              {catPick ?? "산업 선택"}
                             </span>
                             <span className="material-symbols-outlined text-[16px] text-outline shrink-0">
                               {catOpen ? "expand_less" : "expand_more"}
@@ -336,7 +336,7 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                             }`}
                           >
                             <span className="truncate text-outline">
-                              {catPick ? "전체 또는 세부 산업 선택" : "대분류 먼저 선택"}
+                              {catPick ? "전체 또는 세부 산업 선택" : "세부 산업 선택"}
                             </span>
                             <span className="material-symbols-outlined text-[16px] text-outline shrink-0">
                               {grpOpen ? "expand_less" : "expand_more"}
@@ -373,7 +373,7 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                       </div>
 
                       {/* 확정된 선택 칩 — '전체'는 대분류명, 그룹은 그룹명 */}
-                      {(indSel.cats.size > 0 || indSel.groups.size > 0) ? (
+                      {(indSel.cats.size > 0 || indSel.groups.size > 0) && (
                         <div className="flex flex-wrap items-center gap-1.5 mt-2">
                           <span className="text-[11px] text-outline">선택:</span>
                           {[...indSel.cats].map(c => (
@@ -393,10 +393,6 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                             </span>
                           ))}
                         </div>
-                      ) : (
-                        <span className="block mt-1 text-[11px] text-outline">
-                          대분류를 고른 뒤 &lsquo;전체&rsquo; 또는 세부 산업을 골라야 적용됩니다 · 선택 없음 = 전체
-                        </span>
                       )}
                     </div>
                   </FilterRow>
