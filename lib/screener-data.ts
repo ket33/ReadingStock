@@ -116,8 +116,8 @@ export async function getIndustryCategories(): Promise<IndustryCategory[]> {
     if (rel.id === SPECIAL_CAT_ID && !SPECIAL_KEEP_GROUP_IDS.has(r.id)) continue;
     let c = cats.get(rel.id);
     if (!c) {
-      // DB 이름은 '특수(지주·리츠·스팩·기타)' — 필터엔 지주·리츠만 남기므로 표시명도 맞춘다
-      c = { name: rel.id === SPECIAL_CAT_ID ? "특수(지주·리츠)" : rel.name, order: rel.sort_order ?? rel.id, groups: [] };
+      // DB 이름은 '특수(지주·리츠·스팩·기타)' — 필터엔 지주·리츠만 남기고 표시명은 '기타'로
+      c = { name: rel.id === SPECIAL_CAT_ID ? "기타" : rel.name, order: rel.sort_order ?? rel.id, groups: [] };
       cats.set(rel.id, c);
     }
     c.groups.push({ name: r.name, order: r.sort_order ?? r.id });

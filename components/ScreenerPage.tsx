@@ -247,36 +247,41 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                 {catSel != null && (
                   <FilterRow label="산업" cat="기본"
                              onRemove={() => { setCatSel(null); setGroupSel(new Set()); }}>
-                    {/* 2단 선택: 1차 대분류 칩 → 선택한 대분류마다 2차 그룹 칩 행 (검색 없이 눌러서 고름) */}
-                    <div className="flex-1 min-w-[220px] flex flex-col gap-2">
-                      <div className="flex flex-wrap gap-1.5">
-                        {categories.map(c => {
-                          const on = catSel.has(c.name);
-                          return (
-                            <button
-                              key={c.name}
-                              onClick={() => toggleCat(c.name)}
-                              className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
-                                on
-                                  ? "bg-primary-fixed text-on-primary-fixed border-primary-fixed font-medium"
-                                  : "bg-white text-on-surface-variant border-outline-variant hover:text-primary"
-                              }`}
-                            >
-                              {c.name}
-                            </button>
-                          );
-                        })}
-                      </div>
+                    {/* 2단 선택: 좌 = 1차 대분류, 우 = 선택한 대분류의 산업 그룹.
+                        둘 다 세로 스크롤 목록 — 칩을 다 펼치지 않는다. 2차를 안 고르면 대분류 전체 통과. */}
+                    <div className="flex-1 min-w-[260px]">
+                      <div className="flex items-stretch gap-1.5">
+                        <div className="flex-1 max-h-52 overflow-y-auto rounded-md border border-outline-variant bg-white">
+                          {categories.map(c => {
+                            const on = catSel.has(c.name);
+                            return (
+                              <button
+                                key={c.name}
+                                onClick={() => toggleCat(c.name)}
+                                className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-surface-container-low ${
+                                  on ? "text-primary font-medium bg-surface-container-low" : "text-on-surface"
+                                }`}
+                              >
+                                <span className="truncate">{c.name}</span>
+                                {on && <span className="material-symbols-outlined text-[15px] shrink-0">check</span>}
+                              </button>
+                            );
+                          })}
+                        </div>
 
-                      {catSel.size === 0 ? (
-                        <span className="text-[11px] text-outline">선택 없음 = 전체</span>
-                      ) : (
-                        <>
-                          {categories.filter(c => catSel.has(c.name)).map(c => (
-                            <div key={c.name}
-                                 className="flex flex-wrap items-center gap-1.5 pl-2.5 border-l-2 border-outline-variant/70">
+                        <span className="material-symbols-outlined self-center text-[16px] text-outline shrink-0">
+                          chevron_right
+                        </span>
+
+                        <div className="flex-1 max-h-52 overflow-y-auto rounded-md border border-outline-variant bg-white">
+                          {catSel.size === 0 ? (
+                            <div className="px-3 py-2 text-[11px] text-outline">대분류를 먼저 선택하세요</div>
+                          ) : categories.filter(c => catSel.has(c.name)).map(c => (
+                            <div key={c.name}>
                               {catSel.size > 1 && (
-                                <span className="text-[11px] text-outline shrink-0">{c.name} ▸</span>
+                                <div className="sticky top-0 bg-white px-3 pt-2 pb-1 text-[10px] font-semibold text-outline">
+                                  {c.name}
+                                </div>
                               )}
                               {c.groups.map(g => {
                                 const on = groupSel.has(g);
@@ -284,23 +289,24 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                                   <button
                                     key={g}
                                     onClick={() => setGroupSel(prev => toggleIn(prev, g))}
-                                    className={`px-2 py-0.5 rounded-full text-[11px] border transition-colors ${
-                                      on
-                                        ? "bg-primary text-on-primary border-primary font-medium"
-                                        : "bg-white text-on-surface-variant border-outline-variant hover:text-primary hover:border-primary"
+                                    className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-surface-container-low ${
+                                      on ? "text-primary font-medium bg-surface-container-low" : "text-on-surface"
                                     }`}
                                   >
-                                    {g}
+                                    <span className="truncate">{g}</span>
+                                    {on && <span className="material-symbols-outlined text-[15px] shrink-0">check</span>}
                                   </button>
                                 );
                               })}
                             </div>
                           ))}
-                          <span className="text-[11px] text-outline">
-                            세부 산업을 고르지 않으면 그 대분류 전체가 나옵니다
-                          </span>
-                        </>
-                      )}
+                        </div>
+                      </div>
+                      <span className="block mt-1 text-[11px] text-outline">
+                        {catSel.size === 0
+                          ? "선택 없음 = 전체"
+                          : "세부 산업을 고르지 않으면 그 대분류 전체가 나옵니다"}
+                      </span>
                     </div>
                   </FilterRow>
                 )}
