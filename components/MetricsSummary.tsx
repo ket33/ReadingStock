@@ -138,9 +138,9 @@ export default function MetricsSummary({ latest, isFinancial = false }: {
 }) {
   if (!latest) return null;
   const groups = isFinancial ? FIN_GROUPS : GROUPS;
-  // label은 screener.based_on("2026 1Q TTM × 2026-08-11 주가") — 밸류에이션만 최신 종가 기준이고
+  // label은 screener.based_on 기반("2026 1Q TTM × 최근 종가") — 밸류에이션만 최신 종가 기준이고
   // 나머지 지표는 주가와 무관하다. 스크리너 행이 없어 폴백 라벨("2026 1Q (TTM)")이면 안내도 생략.
-  const pricedBasis = latest.label.includes("주가");
+  const pricedBasis = latest.label.includes("종가");
 
   return (
     <section className="mt-12">
