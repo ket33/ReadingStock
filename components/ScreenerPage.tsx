@@ -222,7 +222,10 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
       <button
         onClick={onRemove}
         aria-label={`${label} 필터 제거`}
-        className="material-symbols-outlined text-[11px] text-outline hover:text-error transition-colors ml-auto sm:ml-0"
+        // 구글 아이콘 CSS가 .material-symbols-outlined에 font-size:24px를 걸어 로드 순서에 따라
+        // Tailwind text-[..]가 밀린다 — 인라인 style은 항상 이기므로 크기는 여기서 지정
+        style={{ fontSize: "11px" }}
+        className="material-symbols-outlined text-outline hover:text-error transition-colors ml-auto sm:ml-0"
       >
         close
       </button>
