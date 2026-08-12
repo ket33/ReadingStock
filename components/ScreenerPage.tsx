@@ -391,7 +391,8 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                                   className="inline-flex items-center gap-0.5 pl-2 pr-1 py-0.5 rounded-full text-[11px] bg-primary-fixed text-on-primary-fixed font-medium">
                               {c}
                               <button onClick={() => removeIndustry("cat", c)} aria-label={`${c} 제거`}
-                                      className="material-symbols-outlined text-[13px] leading-none hover:opacity-70">close</button>
+                                      style={{ fontSize: "10px" }}
+                                      className="material-symbols-outlined leading-none hover:opacity-70">close</button>
                             </span>
                           ))}
                           {[...indSel.groups].map(g => (
@@ -399,7 +400,8 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                                   className="inline-flex items-center gap-0.5 pl-2 pr-1 py-0.5 rounded-full text-[11px] bg-primary-fixed text-on-primary-fixed font-medium">
                               {g}
                               <button onClick={() => removeIndustry("group", g)} aria-label={`${g} 제거`}
-                                      className="material-symbols-outlined text-[13px] leading-none hover:opacity-70">close</button>
+                                      style={{ fontSize: "10px" }}
+                                      className="material-symbols-outlined leading-none hover:opacity-70">close</button>
                             </span>
                           ))}
                         </div>
