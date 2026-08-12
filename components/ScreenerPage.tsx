@@ -5,14 +5,15 @@
 // 데이터는 screener 표 스냅샷 전체를 받아 클라이언트에서 필터·정렬한다.
 //
 // 필터 UX:
-//  - 모든 조건(시장·업종 포함)은 '필터 추가' 패널에서 고른다.
+//  - 모든 조건(시장·산업 포함)은 '필터 추가' 패널에서 고른다.
 //  - 패널은 카테고리 한 줄 + 세부 지표 5열 그리드.
 //  - 숫자 지표는 최소~최대 입력 + 흔히 쓰는 구간 프리셋 칩(가이드).
-//  - 시장·업종은 선택하면 서브리스트(칩)가 행으로 나타나 세부를 고른다.
+//  - 산업은 2단 선택: 1차 대분류(16개 칩) → 2차 그 안의 산업 그룹(칩).
+//    2차를 안 고르면 그 대분류 전체가 통과한다. 검색 입력 없이 칩을 눌러 고른다.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { fetchScreenerCols, SCREENER_BASE_COLS } from "@/lib/screener-data";
-import type { ScreenerRow } from "@/lib/screener-data";
+import type { ScreenerRow, IndustryCategory } from "@/lib/screener-data";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
@@ -23,7 +24,10 @@ import { type MetricFilter, COL_PRESETS, passes, presetActive } from "@/lib/scre
 const ROW_STEP = 30;    // 표에 한 번에 보여주는 행 수 — '더보기'마다 이만큼 추가 (기본 정렬: 시가총액순)
 
 // ── 본체 ──────────────────────────────────────────────────────
-export default function ScreenerPage({ rows: initialRows }: { rows: ScreenerRow[] }) {
+export default function ScreenerPage({ rows: initialRows, categories }: {
+  rows: ScreenerRow[];
+  categories: IndustryCategory[];
+}) {
   const router = useRouter();
 
   // 서버는 기본 컬럼만 보낸다 — 프리셋·필터·정렬이 다른 지표를 쓰면 그 컬럼만 추가로 받아 합친다
@@ -33,12 +37,12 @@ export default function ScreenerPage({ rows: initialRows }: { rows: ScreenerRow[
   const [rowLimit, setRowLimit] = useState(ROW_STEP);
 
   const [filters, setFilters] = useState<MetricFilter[]>([]);
-  // 시장·업종 필터: null = 추가 안 됨, Set = 추가됨(빈 Set은 전체 통과)
+  // 시장 필터: null = 추가 안 됨, Set = 추가됨(빈 Set은 전체 통과)
   const [marketSel, setMarketSel] = useState<Set<string> | null>(null);
-  const [sectorSel, setSectorSel] = useState<Set<string> | null>(null);
-  // 업종(산업 그룹) 드롭다운: 부분검색 입력 + 열림 상태
-  const [sectorQuery, setSectorQuery] = useState("");
-  const [sectorOpen, setSectorOpen] = useState(false);
+  // 산업 필터: 1차 = 대분류(catSel), 2차 = 그 안의 산업 그룹(groupSel).
+  // catSel null = 필터 추가 안 됨. 2차를 안 고른 대분류는 소속 그룹 전체가 통과.
+  const [catSel, setCatSel] = useState<Set<string> | null>(null);
+  const [groupSel, setGroupSel] = useState<Set<string>>(new Set());
   const [pickerOpen, setPickerOpen] = useState(false);
 
   // 지표 설명 툴팁 — 헤더·모달·필터행 어디서든 hover하면 fixed로 띄운다
@@ -60,11 +64,6 @@ export default function ScreenerPage({ rows: initialRows }: { rows: ScreenerRow[
     key: "market_cap", dir: "desc",
   });
 
-  // 업종 = 산업 그룹명. 종목의 소속 그룹(primary+secondary) 전체에서 뽑는다(드롭다운 목록).
-  const sectors = useMemo(
-    () => [...new Set(rows.flatMap(r => r.groups ?? []))].sort((a, b) => a.localeCompare(b, "ko")),
-    [rows],
-  );
   const markets = useMemo(
     // KOSPI를 앞에 (알파벳순이면 KOSDAQ이 먼저 와서 어색함)
     () => [...new Set(rows.map(r => r.market).filter((m): m is string => !!m))]
@@ -97,15 +96,23 @@ export default function ScreenerPage({ rows: initialRows }: { rows: ScreenerRow[
   }, [cols, filters, sort]);
 
   // 필터가 바뀌면 표시 행 수 리셋 (정렬만 바뀔 땐 유지)
-  useEffect(() => { setRowLimit(ROW_STEP); }, [filters, marketSel, sectorSel]);
+  useEffect(() => { setRowLimit(ROW_STEP); }, [filters, marketSel, catSel, groupSel]);
 
   const filtered = useMemo(() => {
     let out = rows;
     if (marketSel && marketSel.size > 0)
       out = out.filter(r => r.market != null && marketSel.has(r.market));
-    // 업종 필터는 소속 그룹(primary+secondary) 중 하나라도 걸리면 통과 (서브까지 포함)
-    if (sectorSel && sectorSel.size > 0)
-      out = out.filter(r => (r.groups ?? []).some(g => sectorSel.has(g)));
+    // 산업 필터: 2차(그룹)를 고른 대분류는 그 그룹만, 안 고른 대분류는 소속 그룹 전체 (대분류 간 OR).
+    // 종목은 소속 그룹(primary+secondary) 중 하나라도 걸리면 통과.
+    if (catSel && catSel.size > 0) {
+      const allowed = new Set<string>();
+      for (const c of categories) {
+        if (!catSel.has(c.name)) continue;
+        const chosen = c.groups.filter(g => groupSel.has(g));
+        for (const g of chosen.length ? chosen : c.groups) allowed.add(g);
+      }
+      out = out.filter(r => (r.groups ?? []).some(g => allowed.has(g)));
+    }
     for (const f of filters) out = out.filter(r => passes(r, f));
 
     const def = BY_KEY.get(sort.key);
@@ -120,7 +127,7 @@ export default function ScreenerPage({ rows: initialRows }: { rows: ScreenerRow[
       });
     }
     return out;
-  }, [rows, marketSel, sectorSel, filters, sort]);
+  }, [rows, marketSel, catSel, groupSel, categories, filters, sort]);
 
   const toggleSort = (key: string) =>
     setSort(s => (s.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" }));
@@ -142,10 +149,25 @@ export default function ScreenerPage({ rows: initialRows }: { rows: ScreenerRow[
     return next;
   };
 
-  const hasAnyFilter = filters.length > 0 || marketSel != null || sectorSel != null;
+  // 대분류 토글 — 해제하면 그 밑에서 고른 2차 그룹도 함께 정리
+  const toggleCat = (name: string) => {
+    if (catSel == null) return;
+    const next = toggleIn(catSel, name);
+    if (!next.has(name)) {
+      const gs = categories.find(c => c.name === name)?.groups ?? [];
+      setGroupSel(prev => {
+        const n = new Set(prev);
+        for (const g of gs) n.delete(g);
+        return n;
+      });
+    }
+    setCatSel(next);
+  };
+
+  const hasAnyFilter = filters.length > 0 || marketSel != null || catSel != null;
 
   const resetAll = () => {
-    setFilters([]); setMarketSel(null); setSectorSel(null); setPickerOpen(false);
+    setFilters([]); setMarketSel(null); setCatSel(null); setGroupSel(new Set()); setPickerOpen(false);
   };
 
   const priceDate = rows[0]?.price_date ?? null;
@@ -196,7 +218,7 @@ export default function ScreenerPage({ rows: initialRows }: { rows: ScreenerRow[
           {/* ── 필터 패널 ── */}
           <div className="border border-outline-variant rounded-xl bg-surface p-4 md:p-5 mb-6">
             {/* 활성 필터 행 목록 */}
-            {(marketSel != null || sectorSel != null || filters.length > 0) && (
+            {(marketSel != null || catSel != null || filters.length > 0) && (
               <div className="mb-4">
                 {marketSel != null && (
                   <FilterRow label="시장" cat="기본" onRemove={() => setMarketSel(null)}>
@@ -222,56 +244,62 @@ export default function ScreenerPage({ rows: initialRows }: { rows: ScreenerRow[
                   </FilterRow>
                 )}
 
-                {sectorSel != null && (
-                  <FilterRow label="업종" cat="기본"
-                             onRemove={() => { setSectorSel(null); setSectorQuery(""); setSectorOpen(false); }}>
-                    {/* 산업 그룹 드롭다운 — 선택 칩 + 부분검색 입력 (다중선택) */}
-                    <div className="relative flex-1 min-w-[220px]">
-                      <div className="flex flex-wrap items-center gap-1.5 px-2 py-1 rounded-md border border-outline-variant bg-white min-h-[34px]">
-                        {[...sectorSel].map(s => (
-                          <span key={s}
-                                className="inline-flex items-center gap-0.5 pl-2 pr-1 py-0.5 rounded-full text-[11px] bg-primary-fixed text-on-primary-fixed font-medium">
-                            {s}
-                            <button onClick={() => setSectorSel(prev => toggleIn(prev!, s))} aria-label={`${s} 제거`}
-                                    className="material-symbols-outlined text-[13px] leading-none hover:opacity-70">close</button>
-                          </span>
-                        ))}
-                        <input
-                          value={sectorQuery}
-                          onChange={e => { setSectorQuery(e.target.value); setSectorOpen(true); }}
-                          onFocus={() => setSectorOpen(true)}
-                          onBlur={() => window.setTimeout(() => setSectorOpen(false), 150)}
-                          placeholder={sectorSel.size ? "" : "업종 검색·선택 (일부 글자로)"}
-                          className="flex-1 min-w-[90px] px-1 py-0.5 text-xs bg-transparent focus:outline-none"
-                        />
+                {catSel != null && (
+                  <FilterRow label="산업" cat="기본"
+                             onRemove={() => { setCatSel(null); setGroupSel(new Set()); }}>
+                    {/* 2단 선택: 1차 대분류 칩 → 선택한 대분류마다 2차 그룹 칩 행 (검색 없이 눌러서 고름) */}
+                    <div className="flex-1 min-w-[220px] flex flex-col gap-2">
+                      <div className="flex flex-wrap gap-1.5">
+                        {categories.map(c => {
+                          const on = catSel.has(c.name);
+                          return (
+                            <button
+                              key={c.name}
+                              onClick={() => toggleCat(c.name)}
+                              className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${
+                                on
+                                  ? "bg-primary-fixed text-on-primary-fixed border-primary-fixed font-medium"
+                                  : "bg-white text-on-surface-variant border-outline-variant hover:text-primary"
+                              }`}
+                            >
+                              {c.name}
+                            </button>
+                          );
+                        })}
                       </div>
-                      {sectorOpen && (() => {
-                        const opts = sectors.filter(s => s.toLowerCase().includes(sectorQuery.trim().toLowerCase()));
-                        return (
-                          <div className="absolute z-50 mt-1 w-full max-h-56 overflow-y-auto rounded-md border border-outline-variant bg-white shadow-lg">
-                            {opts.length === 0 ? (
-                              <div className="px-3 py-2 text-[11px] text-outline">일치하는 업종이 없어요</div>
-                            ) : opts.map(s => {
-                              const on = sectorSel.has(s);
-                              return (
-                                <button
-                                  key={s}
-                                  onMouseDown={e => e.preventDefault()}
-                                  onClick={() => setSectorSel(prev => toggleIn(prev ?? new Set<string>(), s))}
-                                  className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-surface-container-low ${
-                                    on ? "text-primary font-medium" : "text-on-surface"
-                                  }`}
-                                >
-                                  <span className="truncate">{s}</span>
-                                  {on && <span className="material-symbols-outlined text-[15px] shrink-0">check</span>}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        );
-                      })()}
-                      {sectorSel.size === 0 && (
-                        <span className="block mt-1 text-[11px] text-outline">선택 없음 = 전체</span>
+
+                      {catSel.size === 0 ? (
+                        <span className="text-[11px] text-outline">선택 없음 = 전체</span>
+                      ) : (
+                        <>
+                          {categories.filter(c => catSel.has(c.name)).map(c => (
+                            <div key={c.name}
+                                 className="flex flex-wrap items-center gap-1.5 pl-2.5 border-l-2 border-outline-variant/70">
+                              {catSel.size > 1 && (
+                                <span className="text-[11px] text-outline shrink-0">{c.name} ▸</span>
+                              )}
+                              {c.groups.map(g => {
+                                const on = groupSel.has(g);
+                                return (
+                                  <button
+                                    key={g}
+                                    onClick={() => setGroupSel(prev => toggleIn(prev, g))}
+                                    className={`px-2 py-0.5 rounded-full text-[11px] border transition-colors ${
+                                      on
+                                        ? "bg-primary text-on-primary border-primary font-medium"
+                                        : "bg-white text-on-surface-variant border-outline-variant hover:text-primary hover:border-primary"
+                                    }`}
+                                  >
+                                    {g}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ))}
+                          <span className="text-[11px] text-outline">
+                            세부 산업을 고르지 않으면 그 대분류 전체가 나옵니다
+                          </span>
+                        </>
                       )}
                     </div>
                   </FilterRow>
@@ -402,7 +430,7 @@ export default function ScreenerPage({ rows: initialRows }: { rows: ScreenerRow[
 
                   {/* 본문 — 카테고리 한 줄 + 세부 체크박스 5열 */}
                   <div className="flex-1 overflow-y-auto px-5 md:px-6 py-4 flex flex-col gap-5">
-                    {/* 기본 (시장·업종) */}
+                    {/* 기본 (시장·산업) */}
                     <div>
                       <div className="text-xs font-semibold text-primary mb-2">기본</div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-x-3 gap-y-1.5">
@@ -418,11 +446,11 @@ export default function ScreenerPage({ rows: initialRows }: { rows: ScreenerRow[
                         <label className="flex items-center gap-2 py-1 text-xs text-on-surface cursor-pointer hover:text-primary">
                           <input
                             type="checkbox"
-                            checked={sectorSel != null}
-                            onChange={() => setSectorSel(s => (s == null ? new Set() : null))}
+                            checked={catSel != null}
+                            onChange={() => { setCatSel(s => (s == null ? new Set() : null)); setGroupSel(new Set()); }}
                             className="w-3.5 h-3.5 accent-primary shrink-0"
                           />
-                          업종
+                          산업
                         </label>
                       </div>
                     </div>
@@ -456,7 +484,7 @@ export default function ScreenerPage({ rows: initialRows }: { rows: ScreenerRow[
                   {/* 푸터 */}
                   <div className="flex items-center justify-between px-5 md:px-6 py-3 border-t border-outline-variant">
                     <span className="text-xs text-on-surface-variant tabular-nums">
-                      선택 {filters.length + (marketSel != null ? 1 : 0) + (sectorSel != null ? 1 : 0)}개
+                      선택 {filters.length + (marketSel != null ? 1 : 0) + (catSel != null ? 1 : 0)}개
                     </span>
                     <button
                       onClick={() => setPickerOpen(false)}

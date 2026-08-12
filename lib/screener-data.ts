@@ -92,6 +92,41 @@ export const SCREENER_BASE_COLS = [
 
 type Rel = { name: string } | { name: string }[] | null;
 
+// ── 산업 필터용: 대분류(sector_categories) → 산업 그룹 목록 ──────────────
+export interface IndustryCategory {
+  name: string;      // 대분류 표시명
+  groups: string[];  // 소속 그룹명 (sort_order 순) — screener 행의 groups와 같은 이름 체계
+}
+
+// 특수(16) 대분류는 지주회사(109)·리츠(110)만 필터에 노출 — 스팩·기타·미분류는 제외 (id 기준: 그룹명은 축약될 수 있음)
+const SPECIAL_CAT_ID = 16;
+const SPECIAL_KEEP_GROUP_IDS = new Set([109, 110]);
+
+export async function getIndustryCategories(): Promise<IndustryCategory[]> {
+  const { data } = await supabase
+    .from("industry_groups")
+    .select("id,name,sort_order,sector_categories(id,name,sort_order)");
+  type CatRel = { id: number; name: string; sort_order: number | null };
+  type Row = { id: number; name: string; sort_order: number | null; sector_categories: CatRel | CatRel[] | null };
+
+  const cats = new Map<number, { name: string; order: number; groups: { name: string; order: number }[] }>();
+  for (const r of (data ?? []) as Row[]) {
+    const rel = Array.isArray(r.sector_categories) ? r.sector_categories[0] : r.sector_categories;
+    if (!rel) continue;
+    if (rel.id === SPECIAL_CAT_ID && !SPECIAL_KEEP_GROUP_IDS.has(r.id)) continue;
+    let c = cats.get(rel.id);
+    if (!c) {
+      // DB 이름은 '특수(지주·리츠·스팩·기타)' — 필터엔 지주·리츠만 남기므로 표시명도 맞춘다
+      c = { name: rel.id === SPECIAL_CAT_ID ? "특수(지주·리츠)" : rel.name, order: rel.sort_order ?? rel.id, groups: [] };
+      cats.set(rel.id, c);
+    }
+    c.groups.push({ name: r.name, order: r.sort_order ?? r.id });
+  }
+  return [...cats.values()]
+    .sort((a, b) => a.order - b.order)
+    .map(c => ({ name: c.name, groups: c.groups.sort((a, b) => a.order - b.order).map(g => g.name) }));
+}
+
 export async function getScreenerData(): Promise<ScreenerRow[]> {
   // 전 종목 기본 컬럼 (1,000행 캡 페이징)
   const rows = await fetchAll<ScreenerRow>((from, to) =>

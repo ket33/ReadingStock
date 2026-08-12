@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getScreenerData } from "@/lib/screener-data";
+import { getScreenerData, getIndustryCategories } from "@/lib/screener-data";
 import ScreenerPage from "@/components/ScreenerPage";
 
 // 5분마다 재검증 (주가·지표 갱신 반영 — 홈과 동일)
@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default async function Page() {
-  const rows = await getScreenerData();
+  const [rows, categories] = await Promise.all([getScreenerData(), getIndustryCategories()]);
 
   return (
     <>
@@ -21,7 +21,7 @@ export default async function Page() {
         precedence="default"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=block"
       />
-      <ScreenerPage rows={rows} />
+      <ScreenerPage rows={rows} categories={categories} />
     </>
   );
 }
