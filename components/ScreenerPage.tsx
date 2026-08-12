@@ -203,6 +203,13 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
 
   const priceDate = rows[0]?.price_date ?? null;
 
+  // 산업 열은 산업 필터로 실제 선택(칩)이 있을 때만 표에 나타난다
+  const showIndustry = indSel != null && (indSel.cats.size > 0 || indSel.groups.size > 0);
+  // 열이 사라질 때 산업 정렬이 남아 있으면 기본 정렬로 되돌린다
+  useEffect(() => {
+    if (!showIndustry && sort.key === "industry") setSort({ key: "market_cap", dir: "desc" });
+  }, [showIndustry, sort.key]);
+
   // 필터 행 공통 래퍼 (def가 있으면 라벨 hover 시 설명 툴팁)
   const FilterRow = ({ label, cat, def, onRemove, children }: {
     label: string; cat: string; def?: MetricDef; onRemove: () => void; children: React.ReactNode;
@@ -646,21 +653,23 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                       </th>
                     );
                   })}
-                  {/* 산업 열 — primary 산업 그룹 (everyticker의 Industry 열처럼 항상 표시) */}
-                  <th
-                    onClick={() => toggleSort("industry")}
-                    className={`text-right px-3 py-2.5 text-xs font-medium whitespace-nowrap cursor-pointer
-                                select-none transition-colors hover:text-primary ${
-                                  sort.key === "industry" ? "text-primary" : "text-on-surface-variant"
-                                }`}
-                  >
-                    산업
-                    {sort.key === "industry" && (
-                      <span className="material-symbols-outlined text-[13px] align-[-2px] ml-0.5">
-                        {sort.dir === "desc" ? "arrow_downward" : "arrow_upward"}
-                      </span>
-                    )}
-                  </th>
+                  {/* 산업 열 — primary 산업 그룹. 산업 필터가 걸려 있을 때만 표시 */}
+                  {showIndustry && (
+                    <th
+                      onClick={() => toggleSort("industry")}
+                      className={`text-right px-3 py-2.5 text-xs font-medium whitespace-nowrap cursor-pointer
+                                  select-none transition-colors hover:text-primary ${
+                                    sort.key === "industry" ? "text-primary" : "text-on-surface-variant"
+                                  }`}
+                    >
+                      산업
+                      {sort.key === "industry" && (
+                        <span className="material-symbols-outlined text-[13px] align-[-2px] ml-0.5">
+                          {sort.dir === "desc" ? "arrow_downward" : "arrow_upward"}
+                        </span>
+                      )}
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -691,14 +700,16 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                         </td>
                       );
                     })}
-                    <td className="text-right px-3 py-3 text-xs text-on-surface-variant whitespace-nowrap">
-                      {r.groupPrimary ?? "—"}
-                    </td>
+                    {showIndustry && (
+                      <td className="text-right px-3 py-3 text-xs text-on-surface-variant whitespace-nowrap">
+                        {r.groupPrimary ?? "—"}
+                      </td>
+                    )}
                   </tr>
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={cols.length + 2} className="px-4 py-12 text-center text-sm text-on-surface-variant">
+                    <td colSpan={cols.length + (showIndustry ? 2 : 1)} className="px-4 py-12 text-center text-sm text-on-surface-variant">
                       {colsLoading
                         ? "지표를 불러오는 중입니다…"
                         : "조건에 맞는 종목이 없습니다. 필터를 완화해 보세요."}
