@@ -43,6 +43,9 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
   // catSel null = 필터 추가 안 됨. 2차를 안 고른 대분류는 소속 그룹 전체가 통과.
   const [catSel, setCatSel] = useState<Set<string> | null>(null);
   const [groupSel, setGroupSel] = useState<Set<string>>(new Set());
+  // 1차·2차 드롭다운 열림 상태 (셀렉트 박스를 누르면 아래로 목록이 펼쳐진다)
+  const [catOpen, setCatOpen] = useState(false);
+  const [grpOpen, setGrpOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   // 지표 설명 툴팁 — 헤더·모달·필터행 어디서든 hover하면 fixed로 띄운다
@@ -108,8 +111,8 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
       const allowed = new Set<string>();
       for (const c of categories) {
         if (!catSel.has(c.name)) continue;
-        const chosen = c.groups.filter(g => groupSel.has(g));
-        for (const g of chosen.length ? chosen : c.groups) allowed.add(g);
+        const chosen = c.groups.filter(g => groupSel.has(g.name));
+        for (const g of chosen.length ? chosen : c.groups) allowed.add(g.name);
       }
       out = out.filter(r => (r.groups ?? []).some(g => allowed.has(g)));
     }
@@ -157,9 +160,10 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
       const gs = categories.find(c => c.name === name)?.groups ?? [];
       setGroupSel(prev => {
         const n = new Set(prev);
-        for (const g of gs) n.delete(g);
+        for (const g of gs) n.delete(g.name);
         return n;
       });
+      if (next.size === 0) setGrpOpen(false);
     }
     setCatSel(next);
   };
@@ -246,60 +250,104 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
 
                 {catSel != null && (
                   <FilterRow label="산업" cat="기본"
-                             onRemove={() => { setCatSel(null); setGroupSel(new Set()); }}>
-                    {/* 2단 선택: 좌 = 1차 대분류, 우 = 선택한 대분류의 산업 그룹.
-                        둘 다 세로 스크롤 목록 — 칩을 다 펼치지 않는다. 2차를 안 고르면 대분류 전체 통과. */}
+                             onRemove={() => { setCatSel(null); setGroupSel(new Set()); setCatOpen(false); setGrpOpen(false); }}>
+                    {/* everyticker식 2단 셀렉트: [대분류 ▾] → [세부 산업 ▾] 한 줄.
+                        박스를 누르면 아래로 스크롤 목록이 펼쳐지고, 항목엔 개별종목페이지 보유 기업 수를 붙인다.
+                        2차를 안 고르면 그 대분류 전체가 통과. */}
                     <div className="flex-1 min-w-[260px]">
-                      <div className="flex items-stretch gap-1.5">
-                        <div className="flex-1 max-h-52 overflow-y-auto rounded-md border border-outline-variant bg-white">
-                          {categories.map(c => {
-                            const on = catSel.has(c.name);
-                            return (
-                              <button
-                                key={c.name}
-                                onClick={() => toggleCat(c.name)}
-                                className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-surface-container-low ${
-                                  on ? "text-primary font-medium bg-surface-container-low" : "text-on-surface"
-                                }`}
-                              >
-                                <span className="truncate">{c.name}</span>
-                                {on && <span className="material-symbols-outlined text-[15px] shrink-0">check</span>}
-                              </button>
-                            );
-                          })}
-                        </div>
-
-                        <span className="material-symbols-outlined self-center text-[16px] text-outline shrink-0">
-                          chevron_right
-                        </span>
-
-                        <div className="flex-1 max-h-52 overflow-y-auto rounded-md border border-outline-variant bg-white">
-                          {catSel.size === 0 ? (
-                            <div className="px-3 py-2 text-[11px] text-outline">대분류를 먼저 선택하세요</div>
-                          ) : categories.filter(c => catSel.has(c.name)).map(c => (
-                            <div key={c.name}>
-                              {catSel.size > 1 && (
-                                <div className="sticky top-0 bg-white px-3 pt-2 pb-1 text-[10px] font-semibold text-outline">
-                                  {c.name}
-                                </div>
-                              )}
-                              {c.groups.map(g => {
-                                const on = groupSel.has(g);
+                      {/* 열린 동안 바깥 클릭을 받는 투명 배경 — 셀렉트 박스들은 z-50으로 그 위에 남긴다 */}
+                      {(catOpen || grpOpen) && (
+                        <div className="fixed inset-0 z-40" onClick={() => { setCatOpen(false); setGrpOpen(false); }} />
+                      )}
+                      <div className="flex items-center gap-1.5">
+                        {/* 1차: 대분류 */}
+                        <div className={`relative flex-1 min-w-0 ${catOpen || grpOpen ? "z-50" : ""}`}>
+                          <button
+                            onClick={() => { setCatOpen(o => !o); setGrpOpen(false); }}
+                            className="w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-md border border-outline-variant bg-white text-xs text-left hover:border-primary transition-colors"
+                          >
+                            <span className={`truncate ${catSel.size ? "text-on-surface" : "text-outline"}`}>
+                              {catSel.size ? [...catSel].join(", ") : "대분류 선택"}
+                            </span>
+                            <span className="material-symbols-outlined text-[16px] text-outline shrink-0">
+                              {catOpen ? "expand_less" : "expand_more"}
+                            </span>
+                          </button>
+                          {catOpen && (
+                            <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border border-outline-variant bg-white shadow-lg">
+                              {categories.map(c => {
+                                const on = catSel.has(c.name);
                                 return (
                                   <button
-                                    key={g}
-                                    onClick={() => setGroupSel(prev => toggleIn(prev, g))}
+                                    key={c.name}
+                                    onClick={() => toggleCat(c.name)}
                                     className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-surface-container-low ${
-                                      on ? "text-primary font-medium bg-surface-container-low" : "text-on-surface"
+                                      on ? "text-primary font-medium" : "text-on-surface"
                                     }`}
                                   >
-                                    <span className="truncate">{g}</span>
+                                    <span className="truncate">
+                                      {c.name} <span className="text-outline font-normal">({c.count}개 기업)</span>
+                                    </span>
                                     {on && <span className="material-symbols-outlined text-[15px] shrink-0">check</span>}
                                   </button>
                                 );
                               })}
                             </div>
-                          ))}
+                          )}
+                        </div>
+
+                        <span className="material-symbols-outlined text-[16px] text-outline shrink-0">chevron_right</span>
+
+                        {/* 2차: 선택한 대분류의 산업 그룹 */}
+                        <div className={`relative flex-1 min-w-0 ${catOpen || grpOpen ? "z-50" : ""}`}>
+                          <button
+                            onClick={() => { if (catSel.size) { setGrpOpen(o => !o); setCatOpen(false); } }}
+                            disabled={catSel.size === 0}
+                            className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 rounded-md border text-xs text-left transition-colors ${
+                              catSel.size === 0
+                                ? "border-outline-variant/60 bg-surface-container-low text-outline cursor-not-allowed"
+                                : "border-outline-variant bg-white hover:border-primary"
+                            }`}
+                          >
+                            <span className={`truncate ${groupSel.size ? "text-on-surface" : "text-outline"}`}>
+                              {groupSel.size
+                                ? [...groupSel].join(", ")
+                                : catSel.size ? "세부 산업 선택 (없으면 전체)" : "대분류 먼저 선택"}
+                            </span>
+                            <span className="material-symbols-outlined text-[16px] text-outline shrink-0">
+                              {grpOpen ? "expand_less" : "expand_more"}
+                            </span>
+                          </button>
+                          {grpOpen && catSel.size > 0 && (
+                            <div className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border border-outline-variant bg-white shadow-lg">
+                              {categories.filter(c => catSel.has(c.name)).map(c => (
+                                <div key={c.name}>
+                                  {catSel.size > 1 && (
+                                    <div className="sticky top-0 bg-white px-3 pt-2 pb-1 text-[10px] font-semibold text-outline">
+                                      {c.name}
+                                    </div>
+                                  )}
+                                  {c.groups.map(g => {
+                                    const on = groupSel.has(g.name);
+                                    return (
+                                      <button
+                                        key={g.name}
+                                        onClick={() => setGroupSel(prev => toggleIn(prev, g.name))}
+                                        className={`w-full flex items-center justify-between gap-2 px-3 py-1.5 text-left text-xs transition-colors hover:bg-surface-container-low ${
+                                          on ? "text-primary font-medium" : "text-on-surface"
+                                        }`}
+                                      >
+                                        <span className="truncate">
+                                          {g.name} <span className="text-outline font-normal">({g.count}개 기업)</span>
+                                        </span>
+                                        {on && <span className="material-symbols-outlined text-[15px] shrink-0">check</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <span className="block mt-1 text-[11px] text-outline">
@@ -453,7 +501,10 @@ export default function ScreenerPage({ rows: initialRows, categories }: {
                           <input
                             type="checkbox"
                             checked={catSel != null}
-                            onChange={() => { setCatSel(s => (s == null ? new Set() : null)); setGroupSel(new Set()); }}
+                            onChange={() => {
+                              setCatSel(s => (s == null ? new Set() : null));
+                              setGroupSel(new Set()); setCatOpen(false); setGrpOpen(false);
+                            }}
                             className="w-3.5 h-3.5 accent-primary shrink-0"
                           />
                           산업

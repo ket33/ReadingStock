@@ -93,9 +93,14 @@ export const SCREENER_BASE_COLS = [
 type Rel = { name: string } | { name: string }[] | null;
 
 // ── 산업 필터용: 대분류(sector_categories) → 산업 그룹 목록 ──────────────
+export interface IndustryGroupOpt {
+  name: string;   // 그룹명 — screener 행의 groups와 같은 이름 체계
+  count: number;  // 개별종목페이지(온보딩, companies 테이블) 보유 기업 수
+}
 export interface IndustryCategory {
-  name: string;      // 대분류 표시명
-  groups: string[];  // 소속 그룹명 (sort_order 순) — screener 행의 groups와 같은 이름 체계
+  name: string;              // 대분류 표시명
+  count: number;             // 대분류 내 개별종목페이지 보유 기업 수 (그룹 간 중복 제거)
+  groups: IndustryGroupOpt[]; // 소속 그룹 (sort_order 순)
 }
 
 // 특수(16) 대분류는 지주회사(109)·리츠(110)만 필터에 노출 — 스팩·기타·미분류는 제외 (id 기준: 그룹명은 축약될 수 있음)
@@ -103,28 +108,53 @@ const SPECIAL_CAT_ID = 16;
 const SPECIAL_KEEP_GROUP_IDS = new Set([109, 110]);
 
 export async function getIndustryCategories(): Promise<IndustryCategory[]> {
-  const { data } = await supabase
-    .from("industry_groups")
-    .select("id,name,sort_order,sector_categories(id,name,sort_order)");
+  const [groupsQ, pageRows, cgRows] = await Promise.all([
+    supabase.from("industry_groups").select("id,name,sort_order,sector_categories(id,name,sort_order)"),
+    // 개별종목페이지가 있는 기업 = 온보딩된 companies 테이블
+    fetchAll<{ stock_code: string }>((from, to) =>
+      supabase.from("companies").select("stock_code").order("stock_code").range(from, to)),
+    fetchAll<{ company_id: string; group_id: number }>((from, to) =>
+      supabase.from("company_groups").select("company_id,group_id").order("company_id").range(from, to)),
+  ]);
   type CatRel = { id: number; name: string; sort_order: number | null };
   type Row = { id: number; name: string; sort_order: number | null; sector_categories: CatRel | CatRel[] | null };
 
-  const cats = new Map<number, { name: string; order: number; groups: { name: string; order: number }[] }>();
-  for (const r of (data ?? []) as Row[]) {
+  // 그룹별 '페이지 있는 기업' 집합 (primary+secondary 모두 — 필터 통과 기준과 동일)
+  const hasPage = new Set(pageRows.map(r => r.stock_code));
+  const members = new Map<number, Set<string>>();
+  for (const r of cgRows) {
+    if (!hasPage.has(r.company_id)) continue;
+    let s = members.get(r.group_id);
+    if (!s) { s = new Set(); members.set(r.group_id, s); }
+    s.add(r.company_id);
+  }
+
+  const cats = new Map<number, {
+    name: string; order: number; companies: Set<string>;
+    groups: { name: string; order: number; count: number }[];
+  }>();
+  for (const r of (groupsQ.data ?? []) as Row[]) {
     const rel = Array.isArray(r.sector_categories) ? r.sector_categories[0] : r.sector_categories;
     if (!rel) continue;
     if (rel.id === SPECIAL_CAT_ID && !SPECIAL_KEEP_GROUP_IDS.has(r.id)) continue;
     let c = cats.get(rel.id);
     if (!c) {
       // DB 이름은 '특수(지주·리츠·스팩·기타)' — 필터엔 지주·리츠만 남기고 표시명은 '기타'로
-      c = { name: rel.id === SPECIAL_CAT_ID ? "기타" : rel.name, order: rel.sort_order ?? rel.id, groups: [] };
+      c = { name: rel.id === SPECIAL_CAT_ID ? "기타" : rel.name, order: rel.sort_order ?? rel.id,
+            companies: new Set(), groups: [] };
       cats.set(rel.id, c);
     }
-    c.groups.push({ name: r.name, order: r.sort_order ?? r.id });
+    const m = members.get(r.id) ?? new Set<string>();
+    c.groups.push({ name: r.name, order: r.sort_order ?? r.id, count: m.size });
+    for (const code of m) c.companies.add(code);
   }
   return [...cats.values()]
     .sort((a, b) => a.order - b.order)
-    .map(c => ({ name: c.name, groups: c.groups.sort((a, b) => a.order - b.order).map(g => g.name) }));
+    .map(c => ({
+      name: c.name,
+      count: c.companies.size,
+      groups: c.groups.sort((a, b) => a.order - b.order).map(g => ({ name: g.name, count: g.count })),
+    }));
 }
 
 export async function getScreenerData(): Promise<ScreenerRow[]> {
