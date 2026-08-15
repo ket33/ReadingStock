@@ -141,11 +141,11 @@ function MoverList({ title, rows, period, up }: {
                 <span aria-hidden className="absolute inset-y-1 left-0 rounded-md"
                       style={{ width: `${(Math.abs(v) / maxAbs) * 100}%`, backgroundColor: barColor }} />
                 <span className="relative w-6 text-[13px] font-semibold text-on-surface tabular-nums shrink-0">{i + 1}</span>
-                <span className="relative min-w-0 flex items-baseline gap-2.5">
-                  <span className="text-sm font-bold text-on-surface truncate group-hover:text-primary transition-colors">
+                <span className="relative min-w-0">
+                  <span className="block text-sm font-bold text-on-surface truncate group-hover:text-primary transition-colors">
                     {g.name}
                   </span>
-                  <span className="text-[11px] text-outline whitespace-nowrap shrink-0">
+                  <span className="block text-[10px] text-outline truncate">
                     시총 {formatKrw(g.mcap)} · {g.memberCount}개 기업
                   </span>
                 </span>
@@ -229,13 +229,13 @@ export default function IndustryPage({ categories, navCategories, growth }: {
               <MoverList title="TOP 8" rows={ranked.gainers} period={period} up />
               <MoverList title="BOTTOM 8" rows={ranked.losers} period={period} up={false} />
             </div>
-          </section>
 
-          {/* 기준 설명 */}
-          <div className="mt-6 text-[11px] text-outline leading-relaxed space-y-0.5">
-            <p>* 주가 등락은 각 산업 시가총액 상위 5개 기업의 시가총액 가중 평균 수익률입니다.</p>
-            <p>* 산업을 누르면 해당 산업 페이지로 이동합니다.</p>
-          </div>
+            {/* 기준 설명 — Price와 같은 폭이라 왼쪽 시작선이 맞는다 */}
+            <div className="mt-4 text-[11px] text-outline leading-relaxed space-y-0.5">
+              <p>* 주가 등락은 각 산업 시가총액 상위 5개 기업의 시가총액 가중 평균 수익률입니다.</p>
+              <p>* 산업을 누르면 해당 산업 페이지로 이동합니다.</p>
+            </div>
+          </section>
         </div>
       </main>
 
