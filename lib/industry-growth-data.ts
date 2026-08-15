@@ -2,6 +2,7 @@
 // 1순위: industry_growth 테이블 (load_industry_growth.py가 적재)
 // 폴백: 배치가 함께 떨구는 JSON 스냅샷 — 테이블이 아직 없어도 화면이 뜬다.
 import { supabase } from "./supabase";
+import { fetchAll } from "./supabase-page";
 import fallback from "./industry-growth.json";
 
 export interface GrowthMember { code: string; name: string; growth: number }
@@ -76,17 +77,18 @@ function assemble(flat: FlatRow[], quarters: string[]): GrowthData {
 }
 
 export async function getIndustryGrowth(): Promise<GrowthData> {
-  const { data, error } = await supabase
-    .from("industry_growth")
-    .select("group_id,quarter,revenue_growth_ltm,member_count,growers_count,median_growth,revenue_cagr_3y,opm_change_pp,revenue_ltm,members,industry_groups(name)")
-    .order("quarter_end")
-    .limit(2000);
-  if (!error && data && data.length > 0) {
-    const flat = data as unknown as FlatRow[];
+  // ※ 반드시 페이징으로 — PostgREST는 limit을 크게 걸어도 요청당 1,000행에서 조용히 자른다.
+  //   115그룹 × 10분기 = 1,150행이라 단발 조회는 최신 분기(정렬 마지막)가 통째로 잘렸었다.
+  const flat = await fetchAll<FlatRow>((from, to) =>
+    supabase.from("industry_growth")
+      .select("group_id,quarter,revenue_growth_ltm,member_count,growers_count,median_growth,revenue_cagr_3y,opm_change_pp,revenue_ltm,members,industry_groups(name)")
+      .order("quarter_end").order("group_id")
+      .range(from, to));
+  if (flat.length > 0) {
     const quarters = [...new Set(flat.map(r => r.quarter))].sort();
     return assemble(flat, quarters.slice(-10));
   }
-  // 폴백: 배치 JSON 스냅샷
+  // 폴백: 배치 JSON 스냅샷 (테이블이 아직 없거나 비어 있을 때)
   const fb = fallback as { quarters: string[]; rows: FlatRow[] };
   return assemble(fb.rows, fb.quarters);
 }

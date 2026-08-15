@@ -142,7 +142,7 @@ function MoverList({ title, rows, period, up }: {
                       style={{ width: `${(Math.abs(v) / maxAbs) * 100}%`, backgroundColor: barColor }} />
                 <span className="relative w-6 text-[13px] font-semibold text-on-surface tabular-nums shrink-0">{i + 1}</span>
                 <span className="relative min-w-0 flex items-baseline gap-2.5">
-                  <span className="text-[15px] font-bold text-on-surface truncate group-hover:text-primary transition-colors">
+                  <span className="text-sm font-bold text-on-surface truncate group-hover:text-primary transition-colors">
                     {g.name}
                   </span>
                   <span className="text-[11px] text-outline whitespace-nowrap shrink-0">
@@ -202,7 +202,7 @@ export default function IndustryPage({ categories, navCategories, growth }: {
           {/* ── Growth: 매출 성장 히트맵 (지시서 §4) ── */}
           <section className="mb-3">
             <h2 className="font-serif text-2xl md:text-3xl font-semibold text-primary text-center">Growth</h2>
-            <p className="text-xs text-outline text-center mt-1 mb-4">산업 매출 성장</p>
+            <p className="text-sm text-outline text-center mt-1 mb-4">산업 매출 성장</p>
             <GrowthHeatmap data={growth} />
             <p className="mt-2 text-[11px] text-outline">* 금융업은 매출액 대신 순영업수익을 사용합니다.</p>
           </section>
