@@ -151,11 +151,11 @@ function RowBlock({ r, quarters, open, onToggle }: {
                                bg-primary text-on-primary hover:opacity-90 transition-opacity">
                 {r.name} 산업 페이지 보기 →
               </Link>
-              <span className="text-xs font-semibold text-on-surface">
+              <span className="text-[13px] font-semibold text-on-surface">
                 최근 LTM 매출 합 {formatKrw(r.revenueLtm)}
               </span>
               {r.opmChangePp != null && (
-                <span className="text-xs font-semibold text-on-surface">
+                <span className="text-[13px] font-semibold text-on-surface">
                   최근 영업이익률 {r.opmChangePp > 0 ? "+" : ""}{r.opmChangePp.toFixed(1)}%p
                 </span>
               )}
