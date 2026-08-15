@@ -127,10 +127,10 @@ function RowBlock({ r, quarters, open, onToggle }: {
             </td>
           );
         })}
-        <td className="px-3 py-2 text-right text-xs tabular-nums text-on-surface border-l-2 border-outline-variant">
+        <td className="px-3 py-2 text-right text-[13px] font-semibold tabular-nums text-on-surface border-l-2 border-outline-variant">
           {r.cagr3y != null ? `${r.cagr3y.toFixed(1)}%` : "—"}
         </td>
-        <td className={`px-3 py-2 text-right text-xs tabular-nums ${unstable ? "text-outline" : "text-on-surface"}`}>
+        <td className={`px-3 py-2 text-right text-[13px] font-semibold tabular-nums ${unstable ? "text-outline" : "text-on-surface"}`}>
           {r.growersCount != null && r.memberCount > 0 ? `${r.growersCount}/${r.memberCount}` : "—"}
         </td>
       </tr>
