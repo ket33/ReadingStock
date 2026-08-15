@@ -151,16 +151,20 @@ function RowBlock({ r, quarters, open, onToggle }: {
                                bg-primary text-on-primary hover:opacity-90 transition-opacity">
                 {r.name} 산업 페이지 보기 →
               </Link>
-              <span>최근 LTM 매출 합 {formatKrw(r.revenueLtm)}</span>
+              <span className="text-xs font-semibold text-on-surface">
+                최근 LTM 매출 합 {formatKrw(r.revenueLtm)}
+              </span>
               {r.opmChangePp != null && (
-                <span>최근 영업이익률 {r.opmChangePp > 0 ? "+" : ""}{r.opmChangePp.toFixed(1)}%p</span>
+                <span className="text-xs font-semibold text-on-surface">
+                  최근 영업이익률 {r.opmChangePp > 0 ? "+" : ""}{r.opmChangePp.toFixed(1)}%p
+                </span>
               )}
               {unstable && <span className="text-outline">표본 {r.memberCount}개 — 해석 주의</span>}
             </div>
             <div className="flex flex-wrap gap-x-5 gap-y-1.5">
               {/* 매출 큰 순 상위 20개만 — 나머지는 산업 페이지로 (온보딩 확대 대비 상한) */}
               {r.members.slice(0, 20).map(m => (
-                <span key={m.code} className="text-xs text-on-surface-variant">
+                <span key={m.code} className="text-[13px] text-on-surface-variant">
                   {m.name}
                   <span className={`ml-1 tabular-nums font-medium ${
                     m.growth > 0 ? "text-[#d93025]" : m.growth < 0 ? "text-[#1a73e8]" : "text-outline"
