@@ -141,11 +141,11 @@ function MoverList({ title, rows, period, up }: {
                 <span aria-hidden className="absolute inset-y-1 left-0 rounded-md"
                       style={{ width: `${(Math.abs(v) / maxAbs) * 100}%`, backgroundColor: barColor }} />
                 <span className="relative w-6 text-[13px] font-semibold text-on-surface tabular-nums shrink-0">{i + 1}</span>
-                <span className="relative min-w-0">
-                  <span className="block text-sm font-medium text-on-surface truncate group-hover:text-primary transition-colors">
+                <span className="relative min-w-0 flex items-baseline gap-2.5">
+                  <span className="text-[15px] font-bold text-on-surface truncate group-hover:text-primary transition-colors">
                     {g.name}
                   </span>
-                  <span className="block text-[11px] text-outline truncate">
+                  <span className="text-[11px] text-outline whitespace-nowrap shrink-0">
                     시총 {formatKrw(g.mcap)} · {g.memberCount}개 기업
                   </span>
                 </span>
