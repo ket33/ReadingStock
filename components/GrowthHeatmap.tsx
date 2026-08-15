@@ -136,7 +136,12 @@ function RowBlock({ r, quarters, open, onToggle }: {
       </tr>
       {open && (
         <tr className="border-b border-outline-variant/60 bg-surface-container-lowest">
-          <td colSpan={quarters.length + 3} className="px-4 py-3">
+          {/* 표는 min-w-max로 내용만큼 넓어지므로, 셀에 그냥 넣으면 flex-wrap이 줄바꿈할
+              기준 폭이 없어 기업 목록이 한 줄로 뻗고 표 전체가 화면 밖으로 밀린다.
+              → sticky left-0 + 뷰포트 최대폭으로 '보이는 영역'에 고정해 그 안에서 줄바꿈.
+              (온보딩 확대로 그룹당 기업이 수십 개가 돼도 세로로만 늘어난다) */}
+          <td colSpan={quarters.length + 3} className="p-0">
+            <div className="sticky left-0 max-w-[calc(100vw-2rem)] md:max-w-[min(calc(100vw-5rem),1200px)] px-4 py-3">
             {/* 동선 의도: 산업을 먼저 훑고 기업으로 — 기업명은 링크가 아니라 참고 표기,
                 눈에 띄는 버튼은 산업 페이지 하나만 둔다 */}
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-2.5 text-[11px] text-on-surface-variant">
@@ -153,7 +158,8 @@ function RowBlock({ r, quarters, open, onToggle }: {
               {unstable && <span className="text-outline">표본 {r.memberCount}개 — 해석 주의</span>}
             </div>
             <div className="flex flex-wrap gap-x-5 gap-y-1.5">
-              {r.members.map(m => (
+              {/* 매출 큰 순 상위 20개만 — 나머지는 산업 페이지로 (온보딩 확대 대비 상한) */}
+              {r.members.slice(0, 20).map(m => (
                 <span key={m.code} className="text-xs text-on-surface-variant">
                   {m.name}
                   <span className={`ml-1 tabular-nums font-medium ${
@@ -163,9 +169,15 @@ function RowBlock({ r, quarters, open, onToggle }: {
                   </span>
                 </span>
               ))}
+              {r.members.length > 20 && (
+                <span className="text-xs text-outline">
+                  외 {r.members.length - 20}개 기업 — 산업 페이지에서 전체 확인
+                </span>
+              )}
               {r.members.length === 0 && (
                 <span className="text-xs text-outline">최신 분기 기업별 데이터 없음</span>
               )}
+            </div>
             </div>
           </td>
         </tr>
