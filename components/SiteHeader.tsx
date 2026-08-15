@@ -42,6 +42,10 @@ export default function SiteHeader() {
               {searchOpen ? "close" : "search"}
             </button>
           </span>
+          <Link href="/industries"
+                className="hidden sm:block text-[15px] font-medium text-on-surface-variant hover:text-primary transition-colors">
+            Industries
+          </Link>
           <Link href="/screener"
                 className="hidden sm:block text-[15px] font-medium text-on-surface-variant hover:text-primary transition-colors">
             Picking
@@ -52,6 +56,10 @@ export default function SiteHeader() {
           </Link>
           {/* 모바일: 텍스트 메뉴 대신 아이콘 (숨김은 래퍼에 — 위 주석 참고) */}
           <span className="sm:hidden flex items-center gap-3">
+            <Link href="/industries" aria-label="Industries — 산업 한눈에"
+                  className="material-symbols-outlined text-[22px] text-on-surface-variant hover:text-primary transition-colors">
+              domain
+            </Link>
             <Link href="/screener" aria-label="Picking — 종목 골라보기"
                   className="material-symbols-outlined text-[22px] text-on-surface-variant hover:text-primary transition-colors">
               filter_list

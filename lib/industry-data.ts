@@ -22,6 +22,8 @@ export interface IndustryGroupMover {
   sampled: number;        // YoY 합산에 들어간 기업 수 (최대 5)
   basis: string | null;   // 합산 기준 분기 라벨 중 최빈값 — "2026 1Q" 등
   top5: { code: string; name: string }[];
+  mcap: number;           // 그룹 시가총액 합 (온보딩 primary 전체, 원)
+  memberCount: number;    // 온보딩 primary 기업 수
   ret: { d1: number | null; w1: number | null; m1: number | null; ytd: number | null };
 }
 
@@ -175,6 +177,7 @@ export async function getIndustryMovers(): Promise<IndustryCategoryMover[]> {
       }
     }
     const basis = [...labels.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    const allMembers = membersByGroup.get(g.id) ?? [];
     moverByGroup.set(g.id, {
       id: g.id,
       name: g.name,
@@ -185,6 +188,8 @@ export async function getIndustryMovers(): Promise<IndustryCategoryMover[]> {
       sampled,
       basis,
       top5: top5.map(m => ({ code: m.stock_code, name: m.name })),
+      mcap: allMembers.reduce((s, m) => s + (m.market_cap ?? 0), 0),
+      memberCount: allMembers.length,
       ret: {
         d1: wavg(top5, r => r.ret_1d),
         w1: wavg(top5, r => r.ret_5d),

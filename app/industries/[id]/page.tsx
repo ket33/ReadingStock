@@ -87,7 +87,7 @@ export default async function Page({ params }: {
       <main className="flex-grow bg-surface-container-lowest">
         <div className="max-w-[880px] mx-auto px-4 md:px-10 pt-10 pb-16">
           <p className="text-xs text-outline mb-2">
-            <Link href="/industry" className="hover:text-primary transition-colors">Industry</Link>
+            <Link href="/industries" className="hover:text-primary transition-colors">Industries</Link>
             {" / "}{group.name}
           </p>
           <h1 className="font-serif text-2xl md:text-3xl font-semibold text-primary mb-2">{group.name}</h1>

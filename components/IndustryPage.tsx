@@ -1,157 +1,111 @@
 "use client";
 
-// 산업 무버스 — 히트맵(영업이익 YoY) + 산업별 Top Gainer/Loser.
-// everyticker.com/industry-movers 참고. 데이터 기준은 각 그룹 '시총 상위 5개 온보딩 기업':
-//  - 히트맵 크기 = |최근 분기 영업이익 합|, 색 = 전년 동분기 대비 증감 (상승 빨강·하락 파랑)
-//  - 등락 = 상위 5개 시총가중 평균 수익률 (1일/1주/1개월/YTD 탭)
-// 셀·행을 누르면 /industry/[id] 산업 페이지로 이동한다.
+// Industries — 매출 성장 히트맵(Growth) + 산업별 주가 등락(Price).
+//  - Growth: 행=산업 그룹 × 열=최근 10개 분기, LTM 매출 YoY (GrowthHeatmap — 지시서 §4)
+//  - Price: 각 그룹 시총 상위 5개 온보딩 기업의 시총가중 평균 수익률 (1일/1주/1개월/YTD 탭)
+// 의도된 동선: 산업을 먼저 훑고 → /industries/[id] 산업 페이지 → 기업으로.
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { IndustryCategoryMover, IndustryGroupMover } from "@/lib/industry-data";
-import { squarify, type Rect } from "@/lib/treemap";
+import type { IndustryCategory } from "@/lib/screener-data";
+import type { GrowthData } from "@/lib/industry-growth-data";
 import { formatKrw } from "@/lib/format";
+import GrowthHeatmap from "./GrowthHeatmap";
 import SiteHeader from "./SiteHeader";
 import SiteFooter from "./SiteFooter";
 
-// 레이아웃 좌표계 — 렌더 크기(약 1200×620px)와 비슷한 비율이라 셀이 정사각형에 가깝게 나온다
-const W = 200;
-const H = 100;
-const CAT_HEADER_UNITS = 3.2; // 대분류 이름 바 높이 (H 단위)
-
-// ── 색: 상승 빨강 · 하락 파랑 (사이트 등락 관례 --color-stock-up/down 기준) ──
-function cellStyle(g: IndustryGroupMover): { bg: string; fg: string } {
-  const deepRed = { bg: "#b3261e", fg: "#ffffff" };
-  const red = { bg: "#d93025", fg: "#ffffff" };
-  const lightRed = { bg: "#f0a49c", fg: "#3a0f0b" };
-  const flat = { bg: "#d5d8dc", fg: "#44474c" };
-  const lightBlue = { bg: "#9dc2f2", fg: "#0c2f5e" };
-  const blue = { bg: "#4d90e6", fg: "#ffffff" };
-  const deepBlue = { bg: "#1a5fc4", fg: "#ffffff" };
-  switch (g.yoyKind) {
-    case "turn_profit": return deepRed;
-    case "turn_loss": return deepBlue;
-    case "loss_widen": return deepBlue;
-    case "loss_narrow": return lightRed;
-    case "pct": {
-      const p = g.yoyPct ?? 0;
-      if (p >= 30) return deepRed;
-      if (p >= 10) return red;
-      if (p >= 2) return lightRed;
-      if (p > -2) return flat;
-      if (p > -10) return lightBlue;
-      if (p > -30) return blue;
-      return deepBlue;
-    }
-    default: return flat;
-  }
-}
-
-function yoyLabel(g: IndustryGroupMover): string {
-  switch (g.yoyKind) {
-    case "turn_profit": return "흑자전환";
-    case "turn_loss": return "적자전환";
-    case "loss_widen": return "적자확대";
-    case "loss_narrow": return "적자축소";
-    case "pct": return `${(g.yoyPct ?? 0) > 0 ? "+" : ""}${g.yoyPct}%`;
-    default: return "—";
-  }
-}
-
-function cellTitle(g: IndustryGroupMover): string {
-  const names = g.top5.map(t => t.name).join("·");
-  return `${g.name} — 영업이익 ${formatKrw(g.opNow)} (전년 동기 ${formatKrw(g.opPrev)}) · YoY ${yoyLabel(g)}`
-    + `\n기준 ${g.basis ?? "—"} · 표본 ${g.sampled}개사\n상위: ${names}`;
-}
-
-// ── 히트맵 ──────────────────────────────────────────────────
-function Heatmap({ categories }: { categories: IndustryCategoryMover[] }) {
-  const layout = useMemo(() => {
-    const cats = categories
-      .map(c => ({
-        cat: c,
-        groups: c.groups.filter(g => g.opNow != null && g.yoyKind != null),
-      }))
-      .map(c => ({ ...c, size: c.groups.reduce((s, g) => s + Math.abs(g.opNow!), 0) }))
-      .filter(c => c.groups.length > 0 && c.size > 0);
-
-    const placedCats = squarify(cats.map(c => ({ value: c.size, data: c })), { x: 0, y: 0, w: W, h: H });
-    return placedCats.map(pc => {
-      const inner: Rect = {
-        x: pc.rect.x,
-        y: pc.rect.y + CAT_HEADER_UNITS,
-        w: pc.rect.w,
-        h: Math.max(pc.rect.h - CAT_HEADER_UNITS, 0.1),
-      };
-      const cells = squarify(
-        pc.data.groups.map(g => ({ value: Math.abs(g.opNow!), data: g })),
-        inner,
-      );
-      return { rect: pc.rect, cat: pc.data.cat, cells };
-    });
-  }, [categories]);
+// ── 산업 바로가기 셀렉터 — Picking 산업 필터와 같은 2단 UI, 고르면 산업 페이지로 이동 ──
+function IndustryPicker({ categories }: { categories: IndustryCategory[] }) {
+  const router = useRouter();
+  const [catPick, setCatPick] = useState<string | null>(null);
+  const [catOpen, setCatOpen] = useState(false);
+  const [grpOpen, setGrpOpen] = useState(false);
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-outline-variant bg-white">
-      <div className="relative min-w-[900px]" style={{ height: 620 }}>
-        {layout.map(({ rect, cat, cells }) => (
-          <div key={cat.id}>
-            {/* 대분류 박스 + 이름 바 */}
-            <div
-              className="absolute border border-white bg-surface-container-low"
-              style={{
-                left: `${(rect.x / W) * 100}%`, top: `${(rect.y / H) * 100}%`,
-                width: `${(rect.w / W) * 100}%`, height: `${(rect.h / H) * 100}%`,
-              }}
-            >
-              <div className="px-1.5 pt-0.5 text-[10px] font-bold text-on-surface-variant truncate leading-4">
-                {cat.name}
-              </div>
-            </div>
-            {/* 그룹 셀 */}
-            {cells.map(({ rect: r, data: g }) => {
-              const { bg, fg } = cellStyle(g);
-              const wPct = (r.w / W) * 100;
-              const showText = r.w >= 11 && r.h >= 6;
-              const showSub = r.w >= 14 && r.h >= 9;
-              return (
-                <Link
-                  key={g.id}
-                  href={`/industry/${g.id}`}
-                  title={cellTitle(g)}
-                  className="absolute overflow-hidden border border-white/70 hover:brightness-110 hover:z-10 transition-[filter]"
-                  style={{
-                    left: `${(r.x / W) * 100}%`, top: `${(r.y / H) * 100}%`,
-                    width: `${wPct}%`, height: `${(r.h / H) * 100}%`,
-                    backgroundColor: bg, color: fg,
-                  }}
+    <div className="max-w-[560px] mx-auto mb-10">
+      {(catOpen || grpOpen) && (
+        <div className="fixed inset-0 z-40" onClick={() => { setCatOpen(false); setGrpOpen(false); }} />
+      )}
+      <div className="flex items-center gap-1.5">
+        {/* 1차: 대분류 */}
+        <div className={`relative flex-1 min-w-0 ${catOpen || grpOpen ? "z-50" : ""}`}>
+          <button
+            onClick={() => { setCatOpen(o => !o); setGrpOpen(false); }}
+            className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md border border-outline-variant bg-white text-sm text-left hover:border-primary transition-colors"
+          >
+            <span className={`truncate ${catPick ? "text-on-surface" : "text-outline"}`}>
+              {catPick ?? "산업 선택"}
+            </span>
+            <span className="material-symbols-outlined text-[18px] text-outline shrink-0">
+              {catOpen ? "expand_less" : "expand_more"}
+            </span>
+          </button>
+          {catOpen && (
+            <div className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-md border border-outline-variant bg-white shadow-lg">
+              {categories.map(c => (
+                <button
+                  key={c.name}
+                  onClick={() => { setCatPick(c.name); setCatOpen(false); setGrpOpen(true); }}
+                  className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-surface-container-low ${
+                    catPick === c.name ? "text-primary font-medium" : "text-on-surface"
+                  }`}
                 >
-                  {showText && (
-                    <div className="p-1 leading-tight">
-                      <div className="text-[10px] font-semibold truncate">{g.name}</div>
-                      {showSub && <div className="text-[10px] opacity-90">{yoyLabel(g)}</div>}
-                    </div>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        ))}
+                  <span className="truncate">
+                    {c.name} <span className="text-outline text-xs font-normal">({c.count}개 기업)</span>
+                  </span>
+                  {catPick === c.name && <span className="material-symbols-outlined text-[16px] shrink-0">check</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <span className="material-symbols-outlined text-[18px] text-outline shrink-0">chevron_right</span>
+
+        {/* 2차: 세부 산업 — 고르면 그 산업 페이지로 이동 */}
+        <div className={`relative flex-1 min-w-0 ${catOpen || grpOpen ? "z-50" : ""}`}>
+          <button
+            onClick={() => { if (catPick) { setGrpOpen(o => !o); setCatOpen(false); } }}
+            disabled={!catPick}
+            className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-md border text-sm text-left transition-colors ${
+              !catPick
+                ? "border-outline-variant/60 bg-surface-container-low text-outline cursor-not-allowed"
+                : "border-outline-variant bg-white hover:border-primary"
+            }`}
+          >
+            <span className="truncate text-outline">세부 산업 선택</span>
+            <span className="material-symbols-outlined text-[18px] text-outline shrink-0">
+              {grpOpen ? "expand_less" : "expand_more"}
+            </span>
+          </button>
+          {grpOpen && catPick && (() => {
+            const c = categories.find(x => x.name === catPick);
+            if (!c) return null;
+            return (
+              <div className="absolute z-50 mt-1 w-full max-h-64 overflow-y-auto rounded-md border border-outline-variant bg-white shadow-lg">
+                {c.groups.map(g => (
+                  <button
+                    key={g.id}
+                    onClick={() => router.push(`/industries/${g.id}`)}
+                    className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left text-sm text-on-surface transition-colors hover:bg-surface-container-low"
+                  >
+                    <span className="truncate">
+                      {g.name} <span className="text-outline text-xs">({g.count}개 기업)</span>
+                    </span>
+                    <span className="material-symbols-outlined text-[15px] text-outline shrink-0">arrow_forward</span>
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
+        </div>
       </div>
     </div>
   );
 }
 
-const LEGEND: { label: string; bg: string }[] = [
-  { label: "-30% 이하·적자", bg: "#1a5fc4" },
-  { label: "-30~-10%", bg: "#4d90e6" },
-  { label: "-10~-2%", bg: "#9dc2f2" },
-  { label: "±2%", bg: "#d5d8dc" },
-  { label: "+2~10%", bg: "#f0a49c" },
-  { label: "+10~30%", bg: "#d93025" },
-  { label: "+30% 이상·흑전", bg: "#b3261e" },
-];
-
-// ── Top Gainer / Loser ───────────────────────────────────────
+// ── Price (Top Gainer / Loser) ───────────────────────────────
 const PERIODS = [
   { key: "d1", label: "1일" },
   { key: "w1", label: "1주" },
@@ -162,30 +116,40 @@ type PeriodKey = (typeof PERIODS)[number]["key"];
 
 function MoverList({ title, rows, period, up }: {
   title: string;
-  rows: { g: IndustryGroupMover; cat: string }[];
+  rows: { g: IndustryGroupMover }[];
   period: PeriodKey;
   up: boolean;
 }) {
+  // 텍스트를 읽지 않아도 방향·크기가 보이게: 행 뒤에 등락폭 비례 막대 (상승 빨강·하락 파랑)
+  const maxAbs = Math.max(...rows.map(({ g }) => Math.abs(g.ret[period] ?? 0)), 0.01);
+  const barColor = up ? "rgba(217,48,37,0.12)" : "rgba(26,115,232,0.12)";
+  const accent = up ? "#d93025" : "#1a73e8";
+
   return (
-    <div className="border border-outline-variant rounded-xl bg-white p-4">
-      <h3 className="text-sm font-bold text-on-surface mb-2">{title}</h3>
+    <div className={`border rounded-xl bg-white p-4 border-t-4 ${up ? "border-t-[#d93025]" : "border-t-[#1a73e8]"} border-outline-variant`}>
+      <h3 className="text-lg font-bold text-center mb-3" style={{ color: accent }}>
+        {up ? "▲" : "▼"} {title}
+      </h3>
       <ul className="divide-y divide-outline-variant/60">
-        {rows.map(({ g, cat }, i) => {
+        {rows.map(({ g }, i) => {
           const v = g.ret[period]!;
           return (
             <li key={g.id}>
-              <Link href={`/industry/${g.id}`}
-                    className="flex items-center gap-2.5 py-2 group">
-                <span className="w-5 text-[11px] text-outline tabular-nums shrink-0">{i + 1}</span>
-                <span className="min-w-0">
+              <Link href={`/industries/${g.id}`}
+                    className="relative flex items-center gap-2.5 py-2 px-1 group overflow-hidden rounded-md">
+                {/* 등락폭 비례 배경 막대 */}
+                <span aria-hidden className="absolute inset-y-1 left-0 rounded-md"
+                      style={{ width: `${(Math.abs(v) / maxAbs) * 100}%`, backgroundColor: barColor }} />
+                <span className="relative w-6 text-[13px] font-semibold text-on-surface tabular-nums shrink-0">{i + 1}</span>
+                <span className="relative min-w-0">
                   <span className="block text-sm font-medium text-on-surface truncate group-hover:text-primary transition-colors">
                     {g.name}
                   </span>
-                  <span className="block text-[11px] text-outline truncate">{cat}</span>
+                  <span className="block text-[11px] text-outline truncate">
+                    시총 {formatKrw(g.mcap)} · {g.memberCount}개 기업
+                  </span>
                 </span>
-                <span className={`ml-auto text-sm font-semibold tabular-nums shrink-0 ${
-                  up ? "text-[#d93025]" : "text-[#1a73e8]"
-                }`}>
+                <span className="relative ml-auto text-sm font-semibold tabular-nums shrink-0" style={{ color: accent }}>
                   {v > 0 ? "▲" : v < 0 ? "▼" : ""} {Math.abs(v)}%
                 </span>
               </Link>
@@ -201,11 +165,15 @@ function MoverList({ title, rows, period, up }: {
 }
 
 // ── 본체 ─────────────────────────────────────────────────────
-export default function IndustryPage({ categories }: { categories: IndustryCategoryMover[] }) {
+export default function IndustryPage({ categories, navCategories, growth }: {
+  categories: IndustryCategoryMover[];
+  navCategories: IndustryCategory[];
+  growth: GrowthData;
+}) {
   const [period, setPeriod] = useState<PeriodKey>("d1");
 
   const flat = useMemo(() =>
-    categories.flatMap(c => c.groups.map(g => ({ g, cat: c.name }))), [categories]);
+    categories.flatMap(c => c.groups.map(g => ({ g }))), [categories]);
 
   const ranked = useMemo(() => {
     const withRet = flat.filter(x => x.g.ret[period] != null);
@@ -223,64 +191,48 @@ export default function IndustryPage({ categories }: { categories: IndustryCateg
       <main className="flex-grow bg-surface-container-lowest">
         <div className="max-w-[1280px] mx-auto px-4 md:px-10 pt-10 pb-16">
           <div className="mb-8 text-center">
-            <h1 className="font-sans text-2xl md:text-3xl font-semibold tracking-tight text-primary mb-2">
-              Industry <span className="text-lg md:text-xl font-medium text-on-surface-variant">산업 한눈에</span>
+            <h1 className="font-sans text-3xl md:text-4xl font-semibold tracking-tight text-primary">
+              Industries
             </h1>
-            <p className="text-sm text-on-surface-variant">
-              산업별 실적과 주가 흐름을 한 장에서 살펴보세요.
-            </p>
           </div>
 
-          {/* ── 히트맵 ── */}
+          {/* 산업 바로가기 — 대분류 → 세부 산업 고르면 산업 페이지로 */}
+          <IndustryPicker categories={navCategories} />
+
+          {/* ── Growth: 매출 성장 히트맵 (지시서 §4) ── */}
           <section className="mb-3">
-            <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
-              <h2 className="font-serif text-xl font-semibold text-primary">실적 히트맵</h2>
-              <span className="text-xs text-on-surface-variant">
-                크기 = 최근 분기 영업이익 규모 · 색 = 전년 동분기 대비 증감
-              </span>
-            </div>
-            <Heatmap categories={categories} />
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2.5 justify-center">
-              {LEGEND.map(l => (
-                <span key={l.label} className="inline-flex items-center gap-1 text-[11px] text-on-surface-variant">
-                  <span className="w-3 h-3 rounded-[3px] inline-block" style={{ backgroundColor: l.bg }} />
-                  {l.label}
-                </span>
-              ))}
-            </div>
+            <h2 className="font-serif text-2xl md:text-3xl font-semibold text-primary text-center mb-4">Growth</h2>
+            <GrowthHeatmap data={growth} />
+            <p className="mt-2 text-[11px] text-outline">* 금융업은 매출액 대신 순영업수익을 사용합니다.</p>
           </section>
 
-          {/* ── Top Gainer / Loser ── */}
-          <section className="mt-10">
-            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
-              <h2 className="font-serif text-xl font-semibold text-primary">산업별 주가 등락</h2>
-              <div className="flex gap-1.5">
-                {PERIODS.map(p => (
-                  <button
-                    key={p.key}
-                    onClick={() => setPeriod(p.key)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                      period === p.key
-                        ? "bg-primary text-on-primary"
-                        : "bg-surface-container-low text-on-surface-variant hover:text-primary"
-                    }`}
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
+          {/* ── Price: 산업별 주가 등락 — 가로 폭은 본문의 2/3만 쓴다 ── */}
+          <section className="mt-12 max-w-[850px] mx-auto">
+            <h2 className="font-serif text-2xl md:text-3xl font-semibold text-primary text-center mb-4">Price</h2>
+            <div className="flex justify-center gap-1.5 mb-4">
+              {PERIODS.map(p => (
+                <button
+                  key={p.key}
+                  onClick={() => setPeriod(p.key)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                    period === p.key
+                      ? "bg-primary text-on-primary"
+                      : "bg-surface-container-low text-on-surface-variant hover:text-primary"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
             </div>
             <div className="grid md:grid-cols-2 gap-4">
-              <MoverList title="상승 상위" rows={ranked.gainers} period={period} up />
-              <MoverList title="하락 상위" rows={ranked.losers} period={period} up={false} />
+              <MoverList title="TOP 8" rows={ranked.gainers} period={period} up />
+              <MoverList title="BOTTOM 8" rows={ranked.losers} period={period} up={false} />
             </div>
           </section>
 
           {/* 기준 설명 */}
           <div className="mt-6 text-[11px] text-outline leading-relaxed space-y-0.5">
-            <p>* 각 산업은 시가총액 상위 5개 온보딩 기업을 표본으로 집계합니다 (산업 전체가 아닙니다).</p>
-            <p>* 영업이익 YoY는 각 기업의 최근 공시 분기 vs 전년 동분기 합산 — 기업마다 최신 분기가 다를 수 있습니다.</p>
-            <p>* 주가 등락은 상위 5개 기업의 시가총액 가중 평균 수익률입니다.</p>
+            <p>* 주가 등락은 각 산업 시가총액 상위 5개 기업의 시가총액 가중 평균 수익률입니다.</p>
             <p>* 산업을 누르면 해당 산업 페이지로 이동합니다.</p>
           </div>
         </div>

@@ -94,6 +94,7 @@ type Rel = { name: string } | { name: string }[] | null;
 
 // ── 산업 필터용: 대분류(sector_categories) → 산업 그룹 목록 ──────────────
 export interface IndustryGroupOpt {
+  id: number;     // industry_groups.id — /industries/[id] 링크용
   name: string;   // 그룹명 — screener 행의 groups와 같은 이름 체계
   count: number;  // 개별종목페이지(온보딩, companies 테이블) 보유 기업 수
 }
@@ -131,7 +132,7 @@ export async function getIndustryCategories(): Promise<IndustryCategory[]> {
 
   const cats = new Map<number, {
     name: string; order: number; companies: Set<string>;
-    groups: { name: string; order: number; count: number }[];
+    groups: { id: number; name: string; order: number; count: number }[];
   }>();
   for (const r of (groupsQ.data ?? []) as Row[]) {
     const rel = Array.isArray(r.sector_categories) ? r.sector_categories[0] : r.sector_categories;
@@ -145,7 +146,7 @@ export async function getIndustryCategories(): Promise<IndustryCategory[]> {
       cats.set(rel.id, c);
     }
     const m = members.get(r.id) ?? new Set<string>();
-    c.groups.push({ name: r.name, order: r.sort_order ?? r.id, count: m.size });
+    c.groups.push({ id: r.id, name: r.name, order: r.sort_order ?? r.id, count: m.size });
     for (const code of m) c.companies.add(code);
   }
   return [...cats.values()]
@@ -153,7 +154,8 @@ export async function getIndustryCategories(): Promise<IndustryCategory[]> {
     .map(c => ({
       name: c.name,
       count: c.companies.size,
-      groups: c.groups.sort((a, b) => a.order - b.order).map(g => ({ name: g.name, count: g.count })),
+      groups: c.groups.sort((a, b) => a.order - b.order)
+        .map(g => ({ id: g.id, name: g.name, count: g.count })),
     }));
 }
 
