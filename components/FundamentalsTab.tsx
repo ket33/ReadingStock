@@ -50,16 +50,44 @@ function colorMap(peers: Peer[]): Record<string, string> {
   return m;
 }
 
+// 차트에 실제로 그려지는 구간(최근 5년). 단위 선택과 PeerLine이 같은 창을 봐야
+// 축 눈금과 데이터가 어긋나지 않는다.
+function fyYears(peers: Peer[], fy: Record<string, FyPoint[]>): number[] {
+  const ys = new Set<number>();
+  for (const p of peers) for (const r of fy[p.code] ?? []) ys.add(r.year);
+  return [...ys].sort((a, b) => a - b).slice(-5);
+}
+
+// 금액 축 단위 자동 선택 — 리포트 탭(charts.tsx pickUnit)과 같은 1조 경계.
+// 원 단위 값을 받아 최댓값이 1조 이상이면 조, 아니면 억으로 그린다.
+// 단위를 '조'로 고정하면 피어 전원이 1조 미만인 그룹에서 선이 전부 0.0조로 눌려
+// 서로 구분되지 않는다(실측: 오픈엣지테크놀로지 그룹은 최대가 3,022억).
+type AmountUnit = { scale: number; unit: string; dec: number; axisWidth: number };
+function pickAmountUnit(values: (number | null | undefined)[]): AmountUnit {
+  const max = values.reduce<number>((m, v) => (v == null ? m : Math.max(m, Math.abs(v))), 0);
+  return max >= 1e12
+    ? { scale: 1e12, unit: "조", dec: 1, axisWidth: 44 }
+    : { scale: 1e8, unit: "억", dec: 0, axisWidth: 56 };
+}
+
+// FY 시계열(원 단위 필드)에서 차트에 그려질 구간만 보고 단위를 고른다.
+function pickFyAmountUnit(peers: Peer[], fy: Record<string, FyPoint[]>, field: keyof FyPoint): AmountUnit {
+  const years = new Set(fyYears(peers, fy));
+  const vals: (number | null | undefined)[] = [];
+  for (const p of peers) {
+    for (const r of fy[p.code] ?? []) if (years.has(r.year)) vals.push(r[field] as number | null | undefined);
+  }
+  return pickAmountUnit(vals);
+}
+
+const numFmt = (v: number, dec = 3) => v.toLocaleString(undefined, { maximumFractionDigits: dec });
+
 // ── 피어 비교 선그래프 (연도별, 최대 4사) ──
-function PeerLine({ peers, fy, field, unit, scale = 1, dec = 0, colors }: {
+function PeerLine({ peers, fy, field, unit, scale = 1, dec = 0, axisWidth = 40, colors }: {
   peers: Peer[]; fy: Record<string, FyPoint[]>; field: keyof FyPoint;
-  unit: string; scale?: number; dec?: number; colors: Record<string, string>;
+  unit: string; scale?: number; dec?: number; axisWidth?: number; colors: Record<string, string>;
 }) {
-  const years = useMemo(() => {
-    const ys = new Set<number>();
-    for (const p of peers) for (const r of fy[p.code] ?? []) ys.add(r.year);
-    return [...ys].sort((a, b) => a - b).slice(-5);
-  }, [peers, fy]);
+  const years = useMemo(() => fyYears(peers, fy), [peers, fy]);
   const data = years.map(y => {
     const row: Record<string, number | null> = { year: y };
     for (const p of peers) {
@@ -73,8 +101,8 @@ function PeerLine({ peers, fy, field, unit, scale = 1, dec = 0, colors }: {
       <LineChart data={data} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid stroke={GRID} vertical={false} />
         <XAxis dataKey="year" tick={AXIS} tickLine={false} axisLine={{ stroke: MUTE }} />
-        <YAxis tick={AXIS} tickFormatter={(v: number) => `${v}${unit}`} tickLine={false} axisLine={false} width={40} />
-        <Tooltip {...tip()} formatter={(v, n) => [`${v}${unit}`, peers.find(p => p.code === n)?.name ?? n]} />
+        <YAxis tick={AXIS} tickFormatter={(v: number) => `${numFmt(v)}${unit}`} tickLine={false} axisLine={false} width={axisWidth} />
+        <Tooltip {...tip()} formatter={(v, n) => [`${numFmt(Number(v))}${unit}`, peers.find(p => p.code === n)?.name ?? n]} />
         <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => peers.find(p => p.code === v)?.name ?? v} />
         {peers.map(p => (
           <Line key={p.code} type="monotone" dataKey={p.code} name={p.code} stroke={colors[p.code]}
@@ -140,14 +168,19 @@ function RoeRoce({ peers, fy, colors }: {
 
 // ── 주주환원 막대 (배당+자사주매입, 10년, 본인) ──
 function ShareholderBar({ data }: { data: FundamentalsData["shareholder"] }) {
+  // 데이터는 억 단위. 축을 '천억'으로 고정하면 환원액이 작은 회사는 전부 0천으로 눌린다.
+  // 매출 차트와 같은 기준을 쓰도록 원으로 환산해 단위를 고른 뒤 다시 억으로 되돌린다.
+  const u = pickAmountUnit(data.map(d => (d.div + d.buyback) * 1e8));
+  const div = u.scale / 1e8; // 억 → 표시단위 환산 계수 (억이면 1, 조면 10,000)
+  const fmt = (v: number) => `${numFmt(v / div, u.dec)}${u.unit}`;
   return (
-    <ChartCard title="주주환원액 (배당 + 자사주매입)" caption="현금흐름표 실측, 최근 10년, 단위: 억 원" tall>
+    <ChartCard title="주주환원액 (배당 + 자사주매입)" caption={`현금흐름표 실측, 최근 10년, 단위: ${u.unit} 원`} tall>
       <ResponsiveContainer>
         <BarChart data={data} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={GRID} vertical={false} />
           <XAxis dataKey="year" tick={AXIS} tickLine={false} axisLine={{ stroke: MUTE }} />
-          <YAxis tick={AXIS} tickFormatter={(v: number) => `${Math.round(v / 1000)}천`} tickLine={false} axisLine={false} width={40} />
-          <Tooltip {...tip()} formatter={(v, n) => [`${Math.round(Number(v)).toLocaleString()}억`, n === "div" ? "배당" : "자사주매입"]} />
+          <YAxis tick={AXIS} tickFormatter={fmt} tickLine={false} axisLine={false} width={u.axisWidth} />
+          <Tooltip {...tip()} formatter={(v, n) => [fmt(Number(v)), n === "div" ? "배당" : "자사주매입"]} />
           <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => (v === "div" ? "배당" : "자사주매입")} />
           <Bar dataKey="div" name="div" stackId="a" fill={SELF_FILL} maxBarSize={40} />
           <Bar dataKey="buyback" name="buyback" stackId="a" fill={NAVY} fillOpacity={0.78} radius={[8, 8, 0, 0]} maxBarSize={40} />
@@ -240,6 +273,8 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
 
   const { peers, fy, ttm, narratives, shareholder } = d;
   const colors = colorMap(peers);
+  // 피어 규모에 맞춰 매출 축 단위를 조/억 중에 고른다(소형주 그룹이 0.0조로 뭉개지지 않게)
+  const revUnit = pickFyAmountUnit(peers, fy, "revenue");
   const writtenAt = d.createdAt
     ? new Date(d.createdAt).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })
     : null;
@@ -260,8 +295,9 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
       {/* 1. 성장동력 */}
       <Section id="growth" title="성장 동력" body={narratives.growth}>
         <div className="grid gap-4 md:grid-cols-2">
-          <ChartCard title="매출액" caption="연간, 단위: 조 원">
-            <PeerLine peers={peers} fy={fy} field="revenue" unit="조" scale={1e12} dec={1} colors={colors} />
+          <ChartCard title="매출액" caption={`연간, 단위: ${revUnit.unit} 원`}>
+            <PeerLine peers={peers} fy={fy} field="revenue" unit={revUnit.unit}
+                      scale={revUnit.scale} dec={revUnit.dec} axisWidth={revUnit.axisWidth} colors={colors} />
           </ChartCard>
           <ChartCard title="매출 성장률 (YoY)" caption="전년 대비, 단위: %">
             <PeerLine peers={peers} fy={fy} field="revenue_growth" unit="%" colors={colors} />
