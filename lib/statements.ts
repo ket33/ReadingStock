@@ -2,6 +2,7 @@
 // 회사·연도마다 계정명이 다르므로(실측 인벤토리 기반) 정규화 + 변형 매칭으로 흡수한다.
 // 컬럼은 [TTM | 연도들(연간 뷰)] 또는 [TTM | 분기들(분기 뷰)] — 값 해석을 컬럼 종류로 일반화.
 import type { FinancialRow, StmtItem, StmtTable, StatementsData, StmtView } from "./types";
+import { finGroup } from "./sector";
 
 /** 계정명 정규화: 목차기호(Ⅰ. 1. 등)·공백·각주표시 제거 */
 function norm(raw: string): string {
@@ -22,6 +23,11 @@ type Sign = "raw" | "outflow" | "inflow";
 interface ItemDef {
   name: string;
   match?: Matcher;
+  /** 후보 계정명 중 '먼저 찾히는 하나'만 쓴다(합산 금지).
+   *  match는 걸리는 계정을 전부 더하는데, 같은 개념의 다른 이름이 한 공시에 함께 있으면
+   *  이중계상이 된다(실측: 기업은행은 '총영업이익' 9.67조와 '순영업이익' 7.89조를 같이 실어
+   *  17.56조로 합산됐다 — 둘은 판관비 차감 전/후로 다른 개념이다). */
+  firstOf?: string[];
   std?: string;
   statements: string[];
   sign?: Sign;
@@ -88,6 +94,13 @@ const IS_GENERAL: ItemDef[] = [
 // ── 손익계산서: 은행·보험 지주 (KB금융) ───────────────────────
 const IS_BANK: ItemDef[] = [
   {
+    name: "순영업수익 (매출 자리)", std: "순영업수익", statements: ["FIN"], emph: true,
+  },
+  {
+    name: "총영업이익 (공시)", firstOf: ["총영업이익", "총영업손익", "영업순수익", "순영업이익"],
+    statements: ["IS", "CIS"],
+  },
+  {
     name: "순이자손익", match: eq("순이자손익", "순이자이익"), statements: ["IS", "CIS"], emph: true,
     children: [
       { name: "이자수익", match: eq("이자수익"), statements: ["IS", "CIS"] },
@@ -122,6 +135,131 @@ const IS_BANK: ItemDef[] = [
       { name: "기타영업외손익", match: eq("기타영업외손익"), statements: ["IS", "CIS"] },
     ],
   },
+  {
+    name: "세전 순이익", statements: ["IS", "CIS"], emph: true,
+    match: n => n.includes("법인세") && n.includes("차감전"),
+  },
+  {
+    name: "법인세비용", statements: ["IS", "CIS"],
+    match: n => (n.startsWith("법인세비용") && !n.includes("차감")) || n === "법인세수익(비용)",
+  },
+  { name: "당기순이익", std: "당기순이익", statements: ["IS", "CIS"], emph: true },
+];
+
+// 금융업 공통 맨 윗줄 — load_financial_toplines.py가 업종군별 규칙으로 적재한 합성값.
+// 은행·증권·보험은 '매출액' 계정이 없어서 이 줄이 매출 자리다(차트·핵심지표도 이 값을 쓴다).
+const NET_OP_REVENUE: ItemDef = {
+  name: "순영업수익 (매출 자리)", std: "순영업수익", statements: ["FIN"], emph: true,
+};
+
+// ── 손익계산서: 증권 ──────────────────────────────────────────
+// 증권사는 파생·FVTPL을 총액(gross)으로 싣는다. 영업수익 25조 같은 숫자가 그대로 뜨는데
+// 그건 거래 총액이지 매출이 아니다 — 그래서 순영업수익을 맨 위에 따로 세우고,
+// 총액은 영업수익/영업비용 아래 접어서 보여준다.
+const IS_SEC: ItemDef[] = [
+  NET_OP_REVENUE,
+  {
+    // 키움·미래에셋은 순액 계정을 안 싣고 총액만 준다 → 자식 합(수익−비용)으로 채운다.
+    name: "순이자손익", match: eq("순이자손익", "순이자이익"), statements: ["IS", "CIS"],
+    sumChildren: true,
+    children: [
+      { name: "이자수익", match: eq("이자수익"), statements: ["IS", "CIS"], sign: "inflow" },
+      { name: "이자비용", match: eq("이자비용"), statements: ["IS", "CIS"], sign: "outflow" },
+    ],
+  },
+  {
+    name: "순수수료손익", match: eq("순수수료손익", "순수수료이익"), statements: ["IS", "CIS"],
+    sumChildren: true,
+    children: [
+      { name: "수수료수익", match: eq("수수료수익"), statements: ["IS", "CIS"], sign: "inflow" },
+      { name: "수수료비용", match: eq("수수료비용"), statements: ["IS", "CIS"], sign: "outflow" },
+    ],
+  },
+  {
+    name: "영업수익 (총액)", match: eq("영업수익"), statements: ["IS", "CIS"], sign: "inflow",
+    children: [
+      { name: "당기손익-공정가치측정금융상품 관련이익", match: eq("당기손익-공정가치측정금융상품관련이익"), statements: ["IS", "CIS"], sign: "inflow" },
+      { name: "파생상품 관련이익", match: eq("파생상품관련이익", "파생상품관련수익"), statements: ["IS", "CIS"], sign: "inflow" },
+      { name: "외환거래이익", match: eq("외환거래이익"), statements: ["IS", "CIS"], sign: "inflow" },
+      { name: "상각후원가측정금융상품 관련이익", match: eq("상각후원가측정금융상품관련이익"), statements: ["IS", "CIS"], sign: "inflow" },
+      { name: "기타의영업수익", match: eq("기타의영업수익", "기타영업수익"), statements: ["IS", "CIS"], sign: "inflow" },
+    ],
+  },
+  {
+    name: "영업비용 (총액)", match: eq("영업비용"), statements: ["IS", "CIS"], sign: "outflow",
+    children: [
+      { name: "당기손익-공정가치측정금융상품 관련손실", match: eq("당기손익-공정가치측정금융상품관련손실"), statements: ["IS", "CIS"], sign: "outflow" },
+      { name: "파생상품 관련손실", match: eq("파생상품관련손실", "파생상품관련비용"), statements: ["IS", "CIS"], sign: "outflow" },
+      { name: "외환거래손실", match: eq("외환거래손실"), statements: ["IS", "CIS"], sign: "outflow" },
+      { name: "상각후원가측정금융상품 관련손실", match: eq("상각후원가측정금융상품관련손실"), statements: ["IS", "CIS"], sign: "outflow" },
+      { name: "기타의영업비용", match: eq("기타의영업비용", "기타영업비용"), statements: ["IS", "CIS"], sign: "outflow" },
+    ],
+  },
+  {
+    name: "판매비와관리비", statements: ["IS", "CIS"], sign: "outflow",
+    match: eq("판매비와관리비", "판매관리비", "일반관리비", "인건비"),
+  },
+  {
+    name: "신용손실충당금 전입액", sign: "outflow", statements: ["IS", "CIS"],
+    match: n => n.startsWith("신용손실충당금") && !n.includes("반영전"),
+  },
+  { name: "영업이익", std: "영업이익", statements: ["IS", "CIS"], emph: true },
+  {
+    name: "영업외손익", statements: ["IS", "CIS"], sumChildren: true,
+    children: [
+      { name: "영업외수익", match: eq("영업외수익"), statements: ["IS", "CIS"] },
+      { name: "영업외비용", match: eq("영업외비용"), statements: ["IS", "CIS"], sign: "outflow" },
+    ],
+  },
+  {
+    name: "세전 순이익", statements: ["IS", "CIS"], emph: true,
+    match: n => n.includes("법인세") && n.includes("차감전"),
+  },
+  {
+    name: "법인세비용", statements: ["IS", "CIS"],
+    match: n => (n.startsWith("법인세비용") && !n.includes("차감")) || n === "법인세수익(비용)",
+  },
+  { name: "당기순이익", std: "당기순이익", statements: ["IS", "CIS"], emph: true },
+];
+
+// ── 손익계산서: 보험 ──────────────────────────────────────────
+// IFRS17 표시 — 보험손익(보험수익−보험서비스비용) + 투자손익(투자영업수익−투자영업비용)
+// = 영업이익. 사업비가 보험서비스비용에 내재돼 있어 판관비 줄이 따로 없다.
+const IS_INS: ItemDef[] = [
+  NET_OP_REVENUE,
+  {
+    name: "보험손익", match: eq("보험손익", "보험서비스결과"), statements: ["IS", "CIS"], emph: true,
+    children: [
+      { name: "보험영업수익", match: eq("보험영업수익", "보험수익", "보험서비스수익"), statements: ["IS", "CIS"] },
+      {
+        name: "보험영업비용", sign: "outflow", statements: ["IS", "CIS"],
+        match: eq("보험영업비용", "보험비용", "보험서비스비용"),
+      },
+      { name: "재보험손익", match: eq("재보험손익", "재보험서비스결과"), statements: ["IS", "CIS"] },
+      { name: "보험금융손익", match: eq("보험금융손익", "보험계약자산(부채)순금융손익"), statements: ["IS", "CIS"] },
+    ],
+  },
+  {
+    name: "투자손익", match: eq("투자손익", "투자영업손익"), statements: ["IS", "CIS"], emph: true,
+    children: [
+      { name: "투자영업수익", match: eq("투자영업수익", "투자서비스수익", "투자수익"), statements: ["IS", "CIS"] },
+      {
+        name: "투자영업비용", sign: "outflow", statements: ["IS", "CIS"],
+        match: eq("투자영업비용", "투자서비스비용", "투자비용"),
+      },
+      { name: "이자수익", match: eq("이자수익"), statements: ["IS", "CIS"] },
+      {
+        name: "당기손익-공정가치측정금융상품 관련손익",
+        match: eq("당기손익-공정가치측정금융상품관련이익", "당기손익-공정가치측정금융상품관련손익"),
+        statements: ["IS", "CIS"],
+      },
+    ],
+  },
+  {
+    name: "신용손실충당금 전입액", sign: "outflow", statements: ["IS", "CIS"],
+    match: n => n.startsWith("신용손실충당금") && !n.includes("반영전"),
+  },
+  { name: "영업이익", std: "영업이익", statements: ["IS", "CIS"], emph: true },
   {
     name: "세전 순이익", statements: ["IS", "CIS"], emph: true,
     match: n => n.includes("법인세") && n.includes("차감전"),
@@ -333,6 +471,14 @@ function indexRows(fyRows: FinancialRow[], qRows: FinancialRow[]): Indexed {
 
 // ── 값 해석 ───────────────────────────────────────────────────
 function valueFY(def: ItemDef, idx: Indexed, year: number): number | null {
+  if (def.firstOf) {
+    for (const nm of def.firstOf) {
+      for (const r of idx.rawsFY) {
+        if (r.year === year && def.statements.includes(r.stmt) && r.n === nm) return r.value;
+      }
+    }
+    return null;
+  }
   if (def.std) {
     for (const s of def.statements) {
       const v = idx.byStdFY.get(`${year}|${s}|${def.std}`);
@@ -356,6 +502,14 @@ function valueFY(def: ItemDef, idx: Indexed, year: number): number | null {
 }
 
 function valueQ(def: ItemDef, idx: Indexed, year: number, q: string): number | null {
+  if (def.firstOf) {
+    for (const nm of def.firstOf) {
+      for (const r of idx.rawsQ) {
+        if (r.year === year && r.q === q && def.statements.includes(r.stmt) && r.n === nm) return r.value;
+      }
+    }
+    return null;
+  }
   if (def.std) {
     for (const s of def.statements) {
       const v = idx.byStdQ.get(`${year}|${q}|${s}|${def.std}`);
@@ -512,9 +666,17 @@ export function buildStatements(
 ): StatementsData {
   const idx = indexRows(fyRows, qRows);
 
-  const isFinancial = (sector ?? "").includes("금융");
+  // ※ 예전엔 sector.includes("금융")만 봐서 은행·보험·증권 15개사가 일반 기업 레이아웃으로
+  //   떨어졌다. 그 표는 매출액·매출원가·매출총이익을 찾는데 금융사엔 그런 계정이 없어
+  //   대부분 빈 줄이 되고, '영업수익'(파생 총액까지 포함한 거래 총액)이 매출액 자리에
+  //   그대로 뜨는 문제가 있었다. load_financial_toplines.py의 fin_group()과 같은 기준으로 맞춘다.
+  const grp = finGroup(sector);
   const isInvest = sector === "투자";
-  const isDefs = isFinancial ? IS_BANK : isInvest ? IS_INVEST : IS_GENERAL;
+  const isDefs =
+    grp === "SEC" ? IS_SEC :
+    grp === "INS" ? IS_INS :
+    grp ? IS_BANK :            // BANK · CARD (은행·금융지주·여신금융)
+    isInvest ? IS_INVEST : IS_GENERAL;
 
   // 연간 컬럼: TTM + 최근 10개 연도(최신 좌측)
   const years = [...new Set(fyRows.filter(r => r.period === "FY" && r.value != null).map(r => r.fiscal_year))]
