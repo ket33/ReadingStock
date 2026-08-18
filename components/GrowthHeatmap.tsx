@@ -4,7 +4,7 @@
 //  - 행 = 산업 그룹, 열 = 최근 11개 분기 (좌→우 시간순), 정렬 = 최신 분기 성장률 내림차순
 //  - 색 = 순차형 단일 색상 램프(연한→진한 초록). 발산형을 쓰지 않는 이유:
 //    명목 매출은 대부분 플러스라 질문은 "어디가 더 빨리 크나" — 빨강은 마이너스 전용으로 남긴다.
-//  - 요약 열(구분선 분리) = 3년 연평균 / 늘어난 기업 N/M
+//  - 요약 열(구분선 분리) = 3년 연평균 / 매출성장 기업 N/M
 //  - 행 클릭 = 멤버별 성장률 펼침 (개별 종목 페이지 링크) + 산업 페이지 링크
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -82,7 +82,7 @@ export default function GrowthHeatmap({ data }: { data: GrowthData }) {
                 3년 연평균
               </th>
               <th className="px-3 py-2.5 text-right text-[11px] font-medium text-on-surface-variant whitespace-nowrap">
-                늘어난 기업
+                매출성장 기업
               </th>
             </tr>
           </thead>
