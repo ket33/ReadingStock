@@ -63,25 +63,35 @@ export default function GrowthHeatmap({ data }: { data: GrowthData }) {
         <div>최근 4개 분기 합산(LTM) 매출의 전년 동기 대비</div>
         <div>단위: %</div>
       </div>
-      <div className="overflow-x-auto rounded-xl border border-outline-variant bg-white">
+      {/* 헤더 고정: sticky는 '가장 가까운 스크롤 조상' 기준이라, overflow-x-auto가 만든
+          이 래퍼가 기준이 된다. 래퍼에 높이 제한이 없으면 세로로 스크롤될 일이 없어
+          sticky top이 먹지 않으므로, max-h를 줘서 표 자체를 세로 스크롤 영역으로 만든다.
+          border-collapse에서는 sticky 셀의 테두리가 사라질 수 있어 구분선은 box-shadow로 그린다. */}
+      <div className="max-h-[70vh] overflow-auto rounded-xl border border-outline-variant bg-white">
         <table className="w-full text-sm border-collapse min-w-max">
           <thead>
-            <tr className="border-b border-outline-variant bg-surface-container-low">
-              <th className="sticky left-0 z-10 bg-surface-container-low text-left px-4 py-2.5
-                             text-xs font-medium text-on-surface-variant min-w-[150px]">
+            <tr className="bg-surface-container-low">
+              <th className="sticky left-0 top-0 z-30 bg-surface-container-low text-left px-4 py-2.5
+                             text-xs font-medium text-on-surface-variant min-w-[150px]
+                             shadow-[inset_0_-1px_0_#c4c6cd]">
                 산업
               </th>
               {quarters.map(q => (
-                <th key={q} className={`px-1.5 py-2.5 text-center text-[11px] font-medium whitespace-nowrap ${
+                <th key={q} className={`sticky top-0 z-20 bg-surface-container-low shadow-[inset_0_-1px_0_#c4c6cd]
+                                        px-1.5 py-2.5 text-center text-[11px] font-medium whitespace-nowrap ${
                   q === latest ? "text-primary font-semibold" : "text-on-surface-variant"
                 }`}>
                   {shortQ(q)}
                 </th>
               ))}
-              <th className="px-3 py-2.5 text-right text-[11px] font-medium text-on-surface-variant whitespace-nowrap border-l-2 border-outline-variant">
+              <th className="sticky top-0 z-20 bg-surface-container-low px-3 py-2.5 text-right text-[11px]
+                             font-medium text-on-surface-variant whitespace-nowrap
+                             shadow-[inset_2px_-1px_0_#c4c6cd]">
                 3년 연평균
               </th>
-              <th className="px-3 py-2.5 text-right text-[11px] font-medium text-on-surface-variant whitespace-nowrap">
+              <th className="sticky top-0 z-20 bg-surface-container-low px-3 py-2.5 text-right text-[11px]
+                             font-medium text-on-surface-variant whitespace-nowrap
+                             shadow-[inset_0_-1px_0_#c4c6cd]">
                 매출성장 기업
               </th>
             </tr>
