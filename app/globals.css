@@ -112,3 +112,12 @@ body {
                      to   { opacity: 1; transform: none; } }
 .rs-fade-in { animation: rs-fade 0.2s ease-out; }
 .rs-pop-in  { animation: rs-pop 0.25s ease-out; }
+
+/* Price 등락 막대 — 0에서 시작해 게이지가 차오르듯 늘어난다.
+   width만 애니메이션하므로 레이아웃 영향이 없고, 값이 바뀌는 기간 탭 전환 때도 다시 찬다. */
+.rs-gauge { transition: width 0.7s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* 모션 최소화를 선호하는 사용자는 즉시 최종 값으로 (접근성) */
+@media (prefers-reduced-motion: reduce) {
+  .rs-gauge { transition: none; }
+}

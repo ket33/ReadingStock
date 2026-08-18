@@ -4,7 +4,7 @@
 //  - Growth: 행=산업 그룹 × 열=최근 10개 분기, LTM 매출 YoY (GrowthHeatmap — 지시서 §4)
 //  - Price: 각 그룹 시총 상위 5개 온보딩 기업의 시총가중 평균 수익률 (1일/1주/1개월/YTD 탭)
 // 의도된 동선: 산업을 먼저 훑고 → /industries/[id] 산업 페이지 → 기업으로.
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { IndustryCategoryMover, IndustryGroupMover } from "@/lib/industry-data";
@@ -125,6 +125,15 @@ function MoverList({ title, rows, period, up }: {
   const barColor = up ? "rgba(217,48,37,0.12)" : "rgba(26,115,232,0.12)";
   const accent = up ? "#d93025" : "#1a73e8";
 
+  // 첫 페인트는 폭 0으로 그리고, 다음 프레임에 목표 폭을 줘서 게이지가 차오르게 한다.
+  // (처음부터 목표 폭이면 transition이 걸릴 구간이 없어 그냥 정적으로 보인다)
+  // 호출부에서 기간이 바뀔 때 key로 리마운트되므로 탭을 바꿀 때마다 다시 찬다.
+  const [filled, setFilled] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setFilled(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   return (
     <div className={`border rounded-xl bg-white p-4 border-t-4 ${up ? "border-t-[#d93025]" : "border-t-[#1a73e8]"} border-outline-variant`}>
       <h3 className="text-lg font-bold text-center mb-3" style={{ color: accent }}>
@@ -137,9 +146,13 @@ function MoverList({ title, rows, period, up }: {
             <li key={g.id}>
               <Link href={`/industries/${g.id}`}
                     className="relative flex items-center gap-2.5 py-2 px-1 group overflow-hidden rounded-md">
-                {/* 등락폭 비례 배경 막대 */}
-                <span aria-hidden className="absolute inset-y-1 left-0 rounded-md"
-                      style={{ width: `${(Math.abs(v) / maxAbs) * 100}%`, backgroundColor: barColor }} />
+                {/* 등락폭 비례 배경 막대 — 위에서부터 순서대로 차오르게 행마다 시작을 조금씩 늦춘다 */}
+                <span aria-hidden className="rs-gauge absolute inset-y-1 left-0 rounded-md"
+                      style={{
+                        width: filled ? `${(Math.abs(v) / maxAbs) * 100}%` : "0%",
+                        backgroundColor: barColor,
+                        transitionDelay: `${i * 60}ms`,
+                      }} />
                 <span className="relative w-6 text-[13px] font-semibold text-on-surface tabular-nums shrink-0">{i + 1}</span>
                 <span className="relative min-w-0">
                   <span className="block text-sm font-bold text-on-surface truncate group-hover:text-primary transition-colors">
@@ -226,8 +239,9 @@ export default function IndustryPage({ categories, navCategories, growth }: {
               ))}
             </div>
             <div className="grid md:grid-cols-2 gap-4">
-              <MoverList title="TOP 8" rows={ranked.gainers} period={period} up />
-              <MoverList title="BOTTOM 8" rows={ranked.losers} period={period} up={false} />
+              {/* key에 기간을 넣어 탭 전환 때 리마운트 → 새 값으로 게이지가 다시 차오른다 */}
+              <MoverList key={`up-${period}`} title="TOP 8" rows={ranked.gainers} period={period} up />
+              <MoverList key={`down-${period}`} title="BOTTOM 8" rows={ranked.losers} period={period} up={false} />
             </div>
 
             {/* 기준 설명 — Price와 같은 폭이라 왼쪽 시작선이 맞는다 */}
