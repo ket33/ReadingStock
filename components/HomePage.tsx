@@ -10,6 +10,7 @@ import { fetchHomeStocks, HOME_PAGE_SIZE } from "@/lib/home-data";
 import type { StockCard, HomeNewsItem } from "@/lib/home-data";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { formatKrw, formatMetric } from "@/lib/format";
+import { formatNewsDateShort } from "@/lib/news-format";
 import SearchBox from "./SearchBox";
 import Logo from "./Logo";
 import SiteHeader from "./SiteHeader";
@@ -91,7 +92,7 @@ function LatestNews({ news }: { news: HomeNewsItem[] }) {
                   {n.companyName}
                 </span>
                 <span className="text-[11px] text-outline">
-                  {n.publishedAt.slice(0, 10).replaceAll("-", ".")}
+                  {formatNewsDateShort(n.publishedAt)}
                 </span>
                 {n.ret1d != null && (
                   <span className={`text-[11px] tabular-nums ${

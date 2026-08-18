@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { fetchGroupPeers } from "@/lib/groups";
-import { CATEGORY_LABEL, stripCompanyPrefix } from "@/lib/news-format";
+import { CATEGORY_LABEL, stripCompanyPrefix, formatNewsDateShort } from "@/lib/news-format";
 
 const PAGE = 5;
 
@@ -57,7 +57,7 @@ export default function RelatedNews({ stockCode, category }: {
           name,
           title: stripCompanyPrefix(n.title as string, name),
           excerpt: (n.body as string).replace(/\s+/g, " ").trim(),
-          date: (n.published_at as string).slice(0, 10).replaceAll("-", "."),
+          date: formatNewsDateShort(n.published_at as string),
         };
       });
       if (alive) setItems(built);

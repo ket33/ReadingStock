@@ -13,7 +13,7 @@ import {
 } from "recharts";
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import type { CompanyNews } from "@/lib/types";
-import { stripCompanyPrefix } from "@/lib/news-format";
+import { stripCompanyPrefix, kstDateKey } from "@/lib/news-format";
 
 const NAVY = "#16243f";
 const SKY = "#4a8eff";
@@ -146,7 +146,7 @@ export default function NewsPriceChart({ stockCode, companyName, news, onOpenNew
     const byIdx = new Map<number, Marker>();
     // 최신 기사가 items 앞에 오도록 내림차순으로 돈다
     for (const n of [...news].sort((a, b) => b.published_at.localeCompare(a.published_at))) {
-      const d = n.published_at.slice(0, 10);
+      const d = kstDateKey(n.published_at);   // prices.date(한국 거래일)와 축을 맞춘다
       if (d < dates[0]) continue;
       const i = snapIndex(dates, d);
       if (i < 0) continue;
