@@ -151,9 +151,15 @@ def check_numbers(output: str, facts: str) -> list[str]:
 
     # 2) 남은 숫자는 낱개로 — 문자열로 있거나(기존 경로) 값이 맞으면 통과
     bad = []
-    for tok in _NUM_RE.findall(rest):
+    for m in _NUM_RE.finditer(rest):
+        tok = m.group()
         if len(tok.replace(",", "").replace(".", "")) <= 1:
             continue  # 한 자리 숫자('3분기' 등)는 대조 의미 없음
+        if tok == "100" and rest[m.end():m.end() + 1] == "%":
+            # '지분을 100% 갖고 있지 않은 자회사'처럼 개념을 풀어주는 말이다.
+            # 이 회사에 대한 사실 주장이 아니라 일반 설명이라 대조 대상이 아니다
+            # (실측: 남은 폴백 5건 중 3건이 이 '100%' 하나로 걸렸다).
+            continue
         if any(v in src for v in _num_variants(tok)):
             continue
         try:
@@ -182,14 +188,17 @@ def check_forbidden(output: str, type_key: str | None = None) -> list[str]:
     return words
 
 
-def validate(title: str, body: str, facts: str) -> list[str]:
-    """위반 사유 목록. 비어 있으면 발송 가능."""
+def validate(title: str, body: str, facts: str, type_key: str | None = None) -> list[str]:
+    """위반 사유 목록. 비어 있으면 발송 가능.
+
+    type_key는 금지어 판정에만 쓴다 — 매수·매도가 공시의 주제 자체인 유형에서
+    그 단어를 사실 서술로 인정하기 위해서다(check_forbidden 참고)."""
     text = title + "\n" + body
     issues = []
     bad_nums = check_numbers(text, facts)
     if bad_nums:
         issues.append(f"사실 원장에 없는 숫자: {', '.join(bad_nums[:5])}")
-    bad_words = check_forbidden(text)
+    bad_words = check_forbidden(text, type_key)
     if bad_words:
         issues.append(f"금지 표현: {', '.join(bad_words)}")
     return issues
