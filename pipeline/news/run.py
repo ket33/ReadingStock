@@ -39,6 +39,18 @@ POLL_BUSINESS_DAYS = 3
 WHOLE_MARKET_THRESHOLD = 150
 
 
+def _has_fallback_reason_column(sb) -> bool:
+    """company_news.fallback_reason이 있는지. (schema_fallback_reason.sql 실행 여부)
+
+    없으면 그 필드를 빼고 저장한다 — 마이그레이션 전에 배포돼도 파이프라인이 멈추지 않게.
+    """
+    try:
+        sb.table("company_news").select("fallback_reason").limit(1).execute()
+        return True
+    except Exception:  # noqa: BLE001 — 컬럼 없음(42703) 외 오류도 '없음'으로 취급하면 안전한 쪽
+        return False
+
+
 def business_days_ago(d: datetime, n: int) -> datetime:
     """d에서 영업일(월~금) n일 전 날짜. 주말은 세지 않는다.
 
@@ -115,6 +127,10 @@ def main():
     end_de = today.strftime("%Y%m%d")
 
     sb = get_client()
+    has_reason_col = _has_fallback_reason_column(sb)
+    if not has_reason_col:
+        print("ℹ company_news.fallback_reason 없음 — 폴백 사유는 기록하지 않는다 "
+              "(pipeline/schema_fallback_reason.sql 실행 시 활성화)")
     companies = sb.table("companies").select("stock_code,corp_code,name,market,sector").execute().data
     print(f"대상 {len(companies)}개사 · 기간 {bgn_de}~{end_de}"
           + (" · dry-run" if args.dry_run else "") + (" · 발송 없음" if args.no_notify else ""))
@@ -179,14 +195,18 @@ def main():
                 report_summary=report_summaries.get(c["stock_code"], ""))
 
             is_fallback = False
+            fallback_reason = None
             if result:
                 title, body = result
                 issues = v.validate(title, body, facts)
                 if issues:
-                    print(f"  검증 실패({'; '.join(issues)}) → 템플릿 폴백")
+                    fallback_reason = "; ".join(issues)[:500]
+                    print(f"  검증 실패({fallback_reason}) → 템플릿 폴백")
                     title, body = v.fallback_article(c["name"], report_nm, rcept_dt)
                     is_fallback = True
             else:
+                fallback_reason = ("생성 실패: "
+                                   + (generate.LAST_ERROR.get("reason") or "사유 미상"))[:500]
                 print("  생성 실패 → 템플릿 폴백")
                 title, body = v.fallback_article(c["name"], report_nm, rcept_dt)
                 is_fallback = True
@@ -200,7 +220,7 @@ def main():
                 made += 1
                 continue
 
-            row = sb.table("company_news").insert({
+            payload = {
                 "stock_code": c["stock_code"],
                 "rcept_no": rcept_no,
                 "report_nm": report_nm,
@@ -211,7 +231,10 @@ def main():
                 "dart_url": dart_news.viewer_url(rcept_no),
                 "is_fallback": is_fallback,
                 "published_at": published_at.isoformat(),
-            }).execute().data[0]
+            }
+            if has_reason_col:
+                payload["fallback_reason"] = fallback_reason
+            row = sb.table("company_news").insert(payload).execute().data[0]
             existing.add(rcept_no)
             made += 1
             print(f"  저장 완료 (id {row['id']}){' [폴백]' if is_fallback else ''}")

@@ -97,6 +97,35 @@ _REPRT_BY_MONTH = {"03": "11013", "06": "11012", "09": "11014", "12": "11011"}
 _KEY_ACCOUNTS = re.compile(r"매출액|수익\(매출액\)|영업수익|영업이익|당기순이익|분기순이익|반기순이익|자산총계|부채총계|자본총계")
 
 
+def fmt_won(raw) -> str | None:
+    """원 단위 숫자 문자열 → '9조 3,960억 원' 같은 읽기 좋은 표기.
+
+    사실 원장을 이 표기로 적는 이유: 재무제표 API는 원 단위 정수(9395970804145)로만
+    주는데, 기사는 당연히 '9조 3,960억 원'으로 쓴다(실측: 통과한 정기보고서 기사 60건에서
+    조·억 표기 546회, 원 단위 생짜 0회). 그런데 검증기는 출력의 숫자가 원장에 문자열로
+    있는지만 보므로, 이 올바른 환산이 '원장에 없는 숫자 3,960'으로 거부돼 폴백됐다.
+    통과 여부가 우연한 부분문자열 일치에 달려 있었다(788949832477 안에 7889가 있으면 통과).
+    원장을 처음부터 기사가 쓸 표기로 적어 그 운을 없앤다.
+    """
+    try:
+        v = int(str(raw).replace(",", "").strip())
+    except (ValueError, AttributeError, TypeError):
+        return None
+    sign = "-" if v < 0 else ""
+    n = abs(v)
+    if n < 10 ** 8:                       # 1억 미만
+        if n < 10 ** 4:
+            return f"{sign}{n:,}원"
+        return f"{sign}{round(n / 10 ** 4):,}만 원"
+    eok = round(n / 10 ** 8)              # 억 단위로 반올림
+    jo, eok = divmod(eok, 10 ** 4)        # 10,000억 = 1조 (반올림 자리올림까지 흡수)
+    if jo and eok:
+        return f"{sign}{jo:,}조 {eok:,}억 원"
+    if jo:
+        return f"{sign}{jo:,}조 원"
+    return f"{sign}{eok:,}억 원"
+
+
 def _fetch_financial_facts(corp_code: str, report_nm: str) -> str:
     """정기보고서의 사실 원장 — 재무제표 API 핵심 계정(당기/전기)."""
     m = _PERIOD_RE.search(report_nm)
@@ -120,9 +149,9 @@ def _fetch_financial_facts(corp_code: str, report_nm: str) -> str:
         if not _KEY_ACCOUNTS.search(nm) or nm in seen:
             continue
         seen.add(nm)
-        cur = row.get("thstrm_amount") or "-"
-        prev = row.get("frmtrm_amount") or "-"
-        lines.append(f"{nm}: 당기 {cur}원 / 전기 {prev}원")
+        cur = fmt_won(row.get("thstrm_amount")) or "-"
+        prev = fmt_won(row.get("frmtrm_amount")) or "-"
+        lines.append(f"{nm}: 당기 {cur} / 전기 {prev}")
         if len(seen) >= 14:
             break
     return "\n".join(lines) if len(lines) > 1 else ""

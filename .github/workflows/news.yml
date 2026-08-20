@@ -56,6 +56,6 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          # 필요 시 생성 모델을 sonnet 등으로 낮춰 처리량·한도 부담을 줄일 수 있다(기본 opus)
-          NEWS_CLAUDE_MODEL: ${{ vars.NEWS_CLAUDE_MODEL || 'opus' }}
+          # 생성 모델. 저장소 변수 NEWS_CLAUDE_MODEL로 덮어쓸 수 있다(예: opus).
+          NEWS_CLAUDE_MODEL: ${{ vars.NEWS_CLAUDE_MODEL || 'sonnet' }}
         run: python -m news.run

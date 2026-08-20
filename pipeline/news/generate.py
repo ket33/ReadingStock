@@ -11,8 +11,12 @@ import shutil
 import subprocess
 
 PROMPT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompt_system.md")
-MODEL = os.environ.get("NEWS_CLAUDE_MODEL", "opus")   # 기사 품질이 서비스 얼굴 — 기본 opus
+MODEL = os.environ.get("NEWS_CLAUDE_MODEL", "sonnet")  # 워크플로 기본값과 같게 (news.yml)
 TIMEOUT = 420  # 초
+
+# 직전 호출의 실패 사유 — run.py가 company_news.fallback_reason에 남긴다.
+# (호출부가 None만 받으면 '생성 실패'라는 사실 외에 아무것도 모른다)
+LAST_ERROR = {"reason": None}
 
 
 def _claude_bin() -> str:
@@ -72,18 +76,25 @@ def write_article(company_name: str, market: str, sector: str | None,
             encoding="utf-8", timeout=TIMEOUT,
         )
     except subprocess.TimeoutExpired:
-        print("  ⚠ claude -p 시간 초과")
+        print(f"  ⚠ claude -p 시간 초과 ({TIMEOUT}초)")
+        LAST_ERROR["reason"] = f"claude -p 시간 초과({TIMEOUT}초)"
         return None
     if r.returncode != 0:
-        print(f"  ⚠ claude -p 실패: {(r.stderr or '')[:200]}")
+        # 한도 초과·인증 만료는 stderr가 비고 stdout에만 메시지가 오는 경우가 있다.
+        # 사유가 안 남으면 '왜 폴백했는지'를 다시 재현해서 알아내야 한다 — 둘 다 남긴다.
+        detail = ((r.stderr or "").strip() or (r.stdout or "").strip() or "(출력 없음)")[:200]
+        print(f"  ⚠ claude -p 실패 (rc={r.returncode}): {detail}")
+        LAST_ERROR["reason"] = f"claude -p rc={r.returncode}: {detail}"
         return None
 
     lines = [ln.rstrip() for ln in (r.stdout or "").strip().split("\n")]
     lines = [ln for i, ln in enumerate(lines) if ln or i > 0]  # 앞쪽 공백 제거
     if not lines:
+        LAST_ERROR["reason"] = "출력 없음(빈 응답)"
         return None
     title = lines[0].strip().lstrip("#").strip()
     body = "\n".join(lines[1:]).strip()
     if not title or not body or len(body) < 50:
+        LAST_ERROR["reason"] = f"출력 부실(제목 {len(title)}자 · 본문 {len(body)}자)"
         return None
     return title, body
