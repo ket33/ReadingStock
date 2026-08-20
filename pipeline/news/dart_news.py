@@ -142,7 +142,13 @@ def _fetch_financial_facts(corp_code: str, report_nm: str) -> str:
         time.sleep(0.4)
     else:
         return ""
-    lines = [f"[{year}년 {month}월 결산 기준 재무제표 ({'연결' if fs == 'CFS' else '별도'})]"]
+    # 전기 연도를 헤더에 밝힌다. 기사는 비교 대상을 자연히 '2025년 같은 기간'이라 부르는데
+    # 헤더에 당기 연도만 있으면 그 2025가 '원장에 없는 숫자'로 걸려 폴백됐다(실측: 재작성
+    # 표본 5건 중 5건이 연도 때문에 실패). 전기 = 당기−1년은 원장이 이미 아는 사실이다.
+    lines = [
+        f"[{year}년 {month}월 결산 기준 재무제표 ({'연결' if fs == 'CFS' else '별도'})]",
+        f"(당기 = {year}년 {int(month)}월 기준 / 전기 = 전년도인 {int(year) - 1}년 같은 기간)",
+    ]
     seen = set()
     for row in rows:
         nm = (row.get("account_nm") or "").strip()

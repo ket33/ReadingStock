@@ -9,6 +9,7 @@ import glob
 import os
 import shutil
 import subprocess
+import threading
 
 PROMPT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prompt_system.md")
 MODEL = os.environ.get("NEWS_CLAUDE_MODEL", "sonnet")  # 워크플로 기본값과 같게 (news.yml)
@@ -16,7 +17,22 @@ TIMEOUT = 420  # 초
 
 # 직전 호출의 실패 사유 — run.py가 company_news.fallback_reason에 남긴다.
 # (호출부가 None만 받으면 '생성 실패'라는 사실 외에 아무것도 모른다)
-LAST_ERROR = {"reason": None}
+# 스레드별로 따로 둔다 — rewrite.py가 여러 건을 동시에 생성하므로 전역 dict면 사유가 뒤섞인다.
+_LOCAL = threading.local()
+
+
+class _LastError:
+    def get(self, key, default=None):
+        return getattr(_LOCAL, "reason", None) or default
+
+    def __setitem__(self, key, value):
+        _LOCAL.reason = value
+
+    def __getitem__(self, key):
+        return getattr(_LOCAL, "reason", None)
+
+
+LAST_ERROR = _LastError()
 
 
 def _claude_bin() -> str:
