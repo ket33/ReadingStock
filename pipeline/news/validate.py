@@ -37,6 +37,23 @@ ALLOWED_TERMS = [
 _ALLOWED_RE = re.compile("|".join(sorted((re.escape(t) for t in ALLOWED_TERMS),
                                          key=len, reverse=True)))
 
+# 매수·매도가 공시의 주제 그 자체인 유형 — 여기선 그 단어를 안 쓰고 사실을 적을 수가 없다.
+TRADE_SUBJECT_TYPES = {
+    "buyback", "share_disposal", "share_retire", "stake_acquire",
+    "merger", "split", "share_swap", "biz_transfer",
+    "cb_issue", "bw_issue", "rights_issue", "overseas_listing",
+}
+
+# 투자 권유 — 유형과 무관하게 언제나 막는다. '매수'라는 단어를 통째로 막던 건
+# 이걸 잡으려는 거친 대용품이었다. 진짜 막아야 하는 건 판단을 대신 내리는 문장이다.
+RECOMMEND_PATTERNS = [
+    "매수 추천", "매수추천", "매수 의견", "매수의견", "매수 타이밍", "매수타이밍",
+    "매수 기회", "매수기회", "매수할 만", "매수해야", "매수하세요", "매수 시점",
+    "매도 추천", "매도추천", "매도 의견", "매도의견", "매도 타이밍", "매도타이밍",
+    "매도해야", "매도하세요", "사야 한다", "사야 할", "팔아야 한다", "팔아야 할",
+    "담아야", "비중 확대", "비중 축소", "투자 매력", "투자매력",
+]
+
 _NUM_RE = re.compile(r"\d[\d,]*\.?\d*")
 
 
@@ -70,23 +87,99 @@ def _num_variants(token: str) -> list[str]:
     return out
 
 
+# ── 값 대조 ───────────────────────────────────────────────────
+# 부분문자열 대조만으로는 두 방향으로 틀린다.
+#   너무 엄격: 원장이 원 단위 정수(36105062000)인데 기사가 '361억 500만 원'으로 옮기면
+#             '500'이 없다며 거부한다. 올바른 환산인데도.
+#   너무 느슨: 9395970804145 안에는 9395·3959·5970이 다 들어 있어, 아무 뜻 없는
+#             조각(=환각 숫자)이 우연히 통과한다.
+# 그래서 '9조 3,960억' 같은 표기를 수치로 환산해 값으로 견준다. 반올림·단위환산은
+# 통과하고, 우연한 부분문자열은 막힌다.
+_UNIT = {"조": 10 ** 12, "억": 10 ** 8, "만": 10 ** 4}
+# '9조 3,960억 원', '361억 500만 원', '2,407만 주' 처럼 단위가 붙어 이어지는 덩어리
+_KOR_AMOUNT_RE = re.compile(
+    r"(?:\d[\d,]*(?:\.\d+)?\s*[조억만]\s*)+(?:\d[\d,]*(?:\.\d+)?\s*)?")
+_TOLERANCE = 0.005   # 0.5% — 억 단위 반올림을 흡수하되 다른 계정과는 안 겹치는 폭
+
+
+def _parse_kor_amount(s: str) -> float | None:
+    """'9조 3,960억' → 9396000000000.0. 단위가 하나도 없으면 None."""
+    total, seen_unit = 0.0, False
+    for num, unit in re.findall(r"(\d[\d,]*(?:\.\d+)?)\s*([조억만]?)", s):
+        if not num:
+            continue
+        v = float(num.replace(",", ""))
+        if unit:
+            seen_unit = True
+        total += v * _UNIT.get(unit, 1)
+    return total if seen_unit and total else None
+
+
+def _fact_values(facts: str) -> list[float]:
+    """원장이 말하는 값들 — 맨 숫자와 한국어 복합 금액을 모두 모은다."""
+    vals = set()
+    for m in _KOR_AMOUNT_RE.finditer(facts):
+        v = _parse_kor_amount(m.group())
+        if v:
+            vals.add(v)
+    for tok in _NUM_RE.findall(facts):
+        try:
+            vals.add(float(tok.replace(",", "")))
+        except ValueError:
+            continue
+    return sorted(vals)
+
+
+def _close(val: float, vals: list[float]) -> bool:
+    if not val:
+        return False
+    return any(abs(val - v) <= max(abs(v), abs(val)) * _TOLERANCE for v in vals)
+
+
 def check_numbers(output: str, facts: str) -> list[str]:
     """사실 원장에 없는 숫자 목록 (비어 있으면 통과)."""
     src = _expand_units(_normalize(facts))
+    fvals = _fact_values(facts)
+
+    # 1) 단위가 붙은 복합 금액은 통째로 값 대조한다. 토큰으로 쪼개면 '9조 3,960억'이
+    #    '9'와 '3,960'이 되어 원래 뜻을 잃는다. 통과한 구간은 지워 2)에서 다시 안 본다.
+    def _verify(m):
+        v = _parse_kor_amount(m.group())
+        return " " * len(m.group()) if (v and _close(v, fvals)) else m.group()
+
+    rest = _KOR_AMOUNT_RE.sub(_verify, output)
+
+    # 2) 남은 숫자는 낱개로 — 문자열로 있거나(기존 경로) 값이 맞으면 통과
     bad = []
-    for tok in _NUM_RE.findall(output):
+    for tok in _NUM_RE.findall(rest):
         if len(tok.replace(",", "").replace(".", "")) <= 1:
             continue  # 한 자리 숫자('3분기' 등)는 대조 의미 없음
-        if not any(v in src for v in _num_variants(tok)):
-            bad.append(tok)
+        if any(v in src for v in _num_variants(tok)):
+            continue
+        try:
+            if _close(float(tok.replace(",", "")), fvals):
+                continue
+        except ValueError:
+            pass
+        bad.append(tok)
     return bad
 
 
-def check_forbidden(output: str) -> list[str]:
+def check_forbidden(output: str, type_key: str | None = None) -> list[str]:
     """금지 표현 목록. 법정 용어(ALLOWED_TERMS)는 지운 뒤에 찾는다 —
-    '공개매수'라고 적은 사실 서술과 '매수 추천'이라는 판단을 가르기 위한 것."""
+    '공개매수'라고 적은 사실 서술과 '매수 추천'이라는 판단을 가르기 위한 것.
+
+    type_key가 TRADE_SUBJECT_TYPES면 맨 '매수/매도' 금지를 푼다. 자기주식취득 기사에서
+    매수는 회사가 실제로 하는 행위라 사실 서술이다(실측: SK하이닉스 자사주 취득 기사가
+    '실제 매수 과정에서 주가가 움직이면'이라는 문장 하나로 폴백됐다). 예외 목록을 늘리는
+    방식은 '매수 과정·매수 단가·매수 물량'을 끝없이 뒤쫓게 되므로 유형으로 가른다.
+    권유 표현(RECOMMEND_PATTERNS)은 유형과 무관하게 항상 막는다."""
     masked = _ALLOWED_RE.sub(" ", output)
-    return [w for w in FORBIDDEN if w in masked]
+    words = [w for w in FORBIDDEN if w in masked]
+    if type_key in TRADE_SUBJECT_TYPES:
+        words = [w for w in words if w not in ("매수", "매도")]
+    words += [p for p in RECOMMEND_PATTERNS if p in output]
+    return words
 
 
 def validate(title: str, body: str, facts: str) -> list[str]:

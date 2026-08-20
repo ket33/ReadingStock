@@ -198,7 +198,7 @@ def main():
             fallback_reason = None
             if result:
                 title, body = result
-                issues = v.validate(title, body, facts)
+                issues = v.validate(title, body, facts, type_key)
                 if issues:
                     fallback_reason = "; ".join(issues)[:500]
                     print(f"  검증 실패({fallback_reason}) → 템플릿 폴백")

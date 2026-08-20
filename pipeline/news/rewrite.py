@@ -152,7 +152,7 @@ def main():
             stat["streak"] = 0
 
         title, body = out
-        issues = v.validate(title, body, facts)
+        issues = v.validate(title, body, facts, r["type_key"])
         if issues:
             log(f"  [{n}/{total}] {c['name']}: 검증 실패 유지 ({'; '.join(issues)[:70]})")
             with _state_lock:
