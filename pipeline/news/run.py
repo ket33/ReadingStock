@@ -5,7 +5,7 @@ run.py — 뉴스룸 파이프라인 메인 (지시서 §1 전체 흐름)
 → Supabase 저장 → 워치리스트 이메일 트리거
 
 사용:
-    python -m news.run                       # 최근 7일 폴링 (일상 운영)
+    python -m news.run                       # 최근 3영업일 폴링 (일상 운영)
     python -m news.run --since 20260701      # 백필 (기간 지정)
     python -m news.run --no-notify           # 이메일 발송 없이 (백필용)
     python -m news.run --dry-run             # DB 저장 없이 생성 결과만 출력
@@ -30,9 +30,28 @@ from news import dart_news, generate, validate as v, whitelist  # noqa: E402
 KST = timezone(timedelta(hours=9))
 NOTIFY_URL = "https://readingstock.com/api/notify-news"
 DEDUPE_DAYS = 7  # 같은 종목·같은 유형이 이 기간 내 이미 보도됐으면 후속·정정으로 보고 스킵
+# 폴링 창 — 오늘부터 이 영업일 수만큼 거슬러 올라간다. 매일 도는 스케줄이라 하루치면
+# 충분하지만, GitHub Actions 예약은 밀리거나 통째로 건너뛰는 게 공식 미보장이라
+# 며칠 여유를 둔다. 재폴링은 rcept_no·유형 중복 제거로 걸러져 무해하다.
+POLL_BUSINESS_DAYS = 3
 # 대상이 이 수를 넘으면 종목별 호출(대상 수만큼) 대신 전체 시장 1회 폴링으로 전환한다.
 # (호출 수가 종목 수와 무관해져 2000+ 상장사까지 확장 가능)
 WHOLE_MARKET_THRESHOLD = 150
+
+
+def business_days_ago(d: datetime, n: int) -> datetime:
+    """d에서 영업일(월~금) n일 전 날짜. 주말은 세지 않는다.
+
+    금요일 저녁에 올라온 공시를 월요일 실행이 놓치지 않게 하려는 것 —
+    달력 3일이면 월요일 창이 금요일까지밖에 안 닿는다.
+    공휴일은 세지 않는다(창이 그만큼 좁아지지만, 어차피 그날은 공시가 없다).
+    """
+    cur, left = d, n
+    while left > 0:
+        cur -= timedelta(days=1)
+        if cur.weekday() < 5:      # 0=월 … 4=금
+            left -= 1
+    return cur
 
 
 def _iter_filings(companies, bgn_de, end_de):
@@ -92,7 +111,7 @@ def main():
     args = ap.parse_args()
 
     today = datetime.now(KST)
-    bgn_de = args.since or (today - timedelta(days=7)).strftime("%Y%m%d")
+    bgn_de = args.since or business_days_ago(today, POLL_BUSINESS_DAYS).strftime("%Y%m%d")
     end_de = today.strftime("%Y%m%d")
 
     sb = get_client()
@@ -109,8 +128,20 @@ def main():
             report_summaries[c["stock_code"]] = art[0]["summary"]
 
     # 이미 처리한 접수번호 (중복 생성 방지)
-    existing = {r["rcept_no"] for r in
-                sb.table("company_news").select("rcept_no").execute().data} if not args.dry_run else set()
+    # ※ 반드시 페이징으로 — PostgREST는 요청당 1,000행에서 조용히 자른다. 페이징 없이 받으면
+    #   3,300건 중 1,000건만 들어와 나머지는 '처음 보는 공시'가 되고, 재폴링 때 claude 호출을
+    #   낭비하며 회원에게 같은 기사를 또 보낸다. (지금은 아래 유형별 중복 제거가 우연히
+    #   받아내고 있을 뿐 — 폴링 창과 DEDUPE_DAYS가 어긋나는 순간 뚫린다)
+    existing = set()
+    if not args.dry_run:
+        start = 0
+        while True:
+            page = sb.table("company_news").select("rcept_no") \
+                .order("id").range(start, start + 999).execute().data
+            existing.update(r["rcept_no"] for r in page)
+            if len(page) < 1000:
+                break
+            start += 1000
 
     made = 0
     for c, filings in _iter_filings(companies, bgn_de, end_de):
