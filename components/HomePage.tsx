@@ -26,7 +26,7 @@ const SORTS: { key: SortKey; label: string }[] = [
 
 // 히어로 검색창 왼쪽 CTA — 대표 리포트 하나로 '읽어보기'가 뭔지 바로 보여준다.
 // 종목을 바꾸려면 이 상수만 고치면 된다.
-const FEATURED = { code: "000660", name: "SK하이닉스" };
+const FEATURED = { code: "005930", name: "삼성전자" };
 
 // 빠른 이동 칩 — 구현된 것만 링크, 나머지는 비활성 + 준비 중 표시 (지시서)
 const CHIPS: { icon: string; label: string; href?: string }[] = [
