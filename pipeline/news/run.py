@@ -34,6 +34,13 @@ DEDUPE_DAYS = 7  # 같은 종목·같은 유형이 이 기간 내 이미 보도�
 # 충분하지만, GitHub Actions 예약은 밀리거나 통째로 건너뛰는 게 공식 미보장이라
 # 며칠 여유를 둔다. 재폴링은 rcept_no·유형 중복 제거로 걸러져 무해하다.
 POLL_BUSINESS_DAYS = 3
+# 연속으로 이만큼 '생성 실패'(claude 호출 자체가 실패)하면 한도 소진으로 보고 멈춘다.
+# 한도 소진은 개별 사고가 아니라 그 뒤 모든 호출이 실패하는 상태다. 그걸 모르고 루프를
+# 끝까지 돌면 남은 공시가 전부 템플릿으로 저장되고, rcept_no까지 찍혀 다음 실행이
+# '이미 처리함'으로 영영 건너뛴다 — 일시적 사고가 영구적 품질 저하로 굳는다.
+# (실측 2026-08-20: 앞 130건 정상 → 뒤 161건 연속 폴백. 정상 구간의 최장 연속 실패는
+#  2건이라 5로 두면 오판하지 않는다.)
+GEN_FAIL_STOP = 5
 # 대상이 이 수를 넘으면 종목별 호출(대상 수만큼) 대신 전체 시장 1회 폴링으로 전환한다.
 # (호출 수가 종목 수와 무관해져 2000+ 상장사까지 확장 가능)
 WHOLE_MARKET_THRESHOLD = 150
@@ -148,19 +155,35 @@ def main():
     #   3,300건 중 1,000건만 들어와 나머지는 '처음 보는 공시'가 되고, 재폴링 때 claude 호출을
     #   낭비하며 회원에게 같은 기사를 또 보낸다. (지금은 아래 유형별 중복 제거가 우연히
     #   받아내고 있을 뿐 — 폴링 창과 DEDUPE_DAYS가 어긋나는 순간 뚫린다)
-    existing = set()
+    # ※ 생성 실패로 폴백된 건은 '처리함'에서 뺀다 — 다시 시도해서 되살리기 위해서.
+    #   claude 호출 자체가 실패한 건(한도 소진·타임아웃)은 재시도하면 제대로 된 기사가
+    #   나온다. 반면 검증 실패 폴백은 다시 돌려도 같은 결과라 그대로 둔다.
+    #   재시도된 건은 아래에서 insert가 아니라 update로 덮어쓴다.
+    existing, retryable = set(), {}
     if not args.dry_run:
         start = 0
+        sel = "id,rcept_no,is_fallback,fallback_reason" if has_reason_col else "id,rcept_no"
         while True:
-            page = sb.table("company_news").select("rcept_no") \
+            page = sb.table("company_news").select(sel) \
                 .order("id").range(start, start + 999).execute().data
-            existing.update(r["rcept_no"] for r in page)
+            for r in page:
+                if (has_reason_col and r.get("is_fallback")
+                        and (r.get("fallback_reason") or "").startswith("생성 실패")):
+                    retryable[r["rcept_no"]] = r["id"]
+                else:
+                    existing.add(r["rcept_no"])
             if len(page) < 1000:
                 break
             start += 1000
+    if retryable:
+        print(f"생성 실패로 폴백됐던 {len(retryable)}건은 다시 시도합니다")
 
     made = 0
+    gen_fail_streak = 0   # 연속 생성 실패 수 — 한도 소진 감지용 (성공하면 0으로)
+    aborted = False
     for c, filings in _iter_filings(companies, bgn_de, end_de):
+        if aborted:
+            break
         for f in filings:
             report_nm = f.get("report_nm", "")
             rcept_no = f.get("rcept_no", "")
@@ -172,7 +195,8 @@ def main():
             published_at = datetime.strptime(rcept_dt, "%Y%m%d").replace(tzinfo=KST)
 
             # 후속·정정 중복 제거 — 같은 종목·유형이 최근에 이미 보도됐으면 스킵 (지시서 §7)
-            if not args.dry_run:
+            # 재시도 건은 건너뛴다 — 자기 자신이 걸려서 영영 스킵되기 때문이다.
+            if not args.dry_run and rcept_no not in retryable:
                 cutoff = (published_at - timedelta(days=DEDUPE_DAYS)).isoformat()
                 dup = sb.table("company_news").select("id") \
                     .eq("stock_code", c["stock_code"]).eq("type_key", type_key) \
@@ -204,10 +228,19 @@ def main():
                     print(f"  검증 실패({fallback_reason}) → 템플릿 폴백")
                     title, body = v.fallback_article(c["name"], report_nm, rcept_dt)
                     is_fallback = True
+                gen_fail_streak = 0
             else:
                 fallback_reason = ("생성 실패: "
                                    + (generate.LAST_ERROR.get("reason") or "사유 미상"))[:500]
-                print("  생성 실패 → 템플릿 폴백")
+                gen_fail_streak += 1
+                print(f"  생성 실패 → 템플릿 폴백 (연속 {gen_fail_streak}건)")
+                # 한도 소진으로 판단되면 '저장하지 않고' 중단한다. 저장을 건너뛰어야
+                # rcept_no가 안 남고, 그래야 다음 실행이 이 공시를 다시 집는다.
+                if gen_fail_streak >= GEN_FAIL_STOP:
+                    print(f"\n⚠ 연속 {GEN_FAIL_STOP}건 생성 실패 — 한도 소진으로 보고 중단합니다.")
+                    print("   저장하지 않았으므로 남은 공시는 다음 실행이 다시 시도합니다.")
+                    aborted = True
+                    break
                 title, body = v.fallback_article(c["name"], report_nm, rcept_dt)
                 is_fallback = True
 
@@ -234,10 +267,23 @@ def main():
             }
             if has_reason_col:
                 payload["fallback_reason"] = fallback_reason
-            row = sb.table("company_news").insert(payload).execute().data[0]
+
+            old_id = retryable.pop(rcept_no, None)
+            if old_id is not None:
+                # 재시도 건 — 새로 넣지 않고 기존 행의 본문만 갈아끼운다.
+                # notified_at은 건드리지 않는다: 이미 다이제스트로 나간 기사를 다시 보내지 않는다.
+                patch = {"title": title, "body": body, "is_fallback": is_fallback}
+                if has_reason_col:
+                    patch["fallback_reason"] = fallback_reason
+                sb.table("company_news").update(patch).eq("id", old_id).execute()
+                row_id = old_id
+                label = "재작성"
+            else:
+                row_id = sb.table("company_news").insert(payload).execute().data[0]["id"]
+                label = "저장"
             existing.add(rcept_no)
             made += 1
-            print(f"  저장 완료 (id {row['id']}){' [폴백]' if is_fallback else ''}")
+            print(f"  {label} 완료 (id {row_id}){' [폴백]' if is_fallback else ''}")
 
     print(f"\n완료: 뉴스 {made}건 생성")
 
