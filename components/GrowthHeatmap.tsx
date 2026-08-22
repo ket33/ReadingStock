@@ -59,9 +59,8 @@ export default function GrowthHeatmap({ data }: { data: GrowthData }) {
 
   return (
     <div>
-      <div className="text-right text-[11px] text-outline mb-1 leading-relaxed">
-        <div>최근 4개 분기 합산 매출의 전년 동기 대비</div>
-        <div>단위: %</div>
+      <div className="text-right text-[11px] text-on-surface-variant mb-1">
+        최근 4개 분기 합산 매출의 전년 동기 대비(단위 : %)
       </div>
       {/* 헤더는 '페이지 스크롤' 기준으로 고정한다(top-16 = 사이트 헤더 h-16 바로 아래).
           sticky는 가장 가까운 스크롤 조상을 기준으로 잡으므로, 래퍼에 overflow가 걸려 있으면

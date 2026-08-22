@@ -245,7 +245,7 @@ export default function IndustryPage({ categories, navCategories, growth }: {
           {/* ── Growth: 매출 성장 히트맵 (지시서 §4) ── */}
           <section className="mt-12">
             <h2 className="font-serif text-2xl md:text-3xl font-semibold text-primary text-center">Growth</h2>
-            <p className="text-sm text-outline text-center mt-1 mb-4">산업 매출 성장</p>
+            <p className="text-sm text-outline text-center mt-1 mb-1.5">산업 매출 성장</p>
             <GrowthHeatmap data={growth} />
             <p className="mt-2 text-[11px] text-outline">* 금융업은 매출액 대신 순영업수익을 사용합니다.</p>
           </section>
