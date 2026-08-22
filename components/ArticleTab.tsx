@@ -194,7 +194,7 @@ export default function ArticleTab({ article, charts, sector, industryGroup, sto
       </div>
 
       {/* 바이라인 — 핵심 요약 바로 위 */}
-      <p className="text-sm text-outline mb-6">by ReadingStock&apos;s Analyst</p>
+      <p className="text-[13px] text-outline mb-6">by ReadingStock&apos;s Analyst</p>
 
       {/* 핵심 요약 — 긴 글을 읽기 전 30초 만에 회사의 핵심을 잡는 앵커 (본문 15px보다 작은 14px) */}
       {summaryLines && (

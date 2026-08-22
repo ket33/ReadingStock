@@ -290,7 +290,7 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
       </div>
       {writtenAt && (
         <p className="text-[13px] text-outline mb-5">
-          {writtenAt}에 작성되었습니다.&ensp;&ensp;by ReadingStock&apos;s Analyst
+          by ReadingStock&apos;s Analyst&ensp;&ensp;{writtenAt}에 작성되었습니다.
         </p>
       )}
 
