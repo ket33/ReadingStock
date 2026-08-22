@@ -72,9 +72,10 @@ export default function NewsTab({ news, companyName, stockCode, openRequest }: {
 
         <div className="mb-3"><MetaLine n={open} /></div>
 
-        <h1 className="font-serif text-[24px] md:text-[28px] leading-snug font-bold text-primary mb-6">
+        <h1 className="font-serif text-[24px] md:text-[28px] leading-snug font-bold text-primary mb-2">
           {stripCompanyPrefix(open.title, companyName)}
         </h1>
+        <p className="text-xs text-outline mb-6">by ReadingStock&apos;s Reporter</p>
 
         {/* 본문 — 문단 구분은 빈 줄 */}
         <div className="space-y-4">

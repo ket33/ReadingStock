@@ -76,16 +76,24 @@ function basedOnCore(basedOn: string | null): string | null {
   return parts.length ? parts.join(" + ") : null;
 }
 
-/** "2025 FY + 2026 1Q TTM" → "2025년 연간 실적 및 2026년 1분기 TTM 기준" */
+/** "2025 FY + 2026 1Q TTM" → "2026년 1분기 기준 최근 12개월 실적, DART 공시 기반"
+ *  TTM(최근 4개 분기 합)이 곧 '최근 12개월'이라 그 분기 하나만 밝히면 충분하다.
+ *  TTM 항목이 없으면(연간만 있는 글) 연간 표기로 떨어진다. */
 function basedOnLabel(core: string | null): string | null {
   if (!core) return null;
-  const label = core.split(" + ").map(p => {
-    const m = p.trim().match(/^(\d{4})\s+(FY|([1-4])Q)(\s+TTM)?$/);
-    if (!m) return p.trim();
-    if (m[2] === "FY") return `${m[1]}년 연간 실적`;
-    return `${m[1]}년 ${m[3]}분기${m[4] ? " TTM" : ""}`;
-  });
-  return label.join(" 및 ") + " 기준";
+  const parts = core.split(" + ").map(p => p.trim());
+  const suffix = ", DART 공시 기반";
+
+  const ttm = parts.map(p => p.match(/^(\d{4})\s+([1-4])Q\s+TTM$/)).find(Boolean);
+  if (ttm) return `${ttm[1]}년 ${ttm[2]}분기 기준 최근 12개월 실적${suffix}`;
+
+  const fy = parts.map(p => p.match(/^(\d{4})\s+FY$/)).find(Boolean);
+  if (fy) return `${fy[1]}년 연간 실적 기준${suffix}`;
+
+  const q = parts.map(p => p.match(/^(\d{4})\s+([1-4])Q$/)).find(Boolean);
+  if (q) return `${q[1]}년 ${q[2]}분기 기준${suffix}`;
+
+  return null;
 }
 
 const mdComponents = {
@@ -179,11 +187,14 @@ export default function ArticleTab({ article, charts, sector, industryGroup, sto
         );
       })()}
 
-      {/* 메타줄: 생성일 + 재무 기준만 */}
-      <div className="border-y border-outline-variant py-3 mb-10 text-[13px] text-on-surface-variant space-y-0.5">
-        <div>{created} 생성</div>
+      {/* 메타줄: 작성일 + 재무 기준만 */}
+      <div className="border-y border-outline-variant py-3 mb-4 text-[13px] text-on-surface-variant space-y-0.5">
+        <div>{created}에 작성되었습니다.</div>
         {coreLabel && <div>{coreLabel}</div>}
       </div>
+
+      {/* 바이라인 — 핵심 요약 바로 위 */}
+      <p className="text-xs text-outline mb-6">by ReadingStock&apos;s Analyst</p>
 
       {/* 핵심 요약 — 긴 글을 읽기 전 30초 만에 회사의 핵심을 잡는 앵커 (본문 15px보다 작은 14px) */}
       {summaryLines && (

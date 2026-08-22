@@ -288,7 +288,12 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
         {/* 펀더멘탈 탭이 바로 열리는 딥링크 복사 */}
         <ShareButton stockCode={stockCode} path={`/stock/${stockCode}?tab=fundamentals`} />
       </div>
-      {writtenAt && <p className="text-xs text-outline mb-5">{writtenAt}에 작성되었습니다.</p>}
+      {writtenAt && (
+        <div className="mb-5 space-y-0.5">
+          <p className="text-xs text-outline">{writtenAt}에 작성되었습니다.</p>
+          <p className="text-xs text-outline">by ReadingStock&apos;s Analyst</p>
+        </div>
+      )}
 
       <ChapterNav active={active} onJump={jump} />
 
