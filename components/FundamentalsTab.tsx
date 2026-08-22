@@ -11,6 +11,7 @@ import {
 import { supabaseBrowser } from "@/lib/supabase-browser";
 import { loadFundamentals, type FundamentalsData, type FyPoint, type Peer } from "@/lib/fundamentals-data";
 import ShareButton from "./ShareButton";
+import Disclaimer from "./Disclaimer";
 import WatchButton from "./auth/WatchButton";
 
 const SELF = "#2f9e63";       // 본인 선(초록, 기존보다 연하게)
@@ -351,10 +352,8 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
         <WatchButton stockCode={stockCode} />
         <ShareButton stockCode={stockCode} path={`/stock/${stockCode}?tab=fundamentals`} />
       </div>
-      <p className="mt-8 text-xs text-outline">
-        공시·재무 데이터를 바탕으로 한 참고 자료로, 특정 종목의 매수·매도를 권유하지 않아요.
-        투자 판단의 책임은 투자자 본인에게 있어요.
-      </p>
+      {/* 하단 고지 — 리포트 탭과 같은 문구 (components/Disclaimer.tsx) */}
+      <Disclaimer className="mt-8" />
     </div>
   );
 }

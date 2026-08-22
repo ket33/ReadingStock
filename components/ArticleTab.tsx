@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import { ChartByNumber } from "./charts";
 import RequestArticleButton from "./RequestArticleButton";
 import ShareButton from "./ShareButton";
+import Disclaimer from "./Disclaimer";
 import WatchButton from "./auth/WatchButton";
 import { parseSummary } from "@/lib/summary";
 import { isFinancialSector } from "@/lib/sector";
@@ -150,7 +151,8 @@ export default function ArticleTab({ article, charts, sector, industryGroup, sto
   }
 
   const { title, rest } = extractHead(article.body);
-  const { body: mainBody, disclaimer } = extractTail(rest);
+  // 글이 스스로 쓴 꼬리 디스클레이머는 걷어내기만 한다 — 하단 고지는 Disclaimer로 통일한다
+  const { body: mainBody } = extractTail(rest);
   const parts = splitBody(mainBody);
   const summaryLines = parseSummary(article.summary); // 없으면 박스 자체를 렌더하지 않는다
   const created = new Date(article.created_at).toLocaleDateString("ko-KR", {
@@ -231,14 +233,8 @@ export default function ArticleTab({ article, charts, sector, industryGroup, sto
         <ShareButton stockCode={stockCode} />
       </div>
 
-      {/* 하단: 디스클레이머(작게) + 데이터 기준 + AI 안내 — 구분선 없이 */}
-      <div className="mt-8 space-y-1.5">
-        {disclaimer && (
-          <p className="text-[12px] leading-relaxed text-outline italic">{disclaimer}</p>
-        )}
-        {core && <p className="text-xs text-outline">데이터 기준: {core}</p>}
-        <p className="text-xs text-outline">이 글은 AI가 자동으로 작성했습니다.</p>
-      </div>
+      {/* 하단 고지 — 리포트·펀더멘탈 탭이 같은 문구를 쓴다 (lib/disclaimer.ts) */}
+      <Disclaimer className="mt-8" />
     </div>
   );
 }
