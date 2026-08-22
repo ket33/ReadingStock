@@ -69,7 +69,7 @@ export default function GrowthHeatmap({ data }: { data: GrowthData }) {
           단 좁은 화면에선 표가 화면보다 넓어 가로 스크롤이 필요하므로 lg 미만에서만 살려둔다
           (이때는 래퍼가 스크롤 조상이 되어 헤더 고정은 동작하지 않는다).
           border-collapse에서는 sticky 셀의 테두리가 사라질 수 있어 구분선은 box-shadow로 그린다. */}
-      <div className="overflow-x-auto lg:overflow-x-visible rounded-xl border border-outline-variant bg-white">
+      <div className="overflow-x-auto lg:overflow-x-visible rounded-xl border-2 border-outline bg-white">
         <table className="w-full text-sm border-collapse min-w-max">
           <thead>
             <tr className="bg-surface-container-low">
