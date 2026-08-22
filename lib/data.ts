@@ -95,6 +95,7 @@ function buildCharts(fin: FinancialRow[], metrics: MetricsRow[], finQ: Financial
   const revStd = isFinancial ? "순영업수익" : "매출액";
   const revenueOp = years.map(y => ({
     year: y,
+    label: String(y),
     revenue: toEok(pick(idx, y, revStmts, revStd)),
     op: toEok(pick(idx, y, ["IS", "CIS"], "영업이익")),
   }));
@@ -104,15 +105,19 @@ function buildCharts(fin: FinancialRow[], metrics: MetricsRow[], finQ: Financial
     .sort((a, b) => a.fiscal_year - b.fiscal_year);
 
   const margins = fyMetrics.map(m => ({
-    year: m.fiscal_year, gross: m.gross_margin, op: m.op_margin, net: m.net_margin,
+    year: m.fiscal_year, label: String(m.fiscal_year),
+    gross: m.gross_margin, op: m.op_margin, net: m.net_margin,
   }));
-  const roe = fyMetrics.map(m => ({ year: m.fiscal_year, roe: m.roe, roa: m.roa }));
+  const roe = fyMetrics.map(m => ({
+    year: m.fiscal_year, label: String(m.fiscal_year), roe: m.roe, roa: m.roa,
+  }));
 
   const cashflow = years.map(y => {
     const ocf = pick(idx, y, ["CF"], "영업현금흐름");
     const cx = capex.get(y) ?? null;
     return {
       year: y,
+      label: String(y),
       ocf: toEok(ocf),
       fcf: ocf != null && cx != null ? toEok(ocf - Math.abs(cx)) : null,
     };
@@ -178,6 +183,54 @@ function buildCharts(fin: FinancialRow[], metrics: MetricsRow[], finQ: Financial
   const roeQ = qMetrics.map(m => ({
     label: qLabel(m.fiscal_year, m.period), roe: m.roe, roa: m.roa,
   }));
+
+  // ── 연간 시리즈 끝에 TTM 한 칸 ────────────────────────────
+  // 연간 축은 사업보고서가 나온 해까지만 그려져서, 반기까지 나온 올해가 통째로 빠진다.
+  // 재무제표 탭이 이미 [TTM | 2025 | 2024 …]로 TTM을 보여주므로 관례를 맞춘다.
+  // 흐름 항목(매출·영업이익·현금흐름)은 최근 4개 단일분기 합, 비율(마진·ROE)은
+  // metrics의 최신 분기 행이 이미 TTM 기준이라 그 값을 그대로 쓴다.
+  const lastFyYear = years.length ? years[years.length - 1] : 0;
+  const ttmYear = lastFyYear + 0.5;   // 정렬상 맨 끝. NaN은 "$NaN"으로 직렬화돼 쓰지 않는다
+  const last4 = quarters.slice(-4);
+  const sum4 = (pickOne: (year: number, q: string) => number | null): number | null => {
+    if (last4.length < 4) return null;          // 4개가 안 차면 TTM이 아니다
+    let acc = 0;
+    for (const { year, q } of last4) {
+      const v = pickOne(year, q);
+      if (v == null) return null;               // 한 분기라도 비면 합이 틀어진다
+      acc += v;
+    }
+    return acc;
+  };
+
+  const ttmRevenue = sum4((y, q) => pickQ(idxQ, y, q, revStmts, revStd));
+  const ttmOp = sum4((y, q) => pickQ(idxQ, y, q, ["IS", "CIS"], "영업이익"));
+  if (ttmRevenue != null || ttmOp != null) {
+    revenueOp.push({ year: ttmYear, label: "TTM", revenue: toEok(ttmRevenue), op: toEok(ttmOp) });
+  }
+
+  const ttmOcf = sum4((y, q) => pickQ(idxQ, y, q, ["CF"], "영업현금흐름"));
+  const ttmCapex = sum4((y, q) => capexQ.get(`${y}|${q}`) ?? null);
+  if (ttmOcf != null) {
+    cashflow.push({
+      year: ttmYear, label: "TTM",
+      ocf: toEok(ttmOcf),
+      fcf: ttmCapex != null ? toEok(ttmOcf - Math.abs(ttmCapex)) : null,
+    });
+  }
+
+  const lastQ = qMetrics[qMetrics.length - 1];
+  if (lastQ) {
+    if (lastQ.gross_margin != null || lastQ.op_margin != null || lastQ.net_margin != null) {
+      margins.push({
+        year: ttmYear, label: "TTM",
+        gross: lastQ.gross_margin, op: lastQ.op_margin, net: lastQ.net_margin,
+      });
+    }
+    if (lastQ.roe != null || lastQ.roa != null) {
+      roe.push({ year: ttmYear, label: "TTM", roe: lastQ.roe, roa: lastQ.roa });
+    }
+  }
 
   // 값이 전혀 없는 시리즈는 비워서 토글을 숨긴다
   const empty = <T,>(arr: T[], has: (t: T) => boolean) => (arr.some(has) ? arr : []);

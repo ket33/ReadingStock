@@ -67,12 +67,14 @@ export interface Article {
 
 export interface RevenueOpPoint {
   year: number;
+  label: string;          // X축 표기 — 연도 또는 'TTM'(최근 4개 분기 합)
   revenue: number | null; // 억 원
   op: number | null;      // 억 원
 }
 
 export interface MarginPoint {
   year: number;
+  label: string;
   gross: number | null;
   op: number | null;
   net: number | null;
@@ -80,12 +82,14 @@ export interface MarginPoint {
 
 export interface RoePoint {
   year: number;
+  label: string;
   roe: number | null;
   roa: number | null; // 금융사 통합차트(ROE·ROA)용
 }
 
 export interface CashflowPoint {
   year: number;
+  label: string;
   ocf: number | null;  // 억 원
   fcf: number | null;  // 억 원
 }

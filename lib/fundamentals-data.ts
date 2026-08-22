@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface FyPoint {
   year: number;
+  label: string;                 // X축 표기 — 연도 또는 'TTM'(최근 4개 분기 기준)
   revenue: number | null;        // 원
   revenue_growth: number | null; // %
   roe: number | null;
@@ -18,7 +19,10 @@ export interface TtmPoint {
   fcf_margin: number | null; capex_sales: number | null; roe: number | null; roce: number | null;
 }
 export interface Peer { code: string; name: string; isSelf: boolean; }
-export interface ShareholderYear { year: number; div: number; buyback: number; } // 억원
+export interface ShareholderYear {
+  year: number; div: number; buyback: number;   // 억원
+  partial?: boolean;             // 사업보고서 전(반기까지)이면 true — 빗금으로 구분해 그린다
+}
 
 export interface FundamentalsData {
   narratives: Record<string, string>;   // growth/profitability/health/shareholder
@@ -69,14 +73,37 @@ export async function loadFundamentals(sb: SupabaseClient, code: string): Promis
   const nameMap = new Map(names.map(n => [n.stock_code, n.name]));
   const peers: Peer[] = peerCodes.map(c => ({ code: c, name: nameMap.get(c) ?? c, isSelf: c === code }));
 
+  type MetricRow = Omit<FyPoint, "year" | "label"> & {
+    stock_code: string; fiscal_year: number; period: string;
+  };
+  // FY와 분기 행을 함께 받는다 — 분기 행은 이미 TTM 기준이라 연간 축 끝에 그대로 붙는다.
+  // (연간 축이 사업보고서가 나온 해까지만 그려져서 반기까지 나온 올해가 통째로 빠지던 문제)
   const { data: metricsRaw } = await sb.from("metrics")
-    .select(FY_COLS + ",stock_code").in("stock_code", peerCodes).eq("period", "FY");
-  // DB 컬럼은 fiscal_year → 차트에서 쓰는 year로 별칭
-  const metrics = (metricsRaw ?? []) as unknown as (Omit<FyPoint, "year"> & { stock_code: string; fiscal_year: number })[];
+    .select(FY_COLS + ",stock_code,period").in("stock_code", peerCodes);
+  const rows = (metricsRaw ?? []) as unknown as MetricRow[];
+
   const fy: Record<string, FyPoint[]> = {};
   for (const c of peerCodes) fy[c] = [];
-  for (const m of metrics) (fy[m.stock_code] ??= []).push({ ...m, year: m.fiscal_year });
+  for (const m of rows) {
+    if (m.period !== "FY") continue;
+    (fy[m.stock_code] ??= []).push({ ...m, year: m.fiscal_year, label: String(m.fiscal_year) });
+  }
   for (const c of peerCodes) fy[c].sort((a, b) => a.year - b.year);
+
+  // 피어마다 자기 최신 분기 행을 골라 TTM 칸으로 덧붙인다 (결산월이 달라 종목마다 다르다)
+  const QORDER = ["1Q", "2Q", "3Q", "4Q"];
+  for (const c of peerCodes) {
+    const qs = rows.filter(m => m.stock_code === c && m.period !== "FY")
+      .sort((a, b) => a.fiscal_year !== b.fiscal_year
+        ? a.fiscal_year - b.fiscal_year
+        : QORDER.indexOf(a.period) - QORDER.indexOf(b.period));
+    const last = qs[qs.length - 1];
+    if (!last) continue;
+    // 연간 마지막 해보다 오래된 분기면 덧붙일 이유가 없다
+    const lastFy = fy[c][fy[c].length - 1]?.year ?? -Infinity;
+    if (last.fiscal_year < lastFy) continue;
+    fy[c].push({ ...last, year: last.fiscal_year + 0.5, label: "TTM" });
+  }
 
   const { data: scrRaw } = await sb.from("screener")
     .select("stock_code,gross_margin,op_margin,net_margin,fcf_margin,capex_sales,roe,roce")
@@ -86,23 +113,35 @@ export async function loadFundamentals(sb: SupabaseClient, code: string): Promis
   for (const s of scr) ttm[s.stock_code] = s;
 
   // 4) 주주환원(본인, CF 실측): 배당금지급 + 자기주식취득, 연도별 억원
+  // FY(연간)와 2Q_cum(반기 누적)을 함께 받는다. 사업보고서가 아직 없는 올해도
+  // 반기까지 집행한 금액이 현금흐름표에 이미 찍혀 있어서, 그 해를 통째로 비우지 않는다.
+  // 연간 막대 옆에 반기 막대를 그냥 세우면 급감한 것처럼 보이므로 partial로 표시해 빗금 처리한다.
   const { data: cf } = await sb.from("financials")
-    .select("fiscal_year,account_raw,value").eq("stock_code", code)
-    .eq("statement", "CF").eq("period", "FY")
+    .select("fiscal_year,period,account_raw,value").eq("stock_code", code)
+    .eq("statement", "CF").in("period", ["FY", "2Q_cum"])
     .or("account_raw.ilike.%배당금%,account_raw.ilike.%자기주식%");
-  const byYear = new Map<number, { div: number; buyback: number }>();
+  // 기간별로 따로 모은 뒤 합친다 — 같은 해에 FY가 있으면 FY가 이기고, 없을 때만 반기를 쓴다.
+  const acc = { FY: new Map<number, { div: number; buyback: number }>(),
+                H1: new Map<number, { div: number; buyback: number }>() };
   for (const r of cf ?? []) {
     const nm = ((r.account_raw as string) || "").replace(/\s/g, "");
     const v = Math.abs((r.value as number) ?? 0);
     const y = r.fiscal_year as number;
-    const d = byYear.get(y) ?? { div: 0, buyback: 0 };
+    const bucket = (r.period as string) === "FY" ? acc.FY : acc.H1;
+    const d = bucket.get(y) ?? { div: 0, buyback: 0 };
     if (nm.includes("배당금") && nm.includes("지급") && !nm.includes("수취")) d.div += v;
     else if (nm.includes("자기주식") && nm.includes("취득")) d.buyback += v;
-    byYear.set(y, d);
+    bucket.set(y, d);
   }
-  const shareholder: ShareholderYear[] = [...byYear.entries()]
-    .sort((a, b) => a[0] - b[0]).slice(-10)
-    .map(([year, v]) => ({ year, div: v.div / 1e8, buyback: v.buyback / 1e8 }));
+  const years = [...new Set([...acc.FY.keys(), ...acc.H1.keys()])].sort((a, b) => a - b);
+  const shareholder: ShareholderYear[] = years.slice(-10).map(year => {
+    const full = acc.FY.get(year);
+    const v = full ?? acc.H1.get(year)!;
+    return {
+      year, div: v.div / 1e8, buyback: v.buyback / 1e8,
+      ...(full ? {} : { partial: true }),
+    };
+  });
 
   return { narratives, basedOn, createdAt, peers, fy, ttm, shareholder };
 }

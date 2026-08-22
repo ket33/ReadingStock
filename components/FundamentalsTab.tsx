@@ -9,7 +9,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
 } from "recharts";
 import { supabaseBrowser } from "@/lib/supabase-browser";
-import { loadFundamentals, type FundamentalsData, type FyPoint, type Peer } from "@/lib/fundamentals-data";
+import { loadFundamentals, type FundamentalsData, type FyPoint, type Peer, type ShareholderYear } from "@/lib/fundamentals-data";
 import ShareButton from "./ShareButton";
 import Disclaimer from "./Disclaimer";
 import WatchButton from "./auth/WatchButton";
@@ -91,8 +91,11 @@ function PeerLine({ peers, fy, field, unit, scale = 1, dec = 0, axisWidth = 40, 
   unit: string; scale?: number; dec?: number; axisWidth?: number; colors: Record<string, string>;
 }) {
   const years = useMemo(() => fyYears(peers, fy), [peers, fy]);
+  // x축 라벨은 본인(첫 피어) 시계열의 label을 따른다 — 마지막 칸이 'TTM'이다
+  const labelOf = (y: number) =>
+    (fy[peers[0]?.code] ?? []).find(r => r.year === y)?.label ?? String(y);
   const data = years.map(y => {
-    const row: Record<string, number | null> = { year: y };
+    const row: Record<string, number | string | null> = { year: y, label: labelOf(y) };
     for (const p of peers) {
       const v = (fy[p.code] ?? []).find(r => r.year === y)?.[field] as number | null | undefined;
       row[p.code] = v == null ? null : Number((v / scale).toFixed(dec));
@@ -103,7 +106,7 @@ function PeerLine({ peers, fy, field, unit, scale = 1, dec = 0, axisWidth = 40, 
     <ResponsiveContainer>
       <LineChart data={data} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
         <CartesianGrid stroke={GRID} vertical={false} />
-        <XAxis dataKey="year" tick={AXIS} tickLine={false} axisLine={{ stroke: MUTE }} />
+        <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={{ stroke: MUTE }} />
         <YAxis tick={AXIS} tickFormatter={(v: number) => `${numFmt(v)}${unit}`} tickLine={false} axisLine={false} width={axisWidth} />
         <Tooltip {...tip()} formatter={(v, n) => [`${numFmt(Number(v))}${unit}`, peers.find(p => p.code === n)?.name ?? n]} />
         <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => peers.find(p => p.code === v)?.name ?? v} />
@@ -174,19 +177,53 @@ function ShareholderBar({ data }: { data: FundamentalsData["shareholder"] }) {
   // 데이터는 억 단위. 축을 '천억'으로 고정하면 환원액이 작은 회사는 전부 0천으로 눌린다.
   // 매출 차트와 같은 기준을 쓰도록 원으로 환산해 단위를 고른 뒤 다시 억으로 되돌린다.
   const u = pickAmountUnit(data.map(d => (d.div + d.buyback) * 1e8));
+  const hasPartial = data.some(d => d.partial);
   const div = u.scale / 1e8; // 억 → 표시단위 환산 계수 (억이면 1, 조면 10,000)
   const fmt = (v: number) => `${numFmt(v / div, u.dec)}${u.unit}`;
   return (
-    <ChartCard title="주주환원액 (배당 + 자사주매입)" caption={`현금흐름표 실측, 최근 10년, 단위: ${u.unit} 원`} tall>
+    <ChartCard
+      title="주주환원액 (배당 + 자사주매입)"
+      caption={`현금흐름표 실측, 최근 10년, 단위: ${u.unit} 원`
+        + (hasPartial ? " · 빗금은 사업보고서 전이라 반기까지 집행된 금액" : "")}
+      tall
+    >
       <ResponsiveContainer>
         <BarChart data={data} margin={{ top: 6, right: 8, left: 0, bottom: 0 }}>
+          {/* 반기까지만 집행된 해를 구분하는 빗금 — 연간 막대와 나란히 두면
+              급감한 것처럼 보여서, 아직 한 해가 안 끝났다는 걸 무늬로 알린다 */}
+          <defs>
+            <pattern id="rs-partial-div" width={6} height={6}
+                     patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+              <rect width={6} height={6} fill={SELF_FILL} />
+              <line x1={0} y1={0} x2={0} y2={6} stroke="#ffffff" strokeWidth={2.4} />
+            </pattern>
+            <pattern id="rs-partial-buyback" width={6} height={6}
+                     patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+              <rect width={6} height={6} fill={NAVY} fillOpacity={0.78} />
+              <line x1={0} y1={0} x2={0} y2={6} stroke="#ffffff" strokeWidth={2.4} />
+            </pattern>
+          </defs>
           <CartesianGrid stroke={GRID} vertical={false} />
           <XAxis dataKey="year" tick={AXIS} tickLine={false} axisLine={{ stroke: MUTE }} />
           <YAxis tick={AXIS} tickFormatter={fmt} tickLine={false} axisLine={false} width={u.axisWidth} />
-          <Tooltip {...tip()} formatter={(v, n) => [fmt(Number(v)), n === "div" ? "배당" : "자사주매입"]} />
+          <Tooltip {...tip()} formatter={(v, n, item) => {
+            const partial = (item?.payload as ShareholderYear | undefined)?.partial;
+            const label = (n === "div" ? "배당" : "자사주매입") + (partial ? " (반기까지)" : "");
+            return [fmt(Number(v)), label];
+          }} />
           <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => (v === "div" ? "배당" : "자사주매입")} />
-          <Bar dataKey="div" name="div" stackId="a" fill={SELF_FILL} maxBarSize={40} />
-          <Bar dataKey="buyback" name="buyback" stackId="a" fill={NAVY} fillOpacity={0.78} radius={[8, 8, 0, 0]} maxBarSize={40} />
+          <Bar dataKey="div" name="div" stackId="a" fill={SELF_FILL} maxBarSize={40}>
+            {data.map((d, i) => (
+              <Cell key={i} fill={d.partial ? "url(#rs-partial-div)" : SELF_FILL} />
+            ))}
+          </Bar>
+          <Bar dataKey="buyback" name="buyback" stackId="a" fill={NAVY} fillOpacity={0.78}
+               radius={[8, 8, 0, 0]} maxBarSize={40}>
+            {data.map((d, i) => (
+              <Cell key={i} fill={d.partial ? "url(#rs-partial-buyback)" : NAVY}
+                    fillOpacity={d.partial ? 1 : 0.78} />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </ChartCard>

@@ -114,7 +114,7 @@ export function ChartRevenueOp({ data, dataQ, isFinancial = false }: {
       <ResponsiveContainer>
         <ComposedChart data={active as unknown as ChartPoint[]} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={GRID} vertical={false} />
-          <XAxis dataKey={quarterly ? "label" : "year"} tick={AXIS} tickLine={false} axisLine={{ stroke: "#c4c6cd" }} />
+          <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={{ stroke: "#c4c6cd" }} />
           {/* 매출(막대)과 영업이익(선)은 규모 차이가 커서 축을 분리 — 선이 평탄해 보이는 문제 방지 */}
           <YAxis yAxisId="rev" tick={AXIS} tickFormatter={fmtRev} tickLine={false} axisLine={false} width={52} />
           <YAxis yAxisId="op" orientation="right" tick={{ ...AXIS, fill: NAVY }}
@@ -144,7 +144,7 @@ export function ChartMargins({ data, dataQ }: {
       <ResponsiveContainer>
         <LineChart data={(quarterly ? dataQ : data) as unknown as ChartPoint[]} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={GRID} vertical={false} />
-          <XAxis dataKey={quarterly ? "label" : "year"} tick={AXIS} tickLine={false} axisLine={{ stroke: "#c4c6cd" }} />
+          <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={{ stroke: "#c4c6cd" }} />
           <YAxis tick={AXIS} tickFormatter={pctFmt} tickLine={false} axisLine={false} width={44} />
           <Tooltip {...tooltipStyle()} formatter={(v) => [`${v}%`]} />
           <Legend wrapperStyle={{ fontSize: 13 }} />
@@ -171,7 +171,7 @@ export function ChartRoe({ data, dataQ }: {
       <ResponsiveContainer>
         <LineChart data={(quarterly ? dataQ : data) as unknown as ChartPoint[]} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={GRID} vertical={false} />
-          <XAxis dataKey={quarterly ? "label" : "year"} tick={AXIS} tickLine={false} axisLine={{ stroke: "#c4c6cd" }} />
+          <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={{ stroke: "#c4c6cd" }} />
           <YAxis tick={AXIS} tickFormatter={pctFmt} tickLine={false} axisLine={false} width={44} />
           <Tooltip {...tooltipStyle()} formatter={(v) => [`${v}%`, "ROE"]} />
           <Line type="monotone" dataKey="roe" stroke={GREEN} strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
@@ -196,7 +196,7 @@ export function ChartCashflow({ data, dataQ }: {
       <ResponsiveContainer>
         <ComposedChart data={active as unknown as ChartPoint[]} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={GRID} vertical={false} />
-          <XAxis dataKey={quarterly ? "label" : "year"} tick={AXIS} tickLine={false} axisLine={{ stroke: "#c4c6cd" }} />
+          <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={{ stroke: "#c4c6cd" }} />
           <YAxis tick={AXIS} tickFormatter={fmt} tickLine={false} axisLine={false} width={52} />
           <Tooltip {...tooltipStyle()} formatter={(v) => [`${fmt(Number(v))} 원`]} />
           <Legend wrapperStyle={{ fontSize: 13 }} />
@@ -242,7 +242,7 @@ export function ChartRoeRoa({ data, dataQ }: {
       <ResponsiveContainer>
         <LineChart data={(quarterly ? dataQ : data) as unknown as ChartPoint[]} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
           <CartesianGrid stroke={GRID} vertical={false} />
-          <XAxis dataKey={quarterly ? "label" : "year"} tick={AXIS} tickLine={false} axisLine={{ stroke: "#c4c6cd" }} />
+          <XAxis dataKey="label" tick={AXIS} tickLine={false} axisLine={{ stroke: "#c4c6cd" }} />
           <YAxis yAxisId="roe" tick={{ ...AXIS, fill: GREEN }} tickFormatter={pctFmt}
                  tickLine={false} axisLine={false} width={44} />
           <YAxis yAxisId="roa" orientation="right" tick={{ ...AXIS, fill: NAVY }}
