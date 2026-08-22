@@ -96,8 +96,15 @@ export async function fetchHomeStocks(
   limit: number,
   withCount = false,   // count 쿼리는 공짜가 아니라 필요할 때(첫 로드)만
 ): Promise<HomePageChunk> {
+  // 리포트가 발간된 종목만 — 온보딩만 되고 리포트가 없는 기업(확장 후엔 다수)은
+  // 발췌문 없는 빈 카드가 되므로 홈에서 뺀다. 홈 카드에만 거는 필터다:
+  // 검색·스크리너·산업 페이지·최신 뉴스에서는 여전히 전 종목이 보인다.
+  // latest_article_at은 일일 배치(update_screener_daily.py)가 articles에서 채우므로
+  // 리포트 발간 → 다음 배치 + ISR 5분 후 자동으로 홈에 나타난다.
+  // count도 같은 쿼리를 지나므로 랜덤 시작점·더보기 페이징이 필터와 어긋나지 않는다.
   let q = sb.from("screener")
-    .select(CARD_COLS, withCount ? { count: "exact" } : undefined);
+    .select(CARD_COLS, withCount ? { count: "exact" } : undefined)
+    .not("latest_article_at", "is", null);
   if (sort === "latest") {
     q = q.order("latest_article_at", { ascending: false, nullsFirst: false });
   } else if (sort === "marketCap") {
