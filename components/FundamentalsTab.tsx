@@ -289,10 +289,9 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
         <ShareButton stockCode={stockCode} path={`/stock/${stockCode}?tab=fundamentals`} />
       </div>
       {writtenAt && (
-        <div className="mb-5 space-y-0.5">
-          <p className="text-xs text-outline">{writtenAt}에 작성되었습니다.</p>
-          <p className="text-xs text-outline">by ReadingStock&apos;s Analyst</p>
-        </div>
+        <p className="text-[13px] text-outline mb-5">
+          {writtenAt}에 작성되었습니다.&ensp;&ensp;by ReadingStock&apos;s Analyst
+        </p>
       )}
 
       <ChapterNav active={active} onJump={jump} />
