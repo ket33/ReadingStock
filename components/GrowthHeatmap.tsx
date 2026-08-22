@@ -60,7 +60,7 @@ export default function GrowthHeatmap({ data }: { data: GrowthData }) {
   return (
     <div>
       <div className="text-right text-[11px] text-outline mb-1 leading-relaxed">
-        <div>최근 4개 분기 합산(LTM) 매출의 전년 동기 대비</div>
+        <div>최근 4개 분기 합산 매출의 전년 동기 대비</div>
         <div>단위: %</div>
       </div>
       {/* 헤더는 '페이지 스크롤' 기준으로 고정한다(top-16 = 사이트 헤더 h-16 바로 아래).
@@ -165,11 +165,11 @@ function RowBlock({ r, quarters, open, onToggle }: {
                 {r.name} 산업 페이지 보기 →
               </Link>
               <span className="text-[13px] font-semibold text-on-surface">
-                최근 LTM 매출 합 {formatKrw(r.revenueLtm)}
+                최근 4분기 매출 합 {formatKrw(r.revenueLtm)}
               </span>
               {r.opmChangePp != null && (
                 <span className="text-[13px] font-semibold text-on-surface">
-                  최근 영업이익률 {r.opmChangePp > 0 ? "+" : ""}{r.opmChangePp.toFixed(1)}%p
+                  영업이익률 {r.opmChangePp > 0 ? "+" : ""}{r.opmChangePp.toFixed(1)}%p
                 </span>
               )}
               {unstable && <span className="text-outline">표본 {r.memberCount}개 — 해석 주의</span>}

@@ -1,8 +1,8 @@
 "use client";
 
-// Industries — 매출 성장 히트맵(Growth) + 산업별 주가 등락(Price).
-//  - Growth: 행=산업 그룹 × 열=최근 10개 분기, LTM 매출 YoY (GrowthHeatmap — 지시서 §4)
+// Industries — 산업별 주가 등락(Price) + 매출 성장 히트맵(Growth).
 //  - Price: 각 그룹에 온보딩된 기업 전체의 시총가중 평균 수익률 (1일/1주/1개월/올해 탭)
+//  - Growth: 행=산업 그룹 × 열=최근 11개 분기, 4개 분기 합산 매출 YoY (GrowthHeatmap — 지시서 §4)
 // 의도된 동선: 산업을 먼저 훑고 → /industries/[id] 산업 페이지 → 기업으로.
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -135,7 +135,7 @@ function MoverList({ title, rows, period, up }: {
   }, []);
 
   return (
-    <div className="border rounded-xl bg-white p-4 border-outline-variant">
+    <div className="border-2 rounded-xl bg-white p-4 border-outline">
       <h3 className="text-lg font-bold text-center mb-3" style={{ color: accent }}>
         {up ? "▲" : "▼"} {title}
       </h3>
@@ -212,16 +212,8 @@ export default function IndustryPage({ categories, navCategories, growth }: {
           {/* 산업 바로가기 — 대분류 → 세부 산업 고르면 산업 페이지로 */}
           <IndustryPicker categories={navCategories} />
 
-          {/* ── Growth: 매출 성장 히트맵 (지시서 §4) ── */}
-          <section className="mb-3">
-            <h2 className="font-serif text-2xl md:text-3xl font-semibold text-primary text-center">Growth</h2>
-            <p className="text-sm text-outline text-center mt-1 mb-4">산업 매출 성장</p>
-            <GrowthHeatmap data={growth} />
-            <p className="mt-2 text-[11px] text-outline">* 금융업은 매출액 대신 순영업수익을 사용합니다.</p>
-          </section>
-
           {/* ── Price: 산업별 주가 등락 — 가로 폭은 본문의 2/3만 쓴다 ── */}
-          <section className="mt-12 max-w-[850px] mx-auto">
+          <section className="mb-3 max-w-[850px] mx-auto">
             <h2 className="font-serif text-2xl md:text-3xl font-semibold text-primary text-center mb-4">Price</h2>
             <div className="flex justify-center gap-1.5 mb-4">
               {PERIODS.map(p => (
@@ -249,6 +241,15 @@ export default function IndustryPage({ categories, navCategories, growth }: {
               <p>* 산업을 누르면 해당 산업 페이지로 이동합니다.</p>
             </div>
           </section>
+
+          {/* ── Growth: 매출 성장 히트맵 (지시서 §4) ── */}
+          <section className="mt-12">
+            <h2 className="font-serif text-2xl md:text-3xl font-semibold text-primary text-center">Growth</h2>
+            <p className="text-sm text-outline text-center mt-1 mb-4">산업 매출 성장</p>
+            <GrowthHeatmap data={growth} />
+            <p className="mt-2 text-[11px] text-outline">* 금융업은 매출액 대신 순영업수익을 사용합니다.</p>
+          </section>
+
         </div>
       </main>
 
