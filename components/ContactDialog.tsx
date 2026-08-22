@@ -5,7 +5,7 @@
 // 푸터 전체가 클라이언트 번들로 넘어간다. 상태가 필요한 이 조각만 떼어냈다.
 import { useEffect, useState } from "react";
 
-const LINKEDIN = "linkedin.com/in/euitae-kim-17ab15380";
+const LINKEDIN = "www.linkedin.com/in/euitae-kim";
 const EMAIL = "rladmlxo9@gmail.com";
 
 export default function ContactDialog() {
@@ -103,10 +103,10 @@ export default function ContactDialog() {
 
                 <dl className="space-y-5">
                   <div>
-                    <dt className="text-sm text-outline mb-1">LinkedIn address</dt>
+                    <dt className="text-sm text-outline mb-1">LinkedIn</dt>
                     <dd>
                       <a
-                        href={`https://www.${LINKEDIN}`}
+                        href={`https://${LINKEDIN}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-base text-on-surface hover:text-primary hover:underline underline-offset-4 transition-colors break-all"
