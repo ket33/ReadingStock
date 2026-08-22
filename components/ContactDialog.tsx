@@ -54,32 +54,32 @@ export default function ContactDialog() {
           aria-labelledby="contact-dialog-title"
         >
           <div
-            className={`bg-white rounded-2xl border border-outline-variant shadow-xl
-                        w-full max-w-2xl p-7 md:p-9
+            className={`relative bg-white rounded-2xl border border-outline-variant shadow-xl
+                        w-full max-w-3xl p-8 md:p-12
                         transition-all duration-500 ease-out
                         ${shown ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-3 scale-[0.98]"}`}
             onClick={e => e.stopPropagation()}
           >
-            <div className="flex items-start justify-end -mt-2 -mr-2 mb-1">
-              {/* 아이콘은 인라인 SVG로 — Material Symbols 폰트는 홈·industries에서만 로드되는데
-                  푸터는 모든 페이지에 깔려서, 폰트가 없는 페이지에선 'close' 글자가 그대로 보인다 */}
-              <button
-                onClick={close}
-                aria-label="닫기"
-                className="p-1 rounded-full text-outline hover:text-primary hover:bg-surface-container-low transition-colors"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-                  <path d="M6 6l12 12M18 6L6 18" />
-                </svg>
-              </button>
-            </div>
+            {/* 닫기는 absolute — 문서 흐름에서 빼야 위쪽 여백이 아래보다 두꺼워지지 않는다.
+                아이콘은 인라인 SVG로: Material Symbols 폰트는 홈·industries에서만 로드되는데
+                푸터는 모든 페이지에 깔려서, 폰트가 없는 페이지에선 'close' 글자가 그대로 보인다 */}
+            <button
+              onClick={close}
+              aria-label="닫기"
+              className="absolute top-4 right-4 p-1.5 rounded-full text-outline
+                         hover:text-primary hover:bg-surface-container-low transition-colors"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
 
-            {/* 왼쪽 로고 / 오른쪽 문구·주소 — 좁은 화면에선 세로로 쌓인다 */}
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-7 sm:gap-9">
+            {/* 왼쪽 로고 / 오른쪽 문구·주소 — 세로 가운데로 맞춘다. 좁은 화면에선 쌓인다 */}
+            <div className="flex flex-col sm:flex-row items-center gap-8 sm:gap-12">
               {/* 로고는 Logo 컴포넌트를 쓰지 않는다 — 그건 홈으로 가는 Link라 팝업에서 누르면 이탈한다 */}
-              <div className="shrink-0 flex flex-col items-center gap-3">
-                <svg width="104" height="104" viewBox="0 0 48 48" aria-hidden="true">
+              <div className="shrink-0 flex flex-col items-center gap-3.5">
+                <svg width="124" height="124" viewBox="0 0 48 48" aria-hidden="true">
                   <circle cx="24" cy="24" r="24" fill="#16243f" />
                   <text x="24" y="34" textAnchor="middle" fontWeight={700} fontSize={28} fill="#ffffff"
                         style={{ fontFamily: "var(--font-logo)" }}>
@@ -88,39 +88,39 @@ export default function ContactDialog() {
                   <circle cx="35" cy="14" r="3.2" fill="#e5654b" />
                 </svg>
                 <span className="font-bold text-[#16243f] leading-none whitespace-nowrap"
-                      style={{ fontFamily: "var(--font-logo)", fontSize: 19, letterSpacing: "-0.005em" }}>
+                      style={{ fontFamily: "var(--font-logo)", fontSize: 22, letterSpacing: "-0.005em" }}>
                   Reading Stock
                 </span>
               </div>
 
               <div className="min-w-0 flex-1 text-center sm:text-left">
-                <h2 id="contact-dialog-title" className="font-serif text-xl font-bold text-primary mb-2">
+                <h2 id="contact-dialog-title" className="font-serif text-2xl font-bold text-primary mb-3">
                   Contact &amp; Feedback
                 </h2>
-                <p className="text-sm text-on-surface leading-relaxed mb-6">
+                <p className="text-base text-on-surface leading-relaxed mb-7">
                   여러분의 피드백을 적극 환영합니다!
                 </p>
 
-                <dl className="space-y-4 text-sm">
+                <dl className="space-y-5">
                   <div>
-                    <dt className="text-xs text-outline mb-1">LinkedIn address</dt>
+                    <dt className="text-sm text-outline mb-1">LinkedIn address</dt>
                     <dd>
                       <a
                         href={`https://www.${LINKEDIN}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-on-surface hover:text-primary hover:underline underline-offset-4 transition-colors break-all"
+                        className="text-base text-on-surface hover:text-primary hover:underline underline-offset-4 transition-colors break-all"
                       >
                         {LINKEDIN}
                       </a>
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-outline mb-1">E-mail address</dt>
+                    <dt className="text-sm text-outline mb-1">E-mail address</dt>
                     <dd>
                       <a
                         href={`mailto:${EMAIL}`}
-                        className="text-on-surface hover:text-primary hover:underline underline-offset-4 transition-colors break-all"
+                        className="text-base text-on-surface hover:text-primary hover:underline underline-offset-4 transition-colors break-all"
                       >
                         {EMAIL}
                       </a>
