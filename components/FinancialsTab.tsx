@@ -117,7 +117,7 @@ export default function FinancialsTab({ data, latest, isFinancial = false }: {
 
   return (
     <div className="max-w-[880px] mx-auto">
-      <h1 className="font-serif text-3xl font-semibold text-primary mb-2">재무제표</h1>
+      <h2 className="font-serif text-3xl font-semibold text-primary mb-2">재무제표</h2>
       <p className="text-sm text-on-surface-variant mb-8">
         연결 기준 · ▶ 를 누르면 세부항목이 펼쳐져요 · TTM = 최근 4개 분기(재무상태표는 최근 분기말) · 출처: DART
       </p>

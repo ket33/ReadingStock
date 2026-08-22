@@ -98,14 +98,15 @@ function basedOnLabel(core: string | null): string | null {
 }
 
 const mdComponents = {
+  // 헤드라인이 h2라서 본문 섹션은 h3부터 — 시각 크기는 그대로 두고 태그만 내린다
   h2: (props: React.ComponentProps<"h2">) => (
-    <h2
+    <h3
       className="font-serif text-[22px] leading-snug font-medium text-primary pt-8 mb-4"
       {...props}
     />
   ),
   h3: (props: React.ComponentProps<"h3">) => (
-    <h3 className="font-serif text-lg font-medium text-primary pt-4 mb-3" {...props} />
+    <h4 className="font-serif text-lg font-medium text-primary pt-4 mb-3" {...props} />
   ),
   p: (props: React.ComponentProps<"p">) => (
     <p className="text-[15px] leading-[1.8] text-on-surface-variant mb-5" {...props} />
@@ -180,12 +181,12 @@ export default function ArticleTab({ article, charts, sector, industryGroup, sto
         const head = ci >= 0 ? title.slice(0, ci + 1) : title;
         const tail = ci >= 0 ? title.slice(ci + 1).trim() : "";
         return (
-          <h1 className="font-serif text-[26px] md:text-[34px] leading-[1.3] font-semibold text-primary mb-6 tracking-tight">
+          <h2 className="font-serif text-[26px] md:text-[34px] leading-[1.3] font-semibold text-primary mb-6 tracking-tight">
             {head}
             {tail && (
               <><br /><span className="text-[19px] md:text-[24px]">{tail}</span></>
             )}
-          </h1>
+          </h2>
         );
       })()}
 

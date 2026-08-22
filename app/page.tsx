@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getHomeStocks, getHomeNews, HOME_PAGE_SIZE } from "@/lib/home-data";
 import HomePage from "@/components/HomePage";
+import { siteJsonLd, jsonLdScript } from "@/lib/jsonld";
 
 // 5분마다 재검증 (새 글·주가 반영)
 export const revalidate = 300;
@@ -29,6 +30,11 @@ export default async function Home() {
         rel="stylesheet"
         precedence="default"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0&display=block"
+      />
+      {/* 사이트 정체성 — 발행처와 검색창 연결을 검색엔진에 알린다 */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(siteJsonLd()) }}
       />
       <HomePage initialStocks={stocks} total={total} news={news} />
     </>
