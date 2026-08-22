@@ -1,5 +1,6 @@
-// 공통 하단 푸터 — 브랜드 + 면책 + 개인정보 처리방침·이용약관 링크
+// 공통 하단 푸터 — 브랜드 + 면책 + 개인정보 처리방침·이용약관·문의 링크
 import Link from "next/link";
+import ContactDialog from "./ContactDialog";
 
 export default function SiteFooter() {
   return (
@@ -19,6 +20,8 @@ export default function SiteFooter() {
           <Link href="/terms" className="text-on-surface-variant hover:text-primary transition-colors">
             이용약관
           </Link>
+          <span className="text-outline-variant">·</span>
+          <ContactDialog />
         </div>
         <p className="mt-6 text-xs text-outline">© 2026 Reading Stock. All rights reserved.</p>
       </div>
