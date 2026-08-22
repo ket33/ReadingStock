@@ -9,7 +9,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, LabelList,
 } from "recharts";
 import { supabaseBrowser } from "@/lib/supabase-browser";
-import { loadFundamentals, type FundamentalsData, type FyPoint, type Peer, type ShareholderYear } from "@/lib/fundamentals-data";
+import { loadFundamentals, type FundamentalsData, type FyPoint, type Peer } from "@/lib/fundamentals-data";
 import ShareButton from "./ShareButton";
 import Disclaimer from "./Disclaimer";
 import WatchButton from "./auth/WatchButton";
@@ -29,7 +29,8 @@ function tip() {
 }
 
 function ChartCard({ title, caption, extra, tall, children }: {
-  title: string; caption?: string; extra?: React.ReactNode; tall?: boolean; children: React.ReactNode;
+  title: string; caption?: React.ReactNode; extra?: React.ReactNode;
+  tall?: boolean; children: React.ReactNode;
 }) {
   return (
     <figure className="bg-white border border-outline-variant rounded-xl p-4">
@@ -177,14 +178,18 @@ function ShareholderBar({ data }: { data: FundamentalsData["shareholder"] }) {
   // 데이터는 억 단위. 축을 '천억'으로 고정하면 환원액이 작은 회사는 전부 0천으로 눌린다.
   // 매출 차트와 같은 기준을 쓰도록 원으로 환산해 단위를 고른 뒤 다시 억으로 되돌린다.
   const u = pickAmountUnit(data.map(d => (d.div + d.buyback) * 1e8));
-  const hasPartial = data.some(d => d.partial);
+  const partialYear = data.find(d => d.partial)?.year;
   const div = u.scale / 1e8; // 억 → 표시단위 환산 계수 (억이면 1, 조면 10,000)
   const fmt = (v: number) => `${numFmt(v / div, u.dec)}${u.unit}`;
   return (
     <ChartCard
       title="주주환원액 (배당 + 자사주매입)"
-      caption={`현금흐름표 실측, 최근 10년, 단위: ${u.unit} 원`
-        + (hasPartial ? " · 빗금은 사업보고서 전이라 반기까지 집행된 금액" : "")}
+      caption={
+        <>
+          현금흐름표 실측, 최근 10년, 단위: {u.unit} 원
+          {partialYear != null && <><br />{partialYear}년은 2Q 누적</>}
+        </>
+      }
       tall
     >
       <ResponsiveContainer>
@@ -206,11 +211,7 @@ function ShareholderBar({ data }: { data: FundamentalsData["shareholder"] }) {
           <CartesianGrid stroke={GRID} vertical={false} />
           <XAxis dataKey="year" tick={AXIS} tickLine={false} axisLine={{ stroke: MUTE }} />
           <YAxis tick={AXIS} tickFormatter={fmt} tickLine={false} axisLine={false} width={u.axisWidth} />
-          <Tooltip {...tip()} formatter={(v, n, item) => {
-            const partial = (item?.payload as ShareholderYear | undefined)?.partial;
-            const label = (n === "div" ? "배당" : "자사주매입") + (partial ? " (반기까지)" : "");
-            return [fmt(Number(v)), label];
-          }} />
+          <Tooltip {...tip()} formatter={(v, n) => [fmt(Number(v)), n === "div" ? "배당" : "자사주매입"]} />
           <Legend wrapperStyle={{ fontSize: 11 }} formatter={(v) => (v === "div" ? "배당" : "자사주매입")} />
           <Bar dataKey="div" name="div" stackId="a" fill={SELF_FILL} maxBarSize={40}>
             {data.map((d, i) => (
