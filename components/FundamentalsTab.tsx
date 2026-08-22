@@ -239,7 +239,10 @@ function ChapterNav({ active, onJump }: { active: string; onJump: (id: string) =
   );
 }
 
-export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
+export default function FundamentalsTab({ stockCode, companyName }: {
+  stockCode: string;
+  companyName: string;
+}) {
   const [d, setD] = useState<FundamentalsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<string>("growth");
@@ -286,7 +289,7 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
     <div className="article-canvas">
       <div className="flex items-center justify-between gap-3 mb-2">
         <h2 className="font-serif text-2xl md:text-[28px] font-bold tracking-tight text-primary">
-          Fundamental
+          {companyName} 펀더멘탈
         </h2>
         {/* 펀더멘탈 탭이 바로 열리는 딥링크 복사 */}
         <ShareButton stockCode={stockCode} path={`/stock/${stockCode}?tab=fundamentals`} />
@@ -300,7 +303,7 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
       <ChapterNav active={active} onJump={jump} />
 
       {/* 1. 성장동력 */}
-      <Section id="growth" title="성장 동력" body={narratives.growth}>
+      <Section id="growth" title="매출 성장, 성장 동력은?" body={narratives.growth}>
         <div className="grid gap-4 md:grid-cols-2">
           <ChartCard title="매출액" caption={`연간, 단위: ${revUnit.unit} 원`}>
             <PeerLine peers={peers} fy={fy} field="revenue" unit={revUnit.unit}
@@ -313,7 +316,7 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
       </Section>
 
       {/* 2. 수익성 */}
-      <Section id="profitability" title="수익성" body={narratives.profitability}>
+      <Section id="profitability" title="영업이익률과 마진, 얼마나 남기나?" body={narratives.profitability}>
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <MoatBar peers={peers} ttm={ttm} field="gross_margin" title="매출총이익률" />
           <MoatBar peers={peers} ttm={ttm} field="op_margin" title="영업이익률" />
@@ -325,7 +328,7 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
       </Section>
 
       {/* 3. 재무건전성 */}
-      <Section id="health" title="재무 건전성" body={narratives.health}>
+      <Section id="health" title="부채비율과 재무 건전성" body={narratives.health}>
         <div className="grid gap-4 md:grid-cols-3">
           <ChartCard title="부채비율" caption="부채 / 자기자본, 단위: %">
             <PeerLine peers={peers} fy={fy} field="debt_equity" unit="%" colors={colors} />
@@ -340,7 +343,7 @@ export default function FundamentalsTab({ stockCode }: { stockCode: string }) {
       </Section>
 
       {/* 4. 주주환원 */}
-      <Section id="shareholder" title="주주환원" body={narratives.shareholder}>
+      <Section id="shareholder" title="배당과 자사주, 주주환원은?" body={narratives.shareholder}>
         <div className="grid gap-4 md:grid-cols-2">
           <ChartCard title="FCF 수익률" caption={`${peers[0]?.name ?? ""} 단독, 시총 대비 FCF, 단위: %`}>
             <PeerLine peers={peers.slice(0, 1)} fy={fy} field="fcf_yield" unit="%" dec={1} colors={colors} />
