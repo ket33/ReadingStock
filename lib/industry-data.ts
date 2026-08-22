@@ -6,7 +6,10 @@
 //    회사마다 최신 분기가 다르면 각 사 기준으로 (최신 분기, 전년 동분기) 쌍을 맞춰 합산 —
 //    쌍이 없는 회사는 YoY 합산에서 제외한다 (sampled로 몇 개사인지 표시).
 //  - 히트맵 크기: |영업이익 합| (적자 그룹도 규모만큼 보이게 절대값).
-//  - 등락: 상위 5개의 시총가중 평균 수익률 (1D/1W/1M/YTD — screener 스냅샷 재사용).
+//  - 등락: 그룹에 온보딩된 기업 '전체'의 시총가중 평균 수익률
+//    (1D/1W/1M/올해 — screener 스냅샷 재사용). 표본을 상위 5개로 자르지 않는다.
+//    ※ 가중치는 '오늘' 시총이라 긴 구간(올해)일수록 많이 오른 종목의 기여가 과대평가된다.
+//      엄밀히는 구간 시작 시점 시총으로 가중해야 하나 과거 시총 시계열이 필요하다.
 import { supabase } from "./supabase";
 import { fetchAll } from "./supabase-page";
 
@@ -88,7 +91,8 @@ export async function getIndustryMovers(): Promise<IndustryCategoryMover[]> {
     !(g.category_id === SPECIAL_CAT_ID && !SPECIAL_KEEP_GROUP_IDS.has(g.id)) &&
     (membersByGroup.get(g.id)?.length ?? 0) > 0);
 
-  // ── 상위 5 전체의 분기 영업이익 로드 (최근 3개 연도면 최신 분기 + 전년 동분기가 다 잡힌다) ──
+  // ── 영업이익 YoY용 표본은 시총 상위 5개로 둔다 (financials 조회량 때문) ──
+  // ※ 등락률은 이 표본을 쓰지 않는다 — 아래에서 그룹 온보딩 기업 '전체'로 계산한다.
   const top5ByGroup = new Map<number, ScreenerLite[]>();
   const allCodes = new Set<string>();
   for (const g of activeGroups) {
@@ -190,11 +194,13 @@ export async function getIndustryMovers(): Promise<IndustryCategoryMover[]> {
       top5: top5.map(m => ({ code: m.stock_code, name: m.name })),
       mcap: allMembers.reduce((s, m) => s + (m.market_cap ?? 0), 0),
       memberCount: allMembers.length,
+      // 등락은 그룹에 온보딩된 기업 전체의 시총가중 평균 — 상위 5개로 자르지 않는다.
+      // (등락률은 이미 screener 스냅샷에 있고 멤버도 전부 로드돼 있어 추가 조회가 없다)
       ret: {
-        d1: wavg(top5, r => r.ret_1d),
-        w1: wavg(top5, r => r.ret_5d),
-        m1: wavg(top5, r => r.ret_1m),
-        ytd: wavg(top5, r => r.ret_ytd),
+        d1: wavg(allMembers, r => r.ret_1d),
+        w1: wavg(allMembers, r => r.ret_5d),
+        m1: wavg(allMembers, r => r.ret_1m),
+        ytd: wavg(allMembers, r => r.ret_ytd),
       },
     });
   }

@@ -2,7 +2,7 @@
 
 // Industries — 매출 성장 히트맵(Growth) + 산업별 주가 등락(Price).
 //  - Growth: 행=산업 그룹 × 열=최근 10개 분기, LTM 매출 YoY (GrowthHeatmap — 지시서 §4)
-//  - Price: 각 그룹 시총 상위 5개 온보딩 기업의 시총가중 평균 수익률 (1일/1주/1개월/YTD 탭)
+//  - Price: 각 그룹에 온보딩된 기업 전체의 시총가중 평균 수익률 (1일/1주/1개월/올해 탭)
 // 의도된 동선: 산업을 먼저 훑고 → /industries/[id] 산업 페이지 → 기업으로.
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -110,7 +110,7 @@ const PERIODS = [
   { key: "d1", label: "1일" },
   { key: "w1", label: "1주" },
   { key: "m1", label: "1개월" },
-  { key: "ytd", label: "YTD" },
+  { key: "ytd", label: "올해" },
 ] as const;
 type PeriodKey = (typeof PERIODS)[number]["key"];
 
@@ -135,7 +135,7 @@ function MoverList({ title, rows, period, up }: {
   }, []);
 
   return (
-    <div className={`border rounded-xl bg-white p-4 border-t-4 ${up ? "border-t-[#d93025]" : "border-t-[#1a73e8]"} border-outline-variant`}>
+    <div className="border rounded-xl bg-white p-4 border-outline-variant">
       <h3 className="text-lg font-bold text-center mb-3" style={{ color: accent }}>
         {up ? "▲" : "▼"} {title}
       </h3>
@@ -192,8 +192,8 @@ export default function IndustryPage({ categories, navCategories, growth }: {
     const withRet = flat.filter(x => x.g.ret[period] != null);
     const desc = [...withRet].sort((a, b) => b.g.ret[period]! - a.g.ret[period]!);
     return {
-      gainers: desc.filter(x => x.g.ret[period]! > 0).slice(0, 8),
-      losers: desc.filter(x => x.g.ret[period]! < 0).reverse().slice(0, 8),
+      gainers: desc.filter(x => x.g.ret[period]! > 0).slice(0, 10),
+      losers: desc.filter(x => x.g.ret[period]! < 0).reverse().slice(0, 10),
     };
   }, [flat, period]);
 
@@ -240,13 +240,12 @@ export default function IndustryPage({ categories, navCategories, growth }: {
             </div>
             <div className="grid md:grid-cols-2 gap-4">
               {/* key에 기간을 넣어 탭 전환 때 리마운트 → 새 값으로 게이지가 다시 차오른다 */}
-              <MoverList key={`up-${period}`} title="TOP 8" rows={ranked.gainers} period={period} up />
-              <MoverList key={`down-${period}`} title="BOTTOM 8" rows={ranked.losers} period={period} up={false} />
+              <MoverList key={`up-${period}`} title="TOP 10" rows={ranked.gainers} period={period} up />
+              <MoverList key={`down-${period}`} title="BOTTOM 10" rows={ranked.losers} period={period} up={false} />
             </div>
 
             {/* 기준 설명 — Price와 같은 폭이라 왼쪽 시작선이 맞는다 */}
             <div className="mt-4 text-[11px] text-outline leading-relaxed space-y-0.5">
-              <p>* 주가 등락은 각 산업 시가총액 상위 5개 기업의 시가총액 가중 평균 수익률입니다.</p>
               <p>* 산업을 누르면 해당 산업 페이지로 이동합니다.</p>
             </div>
           </section>
