@@ -53,9 +53,12 @@ function Card({ title, caption, extra, children }: {
   title: string; caption?: string; extra?: React.ReactNode; children: React.ReactNode;
 }) {
   return (
+    // 차트 제목은 헤딩이 아니다 — figure는 본문에서 떼어낼 수 있는 삽화 단위라
+    // 안에 헤딩을 두면 문서 아웃라인에 '절'로 잡혀 본문 소제목과 뒤섞인다.
+    // (헤딩만 훑는 스크린리더에서 특히 어지럽다) 시각 스타일은 그대로 둔다.
     <figure className="bg-white border border-outline-variant rounded-sm p-5 my-8 not-prose">
       <div className="flex items-center justify-between gap-3 mb-4">
-        <h4 className="text-sm font-semibold tracking-widest uppercase text-primary">{title}</h4>
+        <p className="text-sm font-semibold tracking-widest uppercase text-primary">{title}</p>
         {extra}
       </div>
       <div className="h-64 w-full">{children}</div>

@@ -33,8 +33,10 @@ function ChartCard({ title, caption, extra, tall, children }: {
 }) {
   return (
     <figure className="bg-white border border-outline-variant rounded-xl p-4">
+      {/* 차트 제목은 헤딩이 아니다 — figure 안의 헤딩은 문서 아웃라인에 '절'로 잡혀
+          본문 소제목과 뒤섞인다. 시각 스타일은 그대로 둔다. */}
       <div className="flex items-center justify-between gap-2 mb-3">
-        <h4 className="text-xs font-semibold tracking-wide uppercase text-primary">{title}</h4>
+        <p className="text-xs font-semibold tracking-wide uppercase text-primary">{title}</p>
         {extra}
       </div>
       <div className={tall ? "h-64 w-full" : "h-52 w-full"}>{children}</div>
