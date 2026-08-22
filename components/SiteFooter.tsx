@@ -12,15 +12,19 @@ export default function SiteFooter() {
           <br />
           모든 콘텐츠는 공개 데이터를 바탕으로 자동 생성되며, 투자 결정과 책임은 본인에게 있습니다.
         </p>
-        <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-          <Link href="/privacy" className="text-on-surface-variant hover:text-primary transition-colors">
-            개인정보 처리방침
-          </Link>
-          <span className="text-outline-variant">·</span>
-          <Link href="/terms" className="text-on-surface-variant hover:text-primary transition-colors">
-            이용약관
-          </Link>
-          <span className="text-outline-variant">·</span>
+        {/* 왼쪽 정책 링크 / 오른쪽 문의 — 좁은 화면에선 아래로 접힌다 */}
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-x-5 gap-y-3 text-sm">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <Link href="/privacy"
+                  className="text-on-surface-variant hover:text-primary hover:underline underline-offset-4 transition-colors">
+              개인정보 처리방침
+            </Link>
+            <span className="text-outline-variant">·</span>
+            <Link href="/terms"
+                  className="text-on-surface-variant hover:text-primary hover:underline underline-offset-4 transition-colors">
+              이용약관
+            </Link>
+          </div>
           <ContactDialog />
         </div>
         <p className="mt-6 text-xs text-outline">© 2026 Reading Stock. All rights reserved.</p>
