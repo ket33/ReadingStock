@@ -24,6 +24,10 @@ const SORTS: { key: SortKey; label: string }[] = [
   { key: "latest", label: "최신순" },
 ];
 
+// 히어로 검색창 왼쪽 CTA — 대표 리포트 하나로 '읽어보기'가 뭔지 바로 보여준다.
+// 종목을 바꾸려면 이 상수만 고치면 된다.
+const FEATURED = { code: "000660", name: "SK하이닉스" };
+
 // 빠른 이동 칩 — 구현된 것만 링크, 나머지는 비활성 + 준비 중 표시 (지시서)
 const CHIPS: { icon: string; label: string; href?: string }[] = [
   { icon: "domain", label: "Industries", href: "/industries" },
@@ -225,8 +229,24 @@ export default function HomePage({
               여러분의 <strong className="font-bold">투자</strong>를, 여러분이 <strong className="font-bold">이해</strong>하도록 도와드려요
             </p>
 
-            <div className="mb-8">
-              <SearchBox size="large" />
+            {/* 검색 줄: 왼쪽 CTA + 검색창. 가운데 정렬한 채로 버튼이 왼쪽에 붙으므로
+                검색창은 자연히 페이지 중앙보다 살짝 오른쪽에 놓인다.
+                모바일은 세로로 쌓고 CTA를 검색창 아래로 내린다. */}
+            <div className="mb-8 flex flex-col-reverse md:flex-row items-center justify-center
+                            gap-3 md:gap-4 max-w-[1060px] mx-auto">
+              <Link
+                href={`/stock/${FEATURED.code}`}
+                className="group shrink-0 inline-flex items-center gap-1.5 rounded-full
+                           bg-primary text-on-primary px-5 md:px-6 py-3 text-sm font-semibold
+                           shadow-sm hover:opacity-90 transition-opacity whitespace-nowrap"
+              >
+                {FEATURED.name} 읽어보기
+                <span className="material-symbols-outlined text-[18px] transition-transform
+                                 group-hover:translate-x-0.5">arrow_forward</span>
+              </Link>
+              <div className="w-full md:max-w-xl">
+                <SearchBox size="large" fullWidth />
+              </div>
             </div>
 
             {/* 빠른 이동 칩 — href 있으면 링크, 없으면 비활성(준비 중) */}
@@ -263,7 +283,15 @@ export default function HomePage({
                             lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-12 lg:items-start">
           <div>
           <div className="flex items-center justify-between mb-8 border-b border-outline-variant pb-4">
-            <h2 className="font-serif text-base font-medium text-primary">종목 살펴보기</h2>
+            {/* total은 리포트 보유 종목만 센 값 (home-data가 latest_article_at not null로 거른다) */}
+            <h2 className="font-serif text-base font-medium text-primary">
+              종목 살펴보기
+              {total > 0 && (
+                <span className="ml-2 text-[13px] font-sans font-normal text-on-surface-variant">
+                  ({total.toLocaleString()}개 기업)
+                </span>
+              )}
+            </h2>
             <div className="flex gap-2">
               {SORTS.map(s => (
                 <button

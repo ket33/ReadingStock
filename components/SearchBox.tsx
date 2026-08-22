@@ -126,7 +126,9 @@ export default function SearchBox({ size = "small", fullWidth = false, autoFocus
   const isLarge = size === "large";
 
   return (
-    <div ref={boxRef} className={`relative ${isLarge ? "max-w-2xl mx-auto" : fullWidth ? "w-full" : "w-72"}`}>
+    <div ref={boxRef} className={`relative ${
+      isLarge ? (fullWidth ? "w-full" : "max-w-2xl mx-auto")
+              : fullWidth ? "w-full" : "w-72"}`}>
       <div className={`flex items-center bg-white transition-all rounded-full
                        focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10
                        ${isLarge ? "border border-outline-variant shadow-sm"
