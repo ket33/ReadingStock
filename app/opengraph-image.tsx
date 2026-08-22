@@ -29,7 +29,7 @@ async function loadShantell(weight: 400 | 700, text: string): Promise<ArrayBuffe
 export default async function Image() {
   const [bold, regular] = await Promise.all([
     loadShantell(700, "Reading StockR"),
-    loadShantell(400, "Everything starts after Reading Stock"),
+    loadShantell(400, "Investing starts after Reading Stock"),
   ]);
   const fonts: { name: string; data: ArrayBuffer; weight: 400 | 700 }[] = [];
   if (bold) fonts.push({ name: "Shantell", data: bold, weight: 700 });
@@ -100,7 +100,7 @@ export default async function Image() {
 
           {/* 슬로건 — 홈 히어로와 동일 문구 */}
           <div style={{ display: "flex", fontSize: "42px", fontWeight: 400, color: "#44474c", lineHeight: 1.3 }}>
-            Everything starts after&nbsp;
+            Investing starts after&nbsp;
             <span style={{ color: NAVY, fontWeight: 700 }}>Reading Stock</span>
           </div>
         </div>

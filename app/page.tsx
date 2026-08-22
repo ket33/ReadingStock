@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   description:
     "Reading Stock(리딩스톡)은 삼성전자·SK하이닉스·현대차 등 국내 주요 종목의 " +
     "재무제표와 실적, 밸류에이션(PER·배당수익률·성장률)을 쉽게 풀어 설명하는 기업 분석 서비스예요. " +
-    "당신의 투자를, 당신이 이해하도록 도와드려요.",
+    "여러분의 투자를, 여러분이 이해하도록 도와드려요.",
   alternates: { canonical: "/" },
 };
 

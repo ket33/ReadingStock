@@ -3,7 +3,7 @@
 
 export const SITE_URL = "https://readingstock.com";
 export const SITE_NAME = "Reading Stock";
-export const SITE_SLOGAN = "당신의 투자를, 당신이 이해하도록 도와드려요";
+export const SITE_SLOGAN = "여러분의 투자를, 여러분이 이해하도록 도와드려요";
 
 // 공통 브랜드 미리보기 이미지 (app/opengraph-image.tsx가 그리는 라우트).
 // generateMetadata에서 openGraph를 지정하면 파일 컨벤션 이미지가 덮어써지므로 명시적으로 참조한다.

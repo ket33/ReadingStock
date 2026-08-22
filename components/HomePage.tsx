@@ -213,7 +213,7 @@ export default function HomePage({
           />
           <div className="max-w-[1280px] mx-auto px-4 md:px-10 text-center relative z-10">
             <h1 className="font-serif text-3xl md:text-4xl font-semibold tracking-tight text-primary mb-5 leading-tight">
-              Everything starts <em className="not-italic">after</em>{" "}
+              Investing starts <em className="not-italic">after</em>{" "}
               <span
                 className="font-bold text-[#16243f]"
                 style={{ fontFamily: "var(--font-logo)", letterSpacing: "-0.005em" }}
@@ -222,7 +222,7 @@ export default function HomePage({
               </span>
             </h1>
             <p className="text-2xl md:text-3xl text-primary font-medium tracking-tight mb-10">
-              당신의 <strong className="font-bold">투자</strong>를, 당신이 <strong className="font-bold">이해</strong>하도록 도와드려요
+              여러분의 <strong className="font-bold">투자</strong>를, 여러분이 <strong className="font-bold">이해</strong>하도록 도와드려요
             </p>
 
             <div className="mb-8">
