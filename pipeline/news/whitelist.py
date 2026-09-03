@@ -30,7 +30,7 @@ PATTERNS = [
     # 주주환원
     (r"현금[ㆍ·]현물배당결정|현금배당결정", "shareholder", "dividend"),
     (r"자기주식취득결정|자기주식취득신탁계약체결결정", "shareholder", "buyback"),
-    (r"자기주식소각결정",               "shareholder", "share_retire"),
+    (r"(?:자기)?주식소각결정",          "shareholder", "share_retire"),
     (r"자기주식처분결정",               "shareholder", "share_disposal"),
     # 구조
     (r"회사합병결정",                   "structure",   "merger"),
