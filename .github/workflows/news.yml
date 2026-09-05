@@ -43,7 +43,14 @@ jobs:
           node-version: "20"
 
       - name: Install Claude Code CLI (구독 기반 헤드리스 실행)
-        run: npm install -g @anthropic-ai/claude-code
+        # 버전을 고정한다. @latest로 뒀더니 매일 최신 버전을 새로 설치하는 구조라
+        # 업스트림이 breaking change를 내면 우리 코드는 그대로인데 조용히 깨질 수 있다
+        # (2026-09-02~09-04 뉴스룸이 매일 0건 생성하며 success로만 뜨던 사고 때 발견 —
+        #  이 사고의 확정 원인은 CLAUDE_CODE_OAUTH_TOKEN 쪽으로 더 유력했지만,
+        #  버전 고정 자체는 원인과 무관하게 해두는 게 맞는 안전장치라 같이 넣는다).
+        # 새 버전으로 올리고 싶으면 이 숫자를 의도적으로 바꾸고 한 번 수동 실행(workflow_dispatch)
+        # 해서 정상 동작을 확인한 뒤 커밋할 것.
+        run: npm install -g @anthropic-ai/claude-code@2.1.261
 
       - name: Install Python deps
         run: pip install -r requirements.txt

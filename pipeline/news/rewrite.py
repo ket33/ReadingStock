@@ -152,15 +152,13 @@ def main():
             stat["streak"] = 0
 
         title, body = out
-        issues = v.validate(title, body, facts, r["type_key"])
-        if issues:
-            log(f"  [{n}/{total}] {c['name']}: 검증 실패 유지 ({'; '.join(issues)[:70]})")
-            with _state_lock:
-                stat["still"] += 1
-            if has_reason and not args.dry_run:
-                _sb().table("company_news").update(
-                    {"fallback_reason": "; ".join(issues)[:500]}).eq("id", r["id"]).execute()
-            return
+        # 내용 점검(숫자 대조) 게이트 제거 — 생성만 되면 그대로 덮어쓴다(2026-09-05 결정).
+        # 예전엔 여기서 검증에 걸리면 템플릿 상태로 그냥 뒀는데, 그게 폴백을 영구히
+        # 굳히는 경로였다. 투자권유 표현은 경고로만 남긴다.
+        warn = v.check_recommend(title + "\n" + body)
+        if warn:
+            log(f"  [{n}/{total}] ⚠ {c['name']}: 투자권유 표현 감지(그대로 저장) "
+                f"({', '.join(warn)})")
 
         if not args.dry_run:
             patch = {"title": title, "body": body, "is_fallback": False}

@@ -188,6 +188,16 @@ def check_forbidden(output: str, type_key: str | None = None) -> list[str]:
     return words
 
 
+def check_recommend(output: str) -> list[str]:
+    """투자권유 표현만 골라낸다 — 폴백 판정용이 아니라 경고용.
+
+    2026-09-05에 내용 점검(숫자 대조) 게이트를 걷어내면서, 기사를 템플릿으로 바꾸는
+    판정은 전부 없앴다. 다만 '매수 추천·비중 확대' 같은 문장은 사실 서술이 아니라
+    판단을 대신 내리는 말이라, 나갔다는 사실 자체는 로그에 남겨둔다.
+    (실측: 2026-08-31 이후 폴백 11건 중 금지어로 걸린 건은 0건 — 신호는 드물다.)"""
+    return [p for p in RECOMMEND_PATTERNS if p in output]
+
+
 def validate(title: str, body: str, facts: str, type_key: str | None = None) -> list[str]:
     """위반 사유 목록. 비어 있으면 발송 가능.
 

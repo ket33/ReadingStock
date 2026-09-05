@@ -138,17 +138,42 @@ def main():
     if not has_reason_col:
         print("ℹ company_news.fallback_reason 없음 — 폴백 사유는 기록하지 않는다 "
               "(pipeline/schema_fallback_reason.sql 실행 시 활성화)")
-    companies = sb.table("companies").select("stock_code,corp_code,name,market,sector").execute().data
-    print(f"대상 {len(companies)}개사 · 기간 {bgn_de}~{end_de}"
-          + (" · dry-run" if args.dry_run else "") + (" · 발송 없음" if args.no_notify else ""))
-
-    # 회사별 리포트 핵심 요약 — 공시가 리포트에서 짚은 흐름과 닿으면 해설에 연결한다
+    # ── 대상 종목: '리포트(articles)가 있는 기업'만 ──
+    # 온보딩만 되고 리포트가 없는 기업까지 돌리면 claude 호출을 그만큼 더 태우는데,
+    # 정작 그 종목 페이지엔 읽을 리포트가 없다(2026-09-05 사용자 결정으로 범위 축소:
+    # 온보딩 기업 전체 1,643개사 → 리포트 보유 865개사).
+    #
+    # 리포트 요약(summary)은 공시 해설을 리포트 흐름과 연결할 때 쓴다. 예전엔 종목마다
+    # 한 번씩 질의해서 대상 수만큼 왕복이 생겼는데(실측 865~1,643회, 이 단계에서만 수 분),
+    # 한 번에 받아 최신 것만 남기면 두어 번의 질의로 끝난다.
+    #
+    # ※ 두 조회 모두 페이징 필수 — PostgREST는 요청당 1,000행에서 조용히 자른다.
+    #   페이징 없이 받으면 뒤쪽이 통째로 빠진다(2026-09-05 발견: 온보딩 1,643개사인데
+    #   "대상 1000개사"로 찍히고 나머지가 대상에서 누락되고 있었다).
+    article_codes: set[str] = set()
     report_summaries: dict[str, str] = {}
-    for c in companies:
-        art = sb.table("articles").select("summary").eq("stock_code", c["stock_code"]) \
-            .order("created_at", desc=True).limit(1).execute().data
-        if art and art[0].get("summary"):
-            report_summaries[c["stock_code"]] = art[0]["summary"]
+    _start = 0
+    while True:
+        page = sb.table("articles").select("stock_code,summary,created_at") \
+            .order("created_at").range(_start, _start + 999).execute().data
+        for a in page:                      # created_at 오름차순 → 나중에 온 것이 최신
+            article_codes.add(a["stock_code"])
+            if a.get("summary"):
+                report_summaries[a["stock_code"]] = a["summary"]
+        if len(page) < 1000:
+            break
+        _start += 1000
+
+    companies, _start = [], 0
+    while True:
+        page = sb.table("companies").select("stock_code,corp_code,name,market,sector") \
+            .order("stock_code").range(_start, _start + 999).execute().data
+        companies.extend(c for c in page if c["stock_code"] in article_codes)
+        if len(page) < 1000:
+            break
+        _start += 1000
+    print(f"대상 {len(companies)}개사(리포트 보유) · 기간 {bgn_de}~{end_de}"
+          + (" · dry-run" if args.dry_run else "") + (" · 발송 없음" if args.no_notify else ""))
 
     # 이미 처리한 접수번호 (중복 생성 방지)
     # ※ 반드시 페이징으로 — PostgREST는 요청당 1,000행에서 조용히 자른다. 페이징 없이 받으면
@@ -157,14 +182,19 @@ def main():
     #   받아내고 있을 뿐 — 폴링 창과 DEDUPE_DAYS가 어긋나는 순간 뚫린다)
     # ※ 생성 실패로 폴백된 건은 '처리함'에서 뺀다 — 다시 시도해서 되살리기 위해서.
     #   claude 호출 자체가 실패한 건(한도 소진·타임아웃)은 재시도하면 제대로 된 기사가
-    #   나온다. 반면 검증 실패 폴백은 다시 돌려도 같은 결과라 그대로 둔다.
-    #   재시도된 건은 아래에서 insert가 아니라 update로 덮어쓴다.
+    #   나온다. 재시도된 건은 아래에서 insert가 아니라 update로 덮어쓴다.
+    # ※ 폴링 창 안의 공시만 대조하면 충분하다 — 이번에 만나는 공시는 전부 rcept_dt가
+    #   bgn_de 이후라, 그 이전에 저장된 행과는 애초에 부딪힐 일이 없다. 예전엔 company_news
+    #   전체(4,000행, 계속 증가)를 매 실행마다 통째로 읽었다. 하루 경계·타임존을 감안해
+    #   이틀 여유를 둔다.
     existing, retryable = set(), {}
     if not args.dry_run:
         start = 0
+        since = (datetime.strptime(bgn_de, "%Y%m%d").replace(tzinfo=KST)
+                 - timedelta(days=2)).isoformat()
         sel = "id,rcept_no,is_fallback,fallback_reason" if has_reason_col else "id,rcept_no"
         while True:
-            page = sb.table("company_news").select(sel) \
+            page = sb.table("company_news").select(sel).gte("published_at", since) \
                 .order("id").range(start, start + 999).execute().data
             for r in page:
                 if (has_reason_col and r.get("is_fallback")
@@ -222,12 +252,13 @@ def main():
             fallback_reason = None
             if result:
                 title, body = result
-                issues = v.validate(title, body, facts, type_key)
-                if issues:
-                    fallback_reason = "; ".join(issues)[:500]
-                    print(f"  검증 실패({fallback_reason}) → 템플릿 폴백")
-                    title, body = v.fallback_article(c["name"], report_nm, rcept_dt)
-                    is_fallback = True
+                # 내용 점검(숫자 대조) 게이트는 제거했다 — 오탐으로 멀쩡한 기사가 통째로
+                # 템플릿이 되는 손해가 더 컸다(2026-09-05 사용자 결정). 이제 생성만 되면
+                # 그대로 싣는다. 남은 건 투자권유 표현 경고뿐이고, 이건 폴백시키지 않고
+                # 로그로만 남긴다(사실 서술과 판단을 가르는 규제 이슈라 신호는 남겨둔다).
+                warn = v.check_recommend(title + "\n" + body)
+                if warn:
+                    print(f"  ⚠ 투자권유 표현 감지(그대로 저장): {', '.join(warn)}")
                 gen_fail_streak = 0
             else:
                 fallback_reason = ("생성 실패: "
@@ -290,6 +321,16 @@ def main():
     # 건별 발송 대신 하루 한 통 — 이번에 만든 기사들을 회원별로 묶어 다이제스트 발송
     if made > 0 and not args.no_notify and not args.dry_run:
         trigger_digest()
+
+    # 한도 소진(연속 생성 실패)으로 중단된 경우 종료 코드를 실패로 만든다.
+    # 그동안은 이 상태로도 "성공"이 떠서, claude -p 인증(토큰 만료 등)이 깨져도
+    # 3일 넘게 아무도 못 알아챈 사고가 있었다(2026-09-02~09-04, 매일 0건 생성했는데도
+    # 워크플로가 계속 success로 표시됨). GitHub Actions가 빨간 X로 보여주고,
+    # 옵션에 따라 알림(이메일 등)도 뜨게 하려면 실패로 끝나야 한다.
+    if aborted:
+        print("::error::뉴스룸 생성이 한도 소진(또는 인증 실패)으로 중단됐습니다. "
+              "claude -p 인증(CLAUDE_CODE_OAUTH_TOKEN)이 유효한지, 사용량 한도를 넘지 않았는지 확인하세요.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

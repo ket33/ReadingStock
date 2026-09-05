@@ -182,13 +182,12 @@ def main():
         with _state_lock:
             stat["streak"] = 0
 
-        # 새 제목 + 기존 본문으로 검증 — 제목에 없던 숫자·금지어가 들어가면 되돌린다
-        issues = v.validate(t, r["body"], facts, r["type_key"])
-        if issues:
-            log(f"  [{n}/{total}] {c['name']}: 검증 실패 — 유지 ({'; '.join(issues)[:60]})")
-            with _state_lock:
-                stat["kept"] += 1
-            return
+        # 내용 점검(숫자 대조) 게이트 제거 — run.py·rewrite.py와 같은 방침이다
+        # (2026-09-05 결정). 투자권유 표현만 경고로 남기고 제목은 그대로 반영한다.
+        warn = v.check_recommend(t)
+        if warn:
+            log(f"  [{n}/{total}] ⚠ {c['name']}: 투자권유 표현 감지(그대로 저장) "
+                f"({', '.join(warn)})")
 
         log(f"  [{n}/{total}] {c['name']}")
         log(f"        전: {r['title']}")
